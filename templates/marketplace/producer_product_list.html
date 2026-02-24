@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1>My Products</h1>
+  <p><a href="{% url 'marketplace:product_create' %}">Create new product</a></p>
+
+  <ul>
+    {% for p in products %}
+      <li>
+        {{ p.name }} - £{{ p.price }}
+        <a href="{% url 'marketplace:product_update' p.pk %}">Edit</a>
+        <a href="{% url 'marketplace:product_delete' p.pk %}">Delete</a>
+      </li>
+    {% empty %}
+      <li>You have no products yet.</li>
+    {% endfor %}
+  </ul>
+{% endblock %}
