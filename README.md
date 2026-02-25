@@ -1,10 +1,3 @@
-Perfect — we’ll keep this **clean, minimal, and practical**.
-No unnecessary theory. Just what someone needs to clone and run it.
-
-You can copy-paste this directly into `README.md`.
-
----
-
 # BRFN Marketplace
 
 Django 6 + MySQL 8
