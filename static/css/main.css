@@ -162,3 +162,8 @@ input:focus, select:focus, textarea:focus {
   text-decoration: underline; 
   color: #1faa9f;
 }
+.user-role {
+    font-size: 50px;
+    color: #666;
+    margin-left: 4px;
+}

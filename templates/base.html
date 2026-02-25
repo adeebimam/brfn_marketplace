@@ -17,6 +17,7 @@
         <a href="{% url 'marketplace:product_list' %}">Products</a>
 
         {% if user.is_authenticated %}
+          {{ request.user.username|title }},<span style="color: #087d73;">({{ request.user.profile.role|title }})</span>
           {% if user.profile.role == "PRODUCER" %}
             <a href="{% url 'marketplace:producer_product_list' %}">My Products</a>
           {% endif %}
