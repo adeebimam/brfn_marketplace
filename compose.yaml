@@ -16,6 +16,7 @@ services:
     build: .
     depends_on:
       - db
+      - sass
     ports:
       - "8000:8000"
     environment:
@@ -29,6 +30,15 @@ services:
       DB_PORT: "3306"
     volumes:
       - .:/app
+
+  sass:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: >
+      sh -c "npm install -g sass &&
+             sass --watch static/src/scss:static/dist/css"
 
 volumes:
   mysql_data:
