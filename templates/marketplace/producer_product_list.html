@@ -1,17 +1,41 @@
 {% extends "base.html" %}
 {% block content %}
-  <h1>My Products</h1>
-  <p><a href="{% url 'marketplace:product_create' %}">Create new product</a></p>
+  <div class="card stack">
 
-  <ul>
-    {% for p in products %}
-      <li>
-        {{ p.name }} - £{{ p.price }}
-        <a href="{% url 'marketplace:product_update' p.pk %}">Edit</a>
-        <a href="{% url 'marketplace:product_delete' p.pk %}">Delete</a>
-      </li>
-    {% empty %}
-      <li>You have no products yet.</li>
-    {% endfor %}
-  </ul>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h1>My Products</h1>
+      <a href="{% url 'marketplace:product_create' %}" class="btn btn-primary">
+      Create Product
+      </a>
+    </div>
+
+    {% if products %}
+      <div class="stack">
+        {% for p in products %}
+          <div class="card stack" style="padding: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              
+              <div>
+                <strong>{{ p.name }}</strong><br>
+                <span class="muted">£{{ p.price }}</span>
+              </div>
+
+              <div style="display: flex; gap: 0.5rem;">
+                <a href="{% url 'marketplace:product_update' p.pk %}" class="btn">
+                  Edit
+                </a>
+                <a href="{% url 'marketplace:product_delete' p.pk %}" class="btn">
+                  Delete
+                </a>
+              </div>
+
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="muted">You have no products yet.</p>
+    {% endif %}
+
+  </div>
 {% endblock %}
