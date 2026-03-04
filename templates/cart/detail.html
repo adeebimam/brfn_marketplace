@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="card stack">
+    <h1>Your Cart</h1>
+
+    {% if cart_items %}
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Producer</th>
+            <th>Unit</th>
+            <th>Qty</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in cart_items %}
+            <tr>
+              <td>{{ item.product.name }}</td>
+              <td>{{ item.producer.username }}</td>
+              <td>£{{ item.unit_price }}</td>
+              <td>{{ item.qty }}</td>
+              <td>£{{ item.line_total }}</td>
+              <td> 
+                <form method="post" action="{% url 'cart:update' item.product.id %}">
+                {% csrf_token %}
+                <input type="number" name="qty" value="{{ item.qty }}" min="0" style="width:70px;">
+                <button class="btn" type="submit">Update</button>
+                </form>
+              </td>
+
+              <td>
+                <form method="post" action="{% url 'cart:remove' item.product.id %}">
+                  {% csrf_token %}
+                  <button class="btn" type="submit">Remove</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <h3>Cart Total: £{{ cart_total }}</h3>
+      <a class="btn" href="{% url 'cart:checkout' %}">Proceed to Checkout</a>
+    {% else %}
+      <p>Your cart is empty.</p>
+    {% endif %}
+  </div>
+  
+{% endblock %}

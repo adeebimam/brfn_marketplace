@@ -37,7 +37,7 @@ No edits are required for local development.
 
 ---
 
-### 3. Start the containers
+### 3. Start the container
 
 ```bash
 docker compose up --build
