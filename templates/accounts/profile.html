@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="card stack">
+    <h1>My Profile</h1>
+
+    <p><strong>Role:</strong> {{ profile.role|title }}</p>
+    <p><strong>Email:</strong> {{ user.email }}</p>
+
+    {% if profile.role == "PRODUCER" %}
+      <hr>
+      <h3>Business Information</h3>
+      <p><strong>Business Name:</strong> {{ profile.business_name }}</p>
+      <p><strong>Contact Name:</strong> {{ profile.contact_first_name }} {{ profile.contact_last_name }}</p>
+      <p><strong>Phone:</strong> {{ profile.phone }}</p>
+      <p><strong>Address:</strong> {{ profile.address }}</p>
+      <p><strong>Postcode:</strong> {{ profile.postcode }}</p>
+    {% else %}
+      <hr>
+      <h3>Personal Information</h3>
+      <p><strong>First Name:</strong> {{ user.first_name }}</p>
+      <p><strong>Last Name:</strong> {{ user.last_name }}</p>
+
+      <hr>
+      <h3>Delivery Information</h3>
+      <p><strong>Phone:</strong> {{ profile.phone }}</p>
+      <p><strong>Delivery Address:</strong> {{ profile.delivery_address }}</p>
+      <p><strong>Delivery Postcode:</strong> {{ profile.delivery_postcode }}</p>
+    {% endif %}
+  </div>
+{% endblock %}
