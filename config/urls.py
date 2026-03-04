@@ -20,7 +20,12 @@ urlpatterns = [
 
     # Producer shortcut
     path("producer/", producer_redirect, name="producer_dashboard"),
+    
+    # Cart routes
+    path("cart/", include("apps.cart.urls")),
 
     # Marketplace routes
     path("", include("apps.marketplace.urls")),
+
+    
 ]
