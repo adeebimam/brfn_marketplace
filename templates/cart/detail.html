@@ -17,7 +17,10 @@
         <tbody>
           {% for item in cart_items %}
             <tr>
-              <td>{{ item.product.name }}</td>
+              <td>
+                <a href="{% url 'marketplace:product_detail' item.product.pk %}">
+                {{ item.product.name }}</a>
+              </td>
               <td>{{ item.producer.username }}</td>
               <td>£{{ item.unit_price }}</td>
               <td>{{ item.qty }}</td>

@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_POST
+from django.contrib import messages
 
 from apps.marketplace.models import Product
 
@@ -42,6 +43,12 @@ def cart_detail(request):
         "cart_total": total.quantize(Decimal("0.01")),
     })
 
+@require_POST
+def cart_add(request, product_id):
+    if not request.user.is_authenticated:
+        messages.warning(request, "Please log in to add items to your cart.")
+        return redirect("accounts:login")
+    
 
 @require_POST
 def cart_add(request, product_id):
