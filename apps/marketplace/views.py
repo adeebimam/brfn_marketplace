@@ -1,98 +1,140 @@
-from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseForbidden
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import render, redirect
+from datetime import date, timedelta
+from .forms import CheckoutForm
+import random
 
-from apps.accounts.models import Profile
-from .forms import ProductForm
-from .models import Product, Category
 
-#Create your views here
+# ---------------------------
+# PRODUCT PAGES
+# ---------------------------
 
 def product_list(request):
-    products = Product.objects.filter(is_active=True).order_by("-created_at")
-    categories = Category.objects.order_by("name")
+    return render(request, "products/product_list.html")
 
-    selected_category = request.GET.get("category")
-    if selected_category:
-        products = products.filter(category_id=selected_category)
-
-    context = {
-        "products": products,
-        "categories": categories,
-        "selected_category": selected_category,
-    }
-    return render(request, "marketplace/product_list.html", context)
 
 def product_detail(request, pk):
-    product = get_object_or_404(Product, pk=pk, is_active=True)
-    return render(request, "marketplace/product_detail.html", {"product": product})
+    return render(request, "products/product_detail.html")
 
 
-def _require_producer(request):
-    if not request.user.is_authenticated:
-        return False
-    profile, _ = Profile.objects.get_or_create(user=request.user)
-    return profile.role == Profile.Role.PRODUCER
+# ---------------------------
+# PRODUCER PAGES
+# ---------------------------
 
-
-@login_required
 def producer_product_list(request):
-    if not _require_producer(request):
-        return HttpResponseForbidden("Producer access only.")
-
-    products = Product.objects.filter(producer=request.user).order_by("-created_at")
-    return render(request, "marketplace/producer_product_list.html", {"products": products})
+    return render(request, "producer/product_list.html")
 
 
-@login_required
 def product_create(request):
-    if not _require_producer(request):
-        return HttpResponseForbidden("Producer access only.")
-
-    if request.method == "POST":
-        form = ProductForm(request.POST)
-        if form.is_valid():
-            product = form.save(commit=False)
-            product.producer = request.user
-            product.save()
-            messages.success(request, "Product created.")
-            return redirect("marketplace:producer_product_list")
-    else:
-        form = ProductForm()
-
-    return render(request, "marketplace/product_form.html", {"form": form, "mode": "create"})
+    return render(request, "producer/product_form.html")
 
 
-@login_required
 def product_update(request, pk):
-    if not _require_producer(request):
-        return HttpResponseForbidden("Producer access only.")
-
-    product = get_object_or_404(Product, pk=pk, producer=request.user)
-
-    if request.method == "POST":
-        form = ProductForm(request.POST, instance=product)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Product updated.")
-            return redirect("marketplace:producer_product_list")
-    else:
-        form = ProductForm(instance=product)
-
-    return render(request, "marketplace/product_form.html", {"form": form, "mode": "edit"})
+    return render(request, "producer/product_form.html")
 
 
-@login_required
 def product_delete(request, pk):
-    if not _require_producer(request):
-        return HttpResponseForbidden("Producer access only.")
+    return render(request, "producer/product_confirm_delete.html")
 
-    product = get_object_or_404(Product, pk=pk, producer=request.user)
+
+# ---------------------------
+# CHECKOUT PAGE
+# ---------------------------
+
+def checkout(request):
+
+    products = [
+        {"name": "Organic Carrots", "price": 10},
+        {"name": "Fresh Potatoes", "price": 10},
+    ]
+
+    subtotal = sum(p["price"] for p in products)
+
+    commission = round(subtotal * 0.05, 2)
+    producer_payment = round(subtotal * 0.95, 2)
+
+    total = subtotal + commission
 
     if request.method == "POST":
-        product.delete()
-        messages.success(request, "Product deleted.")
-        return redirect("marketplace:producer_product_list")
 
-    return render(request, "marketplace/product_confirm_delete.html", {"product": product})
+        form = CheckoutForm(request.POST)
+
+        if form.is_valid():
+
+            delivery_address = form.cleaned_data["delivery_address"]
+            delivery_date = form.cleaned_data["delivery_date"]
+            payment_method = form.cleaned_data["payment_method"]
+
+            # enforce 48-hour rule
+            minimum_date = date.today() + timedelta(days=2)
+
+            if delivery_date < minimum_date:
+
+                form.add_error(
+                    "delivery_date",
+                    "Delivery must be at least 48 hours from now."
+                )
+
+            else:
+
+                request.session["order"] = {
+                    "address": delivery_address,
+                    "date": str(delivery_date),
+                    "payment": payment_method,
+                    "products": products,
+                    "subtotal": subtotal,
+                    "commission": commission,
+                    "producer_payment": producer_payment,
+                    "total": total
+                }
+
+                return redirect("marketplace:payment")
+
+    else:
+
+        initial = {}
+
+        if request.user.is_authenticated:
+            initial["delivery_address"] = request.user.email
+
+        form = CheckoutForm(initial=initial)
+
+    return render(request, "checkout.html", {
+        "form": form,
+        "products": products,
+        "subtotal": subtotal,
+        "commission": commission,
+        "total": total
+    })
+
+
+# ---------------------------
+# PAYMENT PAGE
+# ---------------------------
+
+def payment(request):
+
+    order = request.session.get("order")
+
+    if not order:
+        return redirect("marketplace:checkout")
+
+    if request.method == "POST":
+
+        order_number = "ORD-" + str(random.randint(10000, 99999))
+
+        # simulate producer notification
+        print("NEW ORDER RECEIVED")
+        print("Order Number:", order_number)
+        print("Total:", order["total"])
+
+        return render(request, "confirmation.html", {
+            "order_number": order_number,
+            "address": order["address"],
+            "date": order["date"],
+            "payment": order["payment"],
+            "subtotal": order["subtotal"],
+            "commission": order["commission"],
+            "total": order["total"],
+        })
+
+    return render(request, "payment.html", order)

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Order Confirmation</h2>
+
+<p><strong>Order Number:</strong> {{ order_number }}</p>
+
+<p><strong>Delivery Address:</strong> {{ address }}</p>
+
+<p><strong>Delivery Date:</strong> {{ date }}</p>
+
+<p><strong>Payment Method:</strong> {{ payment }}</p>
+
+<h3>Order Details</h3>
+
+<p>Subtotal: £{{ subtotal }}</p>
+<p>Commission: £{{ commission }}</p>
+
+
+<p><strong>Total Paid: £{{ total }}</strong></p>
+
+<h2>Your order has been placed successfully.</h2>
+
+{% endblock %}
