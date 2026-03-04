@@ -26,3 +26,79 @@ class Product(models.Model):
 
     def __str__(self):
         return self.name
+    
+    from django.utils import timezone
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+
+class Order(models.Model):
+    customer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="orders"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # Delivery info (needed for TC-009 detail page)
+    delivery_address = models.CharField(max_length=255)
+    delivery_postcode = models.CharField(max_length=20)
+    special_instructions = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"Order #{self.id}"
+
+
+class ProducerOrder(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        CONFIRMED = "CONFIRMED", "Confirmed"
+        READY = "READY", "Ready"
+        DELIVERED = "DELIVERED", "Delivered"
+
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="producer_orders"
+    )
+    producer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="incoming_producer_orders"
+    )
+
+    # delivery date for THIS producer's portion (supports multi-producer orders)
+    delivery_date = models.DateField()
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING
+    )
+
+    # total for THIS producer (what you show in TC-009 list)
+    total_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    class Meta:
+        ordering = ["delivery_date", "id"]
+
+    def __str__(self):
+        return f"Order #{self.order_id} -> {self.producer}"
+
+
+class OrderItem(models.Model):
+    producer_order = models.ForeignKey(
+        ProducerOrder,
+        on_delete=models.CASCADE,
+        related_name="items"
+    )
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    quantity = models.PositiveIntegerField(default=1)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+
+    @property
+    def line_total(self):
+        return self.quantity * self.unit_price
+
+    def __str__(self):
+        return f"{self.product.name} x{self.quantity}"
