@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="card stack">
+    <h1>Producer Registration</h1>
+    <p class="muted">
+        Creating a BRFN account as a prodcuer
+    </p>
+    <br>
+
+    <form method="post" class="stack">
+      {% csrf_token %}
+      {{ form.as_p }}
+
+      <button class="btn btn-primary" type="submit" style="font-size: large;">
+        Register as Producer
+      </button>
+    </form>
+    <br>
+    <p class="muted">
+        Already registered?
+        <a href="{% url 'accounts:login' %}" class="login-register-link">Login</a>
+    </p>
+
+    <p class="muted">
+      Not a producer?
+      <a href="{% url 'accounts:register' %}" class="login-register-link">
+        Register as customer
+      </a>
+    </p>
+
+  </div>
+{% endblock %}
