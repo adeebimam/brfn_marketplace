@@ -2,33 +2,34 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
-
-from .forms import RegisterForm
+from .forms import CustomerRegisterForm
 from .models import Profile
+from .forms import ProducerRegisterForm
+
+def producer_register_view(request):
+    if request.method == "POST":
+        form = ProducerRegisterForm(request.POST)
+        if form.is_valid():
+            form.save()  # Form will handle user + profile creation
+
+            messages.success(request, "Producer account created. Please log in.")
+            return redirect("accounts:login")
+    else:
+        form = ProducerRegisterForm()
+
+    return render(request, "accounts/producer_register.html", {"form": form})
 
 def register_view(request):
     if request.method == "POST":
-        form = RegisterForm(request.POST)
+        form = CustomerRegisterForm(request.POST)
         if form.is_valid():
             user = form.save()
-
-            role = form.cleaned_data["role"]
-
-            profile = Profile.objects.create(user=user, role=role)
-
             messages.success(request, "Account created. Please log in.")
             return redirect("accounts:login")
     else:
-        form = RegisterForm()
+        form = CustomerRegisterForm()
 
     return render(request, "accounts/register.html", {"form": form})
-
-
-from django.contrib import messages
-from django.contrib.auth import authenticate, login, logout
-from django.shortcuts import redirect, render
-
-from .models import Profile
 
 
 def login_view(request):
@@ -55,6 +56,10 @@ def login_view(request):
 
     return render(request, "accounts/login.html")
 
+@login_required
+def profile_view(request):
+    profile, _ = Profile.objects.get_or_create(user=request.user)
+    return render(request, "accounts/profile.html", {"profile": profile})
 
 def logout_view(request):
     logout(request)
