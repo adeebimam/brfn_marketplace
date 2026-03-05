@@ -31,6 +31,7 @@ body {
   color: #168e85;
 }
 
+
 /* ---- Layout ---- */
 .container {
   max-width: 980px;
@@ -85,7 +86,7 @@ body {
 }
 
 /* ---- Buttons ---- */
-/* ---- Buttons ---- */
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -129,6 +130,20 @@ body {
   border-color: #168e85;
   filter: brightness(0.9); 
 }
+}
+.btn:hover { background: #f9fafb; }
+.btn-primary {
+  background: #1faa9f;
+  border-color: #1faa9f;
+  color: #111827;
+}
+.btn-primary:hover { filter: brightness(0.95); }
+.btn-danger {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #111827;
+}
+.btn-danger:hover { filter: brightness(0.95); }
 
 /* ---- Forms ---- */
 label { font-weight: 600; display: block; margin-bottom: 6px; }
@@ -220,4 +235,9 @@ input:focus, select:focus, textarea:focus {
   text-decoration: underline;
   background:  #168e85;
 
+}
+.user-role {
+    font-size: 50px;
+    color: #666;
+    margin-left: 4px;
 }
