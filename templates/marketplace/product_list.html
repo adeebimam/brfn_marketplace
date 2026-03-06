@@ -16,6 +16,19 @@
             {% endfor %}
           </select>
         </div>
+
+        <div>
+          <label for="season">Season</label>
+          <select id="season" name="season">
+            <option value="">All</option>
+            {% for value, label in seasons %}
+              <option value="{{ value }}" {% if selected_season == value %}selected{% endif %}>
+                {{ label }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
         <button class="btn" type="submit">Apply</button>
       </form>
     </div>
@@ -30,6 +43,10 @@
 
           {% if p.category %}
             <span class="badge">{{ p.category.name }}</span>
+          {% endif %}
+
+          {% if p.season %}
+            <span class="badge">{{ p.get_season_display }}</span>
           {% endif %}
 
           <div class="muted">

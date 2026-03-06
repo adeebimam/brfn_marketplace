@@ -14,13 +14,19 @@ def product_list(request):
     categories = Category.objects.order_by("name")
 
     selected_category = request.GET.get("category")
+    selected_season = request.GET.get("season")
+
     if selected_category:
         products = products.filter(category_id=selected_category)
+    if selected_season:
+        products = products.filter(season = selected_season)
 
     context = {
         "products": products,
         "categories": categories,
         "selected_category": selected_category,
+        "selected_seasons":selected_season,
+        "seasons": Product.SEASON_CHOICES
     }
     return render(request, "marketplace/product_list.html", context)
 
