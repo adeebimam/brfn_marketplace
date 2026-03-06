@@ -1,7 +1,11 @@
 def cart_item_count(request):
+    # only show cart count to authenticated users
+    if not request.user.is_authenticated:
+        return {"cart_item_count": 0}
+
     cart = request.session.get("cart", {})
 
-    # common pattern: cart = {product_id: quantity, ...}
+
     try:
         count = sum(int(qty) for qty in cart.values())
     except Exception:

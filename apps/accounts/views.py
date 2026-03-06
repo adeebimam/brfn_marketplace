@@ -61,6 +61,13 @@ def profile_view(request):
     profile, _ = Profile.objects.get_or_create(user=request.user)
     return render(request, "accounts/profile.html", {"profile": profile})
 
+
+ #CART 
 def logout_view(request):
-    logout(request)
+    # preserve the shopping cart through the logout process
+    cart = request.session.get("cart")
+    logout(request)  # this flushes the session
+    if cart is not None:
+        # new session created by logout, restore cart
+        request.session["cart"] = cart
     return redirect("accounts:login")
