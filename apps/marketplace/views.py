@@ -10,7 +10,7 @@ from .models import Product, Category
 #Create your views here
 
 def product_list(request):
-    products = Product.objects.filter(is_active=True).order_by("-created_at")
+    products = Product.objects.filter(in_season=True).order_by("-created_at")
     categories = Category.objects.order_by("name")
 
     selected_category = request.GET.get("category")
@@ -25,7 +25,7 @@ def product_list(request):
     return render(request, "marketplace/product_list.html", context)
 
 def product_detail(request, pk):
-    product = get_object_or_404(Product, pk=pk, is_active=True)
+    product = get_object_or_404(Product, pk=pk, in_season=True)
     return render(request, "marketplace/product_detail.html", {"product": product})
 
 
