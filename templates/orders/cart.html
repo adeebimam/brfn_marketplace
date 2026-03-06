@@ -1,0 +1,9 @@
+<h2>Cart</h2>
+
+{% for item in cart_items %}
+<p>{{ item.product.name }} - {{ item.quantity }} - £{{ item.total_price }}</p>
+{% endfor %}
+{% csrf_token %}
+<p>Total: £{{ total }}</p>
+
+<a href="{% url 'checkout' %}">Checkout</a>

@@ -9,8 +9,14 @@ class CheckoutForm(forms.Form):
     )
 
     delivery_date = forms.DateField(
-        widget=forms.DateInput(attrs={"type": "date"})
+    widget=forms.DateInput(
+        attrs={
+            "type": "date",
+            "min": (date.today() + timedelta(days=2)).isoformat()
+        }
     )
+)
+    
 
     PAYMENT_CHOICES = [
         ("stripe", "Stripe Test"),
@@ -23,7 +29,7 @@ class CheckoutForm(forms.Form):
     expiry = forms.CharField(required=False)
     cvc = forms.CharField(required=False)
 
-    # ✅ 48 hour rule
+    # 48 hour rule
     def clean_delivery_date(self):
 
         selected_date = self.cleaned_data["delivery_date"]

@@ -4,29 +4,19 @@ from .forms import CheckoutForm
 import random
 
 
-# ---------------------------
-# PRODUCT PAGES
-# ---------------------------
+
 
 def product_list(request):
-    return render(request, "products/product_list.html")
-
+    return render(request, "marketplace/product_list.html")
 
 def product_detail(request, pk):
-    return render(request, "products/product_detail.html")
-
-
-# ---------------------------
-# PRODUCER PAGES
-# ---------------------------
+    return render(request, "marketplace/product_detail.html")
 
 def producer_product_list(request):
     return render(request, "producer/product_list.html")
 
-
 def product_create(request):
     return render(request, "producer/product_form.html")
-
 
 def product_update(request, pk):
     return render(request, "producer/product_form.html")
@@ -36,22 +26,16 @@ def product_delete(request, pk):
     return render(request, "producer/product_confirm_delete.html")
 
 
-# ---------------------------
-# CHECKOUT PAGE
-# ---------------------------
-
 def checkout(request):
 
+    # TEMPORARY CART DATA (until cart is implemented)
     products = [
-        {"name": "Organic Carrots", "price": 10},
-        {"name": "Fresh Potatoes", "price": 10},
+        {"name": "Organic Carrots", "price": 10, "producer": "Bristol Valley Farm"},
+        {"name": "Fresh Potatoes", "price": 10, "producer": "Bristol Valley Farm"},
     ]
 
     subtotal = sum(p["price"] for p in products)
-
     commission = round(subtotal * 0.05, 2)
-    producer_payment = round(subtotal * 0.95, 2)
-
     total = subtotal + commission
 
     if request.method == "POST":
@@ -64,31 +48,24 @@ def checkout(request):
             delivery_date = form.cleaned_data["delivery_date"]
             payment_method = form.cleaned_data["payment_method"]
 
-            # enforce 48-hour rule
-            minimum_date = date.today() + timedelta(days=2)
+            request.session["order"] = {
+                "address": delivery_address,
+                "date": str(delivery_date),
+                "payment": payment_method,
+                "subtotal": subtotal,
+                "commission": commission,
+                "total": total,
+                "products": products
+            }
 
-            if delivery_date < minimum_date:
-
-                form.add_error(
-                    "delivery_date",
-                    "Delivery must be at least 48 hours from now."
-                )
-
-            else:
-
-                request.session["order"] = {
-                    "address": delivery_address,
-                    "date": str(delivery_date),
-                    "payment": payment_method,
-                    "products": products,
-                    "subtotal": subtotal,
-                    "commission": commission,
-                    "producer_payment": producer_payment,
-                    "total": total
-                }
-
-                return redirect("marketplace:payment")
-
+            return redirect("marketplace:payment")
+        return render(request, "checkout.html", {
+            "form": form,
+            "products": products,
+            "subtotal": subtotal,
+            "commission": commission,
+            "total": total
+        })
     else:
 
         initial = {}
@@ -107,18 +84,30 @@ def checkout(request):
     })
 
 
-# ---------------------------
-# PAYMENT PAGE
-# ---------------------------
+
+
+
+
+
+
+
+
+
+
+
+
 
 def payment(request):
 
     order = request.session.get("order")
 
+    # If user tries to access payment directly
     if not order:
         return redirect("marketplace:checkout")
 
     if request.method == "POST":
+
+        import random
 
         order_number = "ORD-" + str(random.randint(10000, 99999))
 
@@ -137,4 +126,6 @@ def payment(request):
             "total": order["total"],
         })
 
-    return render(request, "payment.html", order)
+    return render(request, "payment.html", {
+        "order": order
+    })       
