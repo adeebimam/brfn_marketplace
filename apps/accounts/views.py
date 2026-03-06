@@ -5,6 +5,8 @@ from django.shortcuts import redirect, render
 from .forms import CustomerRegisterForm
 from .models import Profile
 from .forms import ProducerRegisterForm
+from django.contrib.auth import logout
+from django.shortcuts import redirect
 
 def producer_register_view(request):
     if request.method == "POST":
@@ -64,10 +66,5 @@ def profile_view(request):
 
  #CART 
 def logout_view(request):
-    # preserve the shopping cart through the logout process
-    cart = request.session.get("cart")
-    logout(request)  # this flushes the session
-    if cart is not None:
-        # new session created by logout, restore cart
-        request.session["cart"] = cart
+    logout(request)
     return redirect("accounts:login")
