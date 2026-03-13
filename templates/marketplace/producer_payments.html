@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>Producer Payment Settlement</h1>
+
+<div class="card">
+  <p><strong>Gross Sales:</strong> £{{ gross_total }}</p>
+  <p><strong>Commission (5%):</strong> £{{ commission }}</p>
+  <p><strong>Net Payment:</strong> £{{ net_payment }}</p>
+</div>
+
+<div style="height:20px;"></div>
+
+<h2>Delivered Orders</h2>
+
+<table border="1" cellpadding="8">
+  <thead>
+    <tr>
+      <th>Order</th>
+      <th>Customer</th>
+      <th>Delivery Date</th>
+      <th>Status</th>
+      <th>Total</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    {% for order in orders %}
+    <tr>
+      <td>#{{ order.order.id }}</td>
+      <td>{{ order.order.customer.first_name }} {{ order.order.customer.last_name }}</td>
+      <td>{{ order.delivery_date }}</td>
+      <td>{{ order.get_status_display }}</td>
+      <td>£{{ order.total_value }}</td>
+    </tr>
+    {% empty %}
+    <tr>
+      <td colspan="5">No delivered orders found.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+
+</table>
+
+{% endblock %}

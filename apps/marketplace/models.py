@@ -105,7 +105,7 @@ class ProducerOrder(models.Model):
             order_date = self.order.created_at.date()
             minimum_delivery = order_date + timedelta(days=2)
 
-            if self.delivery_date < minimum_delivery:
+        if self.delivery_date < minimum_delivery:
                 raise ValidationError({
                     "delivery_date":
                     "Delivery date must be at least 48 hours after the order date."

@@ -1,5 +1,7 @@
 from datetime import timedelta
 from django.utils import timezone
+from decimal import Decimal
+
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -224,4 +226,41 @@ def producer_order_detail(request, pk):
         request,
         "marketplace/producer_order_detail.html",
         {"po": po},
+    )
+
+@login_required
+def producer_payments(request):
+
+    if not _require_producer(request):
+        return HttpResponseForbidden("Producer access only.")
+
+    producer = request.user
+
+    delivered_orders = (
+        ProducerOrder.objects
+        .filter(
+            producer=producer,
+            status=ProducerOrder.Status.DELIVERED
+        )
+        .select_related("order", "order__customer")
+    )
+
+    gross_total = sum(
+        (order.total_value for order in delivered_orders),Decimal("0.00")
+    )
+
+    commission = (gross_total * Decimal("0.05")).quantize(Decimal("0.01"))
+    net_payment = (gross_total * Decimal("0.95")).quantize(Decimal("0.01"))
+
+    context = {
+        "orders": delivered_orders,
+        "gross_total": gross_total,
+        "commission": commission,
+        "net_payment": net_payment,
+    }
+
+    return render(
+        request,
+        "marketplace/producer_payments.html",
+        context
     )

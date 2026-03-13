@@ -20,7 +20,8 @@
           {{ request.user.username|title }},<span style="color: #087d73;">({{ request.user.profile.role|title }})</span>
           {% if user.profile.role == "PRODUCER" %}
             <a href="{% url 'marketplace:producer_product_list' %}">My Products</a>
-             <a href="{% url 'marketplace:producer_order_list' %}">Order Management</a>
+            <a href="{% url 'marketplace:producer_order_list' %}">Order Management</a>
+            <a href="{% url 'marketplace:producer_payments' %}">Payments</a>
           {% endif %}
           <a class="btn" href="{% url 'accounts:logout' %}">Logout</a>
         {% else %}

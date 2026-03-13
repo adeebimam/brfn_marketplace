@@ -14,7 +14,10 @@ urlpatterns = [
     path("producer/products/<int:pk>/edit/", views.product_update, name="product_update"),
     path("producer/products/<int:pk>/delete/", views.product_delete, name="product_delete"),
 
-    # ✅ TC-009 Producer orders
+    # TC-009 Producer orders
     path("producer/orders/", views.producer_order_list, name="producer_order_list"),
     path("producer/orders/<int:pk>/", views.producer_order_detail, name="producer_order_detail"),
+
+     #TC-012 Producer payments
+    path("producer/payments/", views.producer_payments, name="producer_payments"),
 ]
