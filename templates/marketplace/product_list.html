@@ -58,6 +58,7 @@
       </form>
     </div>
 
+<<<<<<< HEAD
     <br>
 
     <ul class="list product-results">
@@ -91,5 +92,42 @@
         <li>No products found.</li>
       {% endfor %}
     </ul>
+=======
+<ul class="list">
+
+{% for p in products %}
+<li>
+<form action="{% url 'cart:add' p.id %}" method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn">
+        Add to Cart
+    </button>
+</form>
+<div>
+<strong>{{ p.name }}</strong>
+
+<div class="muted">
+Sold by: {{ p.producer.username }}
+</div>
+
+<div class="muted">
+{{ p.description }}
+</div>
+
+</div>
+
+<div class="price">£{{ p.price }}</div>
+
+
+
+</li>
+
+{% empty %}
+<li>No products found.</li>
+{% endfor %}
+
+</ul>
+
+>>>>>>> melee
   </div>
 {% endblock %}
