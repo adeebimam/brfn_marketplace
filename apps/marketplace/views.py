@@ -1,20 +1,33 @@
+<<<<<<< HEAD
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.db.models import Q
+=======
+from django.shortcuts import render, redirect
+from decimal import Decimal
+from .forms import CheckoutForm
+from .models import Product
+import random
+from collections import defaultdict
+>>>>>>> melee
 
-from apps.accounts.models import Profile
-from .forms import ProductForm
-from .models import Product, Category
 
+<<<<<<< HEAD
 
 # Create your views here.
+=======
+# ----------------------------
+# PRODUCT LIST
+# ----------------------------
+>>>>>>> melee
 
 def product_list(request):
-    products = Product.objects.filter(is_active=True).order_by("-created_at")
-    categories = Category.objects.order_by("name")
+    products = Product.objects.all()
+    return render(request, "marketplace/product_list.html", {"products": products})
 
+<<<<<<< HEAD
     selected_category = request.GET.get("category")
     selected_season = request.GET.get("season")
     selected_category = request.GET.get("category", "").strip()
@@ -55,31 +68,20 @@ def product_list(request):
         "allergen_filter": allergen_filter,
     }
     return render(request, "marketplace/product_list.html", context)
+=======
+>>>>>>> melee
 
 
 def product_detail(request, pk):
-    product = get_object_or_404(Product, pk=pk, is_active=True)
-    return render(request, "marketplace/product_detail.html", {"product": product})
+    return render(request, "marketplace/product_detail.html")
 
 
-def _require_producer(request):
-    if not request.user.is_authenticated:
-        return False
-    profile, _ = Profile.objects.get_or_create(user=request.user)
-    return profile.role == Profile.Role.PRODUCER
-
-
-@login_required
 def producer_product_list(request):
-    if not _require_producer(request):
-        return HttpResponseForbidden("Producer access only.")
-
-    products = Product.objects.filter(producer=request.user).order_by("-created_at")
-    return render(request, "marketplace/producer_product_list.html", {"products": products})
+    return render(request, "producer/product_list.html")
 
 
-@login_required
 def product_create(request):
+<<<<<<< HEAD
     if not _require_producer(request):
         return HttpResponseForbidden("Producer access only.")
 
@@ -96,10 +98,13 @@ def product_create(request):
         form = ProductForm()
 
     return render(request, "marketplace/product_form.html", {"form": form, "mode": "create"})
+=======
+    return render(request, "producer/product_form.html")
+>>>>>>> melee
 
 
-@login_required
 def product_update(request, pk):
+<<<<<<< HEAD
     if not _require_producer(request):
         return HttpResponseForbidden("Producer access only.")
 
@@ -117,18 +122,136 @@ def product_update(request, pk):
         form = ProductForm(instance=product)
 
     return render(request, "marketplace/product_form.html", {"form": form, "mode": "edit"})
+=======
+    return render(request, "producer/product_form.html")
+>>>>>>> melee
 
 
-@login_required
 def product_delete(request, pk):
-    if not _require_producer(request):
-        return HttpResponseForbidden("Producer access only.")
+    return render(request, "producer/product_confirm_delete.html")
 
-    product = get_object_or_404(Product, pk=pk, producer=request.user)
+
+# ----------------------------
+# CHECKOUT (MULTI PRODUCER)
+# ----------------------------
+
+def checkout(request):
+
+    cart = request.session.get("cart", {})
+    producers = defaultdict(list)
+    subtotal = Decimal("0.00")
+
+    # build producer groups
+    for product_id, qty in cart.items():
+
+        product = Product.objects.get(id=int(product_id))
+
+        line_total = product.price * qty
+        subtotal += line_total
+
+        
+        producers[product.producer.username].append({
+            "name": product.name,
+            "price": float(product.price),
+            "qty": qty,
+            "total": float(line_total),
+            "lead_time": getattr(product.producer, "lead_time", 2)
+        })
+
+    commission = subtotal * Decimal("0.05")
+    total = subtotal + commission
+
+
+    # POST = continue to payment
+    if request.method == "POST":
+
+        form = CheckoutForm(request.POST)
+
+        if form.is_valid():
+
+            delivery_address = form.cleaned_data["delivery_address"]
+            delivery_date = form.cleaned_data["delivery_date"]
+            payment_method = form.cleaned_data["payment_method"]
+
+            
+               
+            request.session["order"] = {
+                "address": delivery_address,
+                "date": str(delivery_date),
+                "payment": payment_method,
+                "subtotal": float(subtotal),
+                "commission": float(commission),
+                "total": float(total),
+                "producers": dict(producers)
+            }
+
+            return redirect("marketplace:payment")
+
+    else:
+
+        initial = {}
+
+        if request.user.is_authenticated:
+            initial["delivery_address"] = request.user.email or request.user.username
+
+        form = CheckoutForm(initial=initial)
+
+
+    return render(request, "checkout.html", {
+        "form": form,
+        "producers": dict(producers),   # important for template
+        "subtotal": subtotal,
+        "commission": commission,
+        "total": total
+    })
+
+
+# ----------------------------
+# PAYMENT
+# ----------------------------
+
+def payment(request):
+
+    order = request.session.get("order")
+
+    if not order:
+        return redirect("marketplace:product_list")
 
     if request.method == "POST":
-        product.delete()
-        messages.success(request, "Product deleted.")
-        return redirect("marketplace:producer_product_list")
 
+<<<<<<< HEAD
     return render(request, "marketplace/product_confirm_delete.html", {"product": product})
+=======
+        order_number = "ORD-" + str(random.randint(10000, 99999))
+        print("NEW ORDER RECEIVED")
+        print("Order Number:", order_number)
+
+        for producer, items in order["producers"].items():
+
+            print(f"\nNotification for producer: {producer}")
+
+            for item in items:
+                print(f"- {item['name']} x{item['qty']} (£{item['total']})")
+
+
+
+
+
+        
+       
+        
+        return render(request, "confirmation.html", {
+            "order_number": order_number,
+            "address": order["address"],
+            "date": order["date"],
+            "payment": order["payment"],
+            "subtotal": order["subtotal"],
+            "commission": order["commission"],
+            "total": order["total"],
+            "producers": order["producers"]
+        })
+
+    return render(request, "payment.html", {
+        "order": order
+    })
+>>>>>>> melee
