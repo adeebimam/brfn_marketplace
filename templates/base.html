@@ -17,11 +17,10 @@
         <a href="{% url 'marketplace:product_list' %}">Products</a>
 
         {% if user.is_authenticated %}
-          {{ request.user.username|title }},<span style="color: #087d73;">({{ request.user.profile.role|title }})</span>
           {% if user.profile.role == "PRODUCER" %}
             <a href="{% url 'marketplace:producer_product_list' %}">My Products</a>
           {% endif %}
-          <a class="btn" href="{% url 'accounts:logout' %}">Logout</a>
+          <a class="btn btn-danger" href="{% url 'accounts:logout' %}">Logout</a>
         {% else %}
           <a href="{% url 'accounts:login' %}">Login</a>
           <a class="btn btn-primary" href="{% url 'accounts:register' %}">Register</a>
@@ -31,6 +30,17 @@
   </header>
 
   <main class="container">
+    {% if user.is_authenticated %}
+      <div class="user-info">
+        
+          {% if request.user.profile.role == "PRODUCER" %}
+            Welcome back, {{ request.user.profile.business_name|title}}! <span style="color: #087d73;">({{ request.user.profile.role|title }})</span>
+          {% else %}
+            Welcome back, {{ request.user.profile.contact_first_name|title}} {{ request.user.profile.contact_last_name|title}}! <span style="color: #087d73;">({{ request.user.profile.role|title }})</span>
+          {% endif %}
+      </div>
+      <br>
+    {% endif %}
     {% if messages %}
       <div class="stack">
         {% for message in messages %}

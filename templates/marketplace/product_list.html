@@ -4,7 +4,7 @@
     <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
       <h1 style="margin:0;">Products</h1>
 
-      <form method="get" style="display:flex; gap:10px; align-items:end; flex-wrap:wrap;">
+      <form method="get" style="display:flex; gap:30px; align-items:end; flex-wrap:wrap;">
         <div>
           <label for="category">Category</label>
           <select id="category" name="category">
@@ -16,10 +16,23 @@
             {% endfor %}
           </select>
         </div>
+
+        <div>
+          <label for="season">Season</label>
+          <select id="season" name="season">
+            <option value="">All</option>
+            {% for value, label in seasons %}
+              <option value="{{ value }}" {% if selected_season == value %}selected{% endif %}>
+                {{ label }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
         <button class="btn" type="submit">Apply</button>
       </form>
     </div>
-
+    <br>
     <ul class="list">
       {% for p in products %}
       <li>
@@ -30,6 +43,10 @@
 
           {% if p.category %}
             <span class="badge">{{ p.category.name }}</span>
+          {% endif %}
+
+          {% if p.season %}
+            <span class="badge">{{ p.get_season_display }}</span>
           {% endif %}
 
           <div class="muted">

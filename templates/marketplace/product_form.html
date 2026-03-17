@@ -5,6 +5,6 @@
     {% csrf_token %}
     {{ form.as_p }}
     <button class="save-btn btn" type="submit">Save</button>
+    <button class="back-btn btn" type="button" onclick="window.history.back();">Back</button>
   </form>
-  <p><a class="btn" href="{% url 'marketplace:producer_product_list' %}">Back</a></p>
 {% endblock %}
