@@ -5,7 +5,6 @@
       <h1>Products</h1>
 
       <form method="get" class="product-filters" style="display:flex; gap:30px; align-items:end; flex-wrap:wrap;">
-
         <div class="filter-group">
           <label for="q">Search</label>
           <input
@@ -58,7 +57,6 @@
       </form>
     </div>
 
-<<<<<<< HEAD
     <br>
 
     <ul class="list product-results">
@@ -86,48 +84,18 @@
             </div>
 
             <div class="price">£{{ p.price }}</div>
+
+            <form action="{% url 'cart:add' p.id %}" method="post" style="margin-top:10px;">
+              {% csrf_token %}
+              <button type="submit" class="btn">
+                Add to Cart
+              </button>
+            </form>
           </div>
         </li>
       {% empty %}
         <li>No products found.</li>
       {% endfor %}
     </ul>
-=======
-<ul class="list">
-
-{% for p in products %}
-<li>
-<form action="{% url 'cart:add' p.id %}" method="post">
-    {% csrf_token %}
-    <button type="submit" class="btn">
-        Add to Cart
-    </button>
-</form>
-<div>
-<strong>{{ p.name }}</strong>
-
-<div class="muted">
-Sold by: {{ p.producer.username }}
-</div>
-
-<div class="muted">
-{{ p.description }}
-</div>
-
-</div>
-
-<div class="price">£{{ p.price }}</div>
-
-
-
-</li>
-
-{% empty %}
-<li>No products found.</li>
-{% endfor %}
-
-</ul>
-
->>>>>>> melee
   </div>
 {% endblock %}

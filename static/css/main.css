@@ -17,28 +17,16 @@ body {
 }
 
 /* ---- Text ---- */
-<<<<<<< HEAD
 .welcome-message {
   font-weight: bold;
 }
 
 .role-label {
-=======
-.welcome-message{
-  font-weight: bold;
-}
-
-.role-label{
->>>>>>> melee
   color: #087d73;
   font-weight: bold;
 }
 
-<<<<<<< HEAD
 .login-register-link {
-=======
-.login-register-link{
->>>>>>> melee
   color: #1faa9f;
   text-decoration: none;
   font-weight: 600;
@@ -128,7 +116,6 @@ body {
 }
 
 /* Use .btn.btn-logout (no space) to increase specificity */
-<<<<<<< HEAD
 .btn.btn-logout {
   background: #ef4444; /* Standard red */
   border-color: #ef4444;
@@ -141,21 +128,6 @@ body {
   border-color: #dc2626;
   color: #ffffff;
   filter: brightness(0.9);
-=======
-
-.btn.btn-logout {
-  background: #ef4444; /* Standard red */
-  border-color: #ef4444;
-  color: #ffffff;      /* Changed to white for better contrast */
-}
-
-/* Force the hover state to stay red/dark-red */
-.btn.btn-logout:hover { 
-  background: #dc2626; 
-  border-color: #dc2626;
-  color: #ffffff;
-  filter: brightness(0.9); 
->>>>>>> melee
 }
 
 .btn.btn-primary {
@@ -164,17 +136,10 @@ body {
   color: #ffffff;
 }
 
-<<<<<<< HEAD
 .btn.btn-primary:hover {
   background: #168e85;
   border-color: #168e85;
   filter: brightness(0.9);
-=======
-.btn.btn-primary:hover { 
-  background: #168e85;
-  border-color: #168e85;
-  filter: brightness(0.9); 
->>>>>>> melee
 }
 
 /* ---- Forms ---- */
@@ -282,11 +247,7 @@ input:focus, select:focus, textarea:focus {
   color: #1faa9f;
 }
 
-<<<<<<< HEAD
 .view-profile-link {
-=======
-.view-profile-link{
->>>>>>> melee
   text-decoration: none;
   color: #1faa9f;
   font-weight: bold;
@@ -297,7 +258,6 @@ input:focus, select:focus, textarea:focus {
   color: #168e85;
 }
 
-<<<<<<< HEAD
 .save-btn {
   background: #1faa9f;
   font-size: 15px;
@@ -312,14 +272,3 @@ input:focus, select:focus, textarea:focus {
   font-weight: bold;
   color: #087d73;
 }
-=======
-.save-btn{
-  background: #1faa9f;
-  font-size: 15px;
-}
-.save-btn:hover{
-  text-decoration: underline;
-  background:  #168e85;
-
-}
->>>>>>> melee
