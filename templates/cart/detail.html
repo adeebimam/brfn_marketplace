@@ -42,7 +42,11 @@
       </table>
 
       <h3>Cart Total: £{{ cart_total }}</h3>
-      <a class="btn" href="{% url 'cart:checkout' %}">Proceed to Checkout</a>
+
+      <a href="{% url 'marketplace:checkout' %}" class="btn">
+      Proceed to Checkout
+      </a>
+
     {% else %}
       <p>Your cart is empty.</p>
     {% endif %}

@@ -1,22 +1,31 @@
 from django.shortcuts import render, redirect
-from datetime import date, timedelta
+from decimal import Decimal
 from .forms import CheckoutForm
+from .models import Product
 import random
+from collections import defaultdict
 
 
-
+# ----------------------------
+# PRODUCT LIST
+# ----------------------------
 
 def product_list(request):
-    return render(request, "marketplace/product_list.html")
+    products = Product.objects.all()
+    return render(request, "marketplace/product_list.html", {"products": products})
+
 
 def product_detail(request, pk):
     return render(request, "marketplace/product_detail.html")
 
+
 def producer_product_list(request):
     return render(request, "producer/product_list.html")
 
+
 def product_create(request):
     return render(request, "producer/product_form.html")
+
 
 def product_update(request, pk):
     return render(request, "producer/product_form.html")
@@ -26,18 +35,38 @@ def product_delete(request, pk):
     return render(request, "producer/product_confirm_delete.html")
 
 
+# ----------------------------
+# CHECKOUT (MULTI PRODUCER)
+# ----------------------------
+
 def checkout(request):
 
-    # TEMPORARY CART DATA (until cart is implemented)
-    products = [
-        {"name": "Organic Carrots", "price": 10, "producer": "Bristol Valley Farm"},
-        {"name": "Fresh Potatoes", "price": 10, "producer": "Bristol Valley Farm"},
-    ]
+    cart = request.session.get("cart", {})
+    producers = defaultdict(list)
+    subtotal = Decimal("0.00")
 
-    subtotal = sum(p["price"] for p in products)
-    commission = round(subtotal * 0.05, 2)
+    # build producer groups
+    for product_id, qty in cart.items():
+
+        product = Product.objects.get(id=int(product_id))
+
+        line_total = product.price * qty
+        subtotal += line_total
+
+        
+        producers[product.producer.username].append({
+            "name": product.name,
+            "price": float(product.price),
+            "qty": qty,
+            "total": float(line_total),
+            "lead_time": getattr(product.producer, "lead_time", 2)
+        })
+
+    commission = subtotal * Decimal("0.05")
     total = subtotal + commission
 
+
+    # POST = continue to payment
     if request.method == "POST":
 
         form = CheckoutForm(request.POST)
@@ -48,74 +77,70 @@ def checkout(request):
             delivery_date = form.cleaned_data["delivery_date"]
             payment_method = form.cleaned_data["payment_method"]
 
+            
+               
             request.session["order"] = {
                 "address": delivery_address,
                 "date": str(delivery_date),
                 "payment": payment_method,
-                "subtotal": subtotal,
-                "commission": commission,
-                "total": total,
-                "products": products
+                "subtotal": float(subtotal),
+                "commission": float(commission),
+                "total": float(total),
+                "producers": dict(producers)
             }
 
             return redirect("marketplace:payment")
-        return render(request, "checkout.html", {
-            "form": form,
-            "products": products,
-            "subtotal": subtotal,
-            "commission": commission,
-            "total": total
-        })
+
     else:
 
         initial = {}
 
         if request.user.is_authenticated:
-            initial["delivery_address"] = request.user.email
+            initial["delivery_address"] = request.user.email or request.user.username
 
         form = CheckoutForm(initial=initial)
 
+
     return render(request, "checkout.html", {
         "form": form,
-        "products": products,
+        "producers": dict(producers),   # important for template
         "subtotal": subtotal,
         "commission": commission,
         "total": total
     })
 
 
-
-
-
-
-
-
-
-
-
-
-
-
+# ----------------------------
+# PAYMENT
+# ----------------------------
 
 def payment(request):
 
     order = request.session.get("order")
 
-    # If user tries to access payment directly
     if not order:
-        return redirect("marketplace:checkout")
+        return redirect("marketplace:product_list")
 
     if request.method == "POST":
 
-        import random
-
         order_number = "ORD-" + str(random.randint(10000, 99999))
-
-        # simulate producer notification
         print("NEW ORDER RECEIVED")
         print("Order Number:", order_number)
-        print("Total:", order["total"])
 
+        for producer, items in order["producers"].items():
+
+            print(f"\nNotification for producer: {producer}")
+
+            for item in items:
+                print(f"- {item['name']} x{item['qty']} (£{item['total']})")
+
+
+
+
+
+        
+       
+        
         return render(request, "confirmation.html", {
             "order_number": order_number,
             "address": order["address"],
@@ -124,8 +149,9 @@ def payment(request):
             "subtotal": order["subtotal"],
             "commission": order["commission"],
             "total": order["total"],
+            "producers": order["producers"]
         })
 
     return render(request, "payment.html", {
         "order": order
-    })       
+    })

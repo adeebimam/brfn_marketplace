@@ -45,18 +45,12 @@ def cart_detail(request):
 
 @require_POST
 def cart_add(request, product_id):
-    product = get_object_or_404(Product, id=product_id)
+    product = Product.objects.get(id=product_id)
 
     cart = request.session.get("cart", {})
-    pid = str(product.id)
+    cart[str(product_id)] = cart.get(str(product_id), 0) + 1
 
-    qty = int(request.POST.get("qty", 1))
-    if qty < 1:
-        qty = 1
-
-    cart[pid] = cart.get(pid, 0) + qty
     request.session["cart"] = cart
-    request.session.modified = True
 
     return redirect("cart:detail")
 

@@ -15,6 +15,6 @@ urlpatterns = [
     path("producer/products/<int:pk>/delete/", views.product_delete, name="product_delete"),
 
     # Checkout flow
-    path("checkout/", views.checkout, name="checkout"),
+    path("checkout/", views.checkout, name="checkout"),   
     path("payment/", views.payment, name="payment"),
 ]

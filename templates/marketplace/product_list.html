@@ -20,38 +20,40 @@
       </form>
     </div>
 
-    <ul class="list">
-      {% for p in products %}
-      <li>
-        <div>
-          <a class="product-link" href="{% url 'marketplace:product_detail' p.pk %}">
-            <strong>{{ p.name }}</strong>
-          </a>
+<ul class="list">
 
-          {% if p.category %}
-            <span class="badge">{{ p.category.name }}</span>
-          {% endif %}
+{% for p in products %}
+<li>
+<form action="{% url 'cart:add' p.id %}" method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn">
+        Add to Cart
+    </button>
+</form>
+<div>
+<strong>{{ p.name }}</strong>
 
-          <div class="muted">
-            Sold by: <strong>{{ p.producer.username }}</strong>
-          </div>
-
-          <div class="muted">
-            {{ p.description|truncatechars:80 }}
-          </div>
-        </div>
-
-        <div class="price">£{{ p.price }}</div>
-      </li>
-
-      {% empty %}
-        <li>No products found.</li>
-      {% endfor %}
-    </ul>
-    <div style="margin-top:20px;">
-  <a href="{% url 'marketplace:checkout' %}" class="btn">
-    Proceed to Checkout
-  </a>
+<div class="muted">
+Sold by: {{ p.producer.username }}
 </div>
+
+<div class="muted">
+{{ p.description }}
+</div>
+
+</div>
+
+<div class="price">£{{ p.price }}</div>
+
+
+
+</li>
+
+{% empty %}
+<li>No products found.</li>
+{% endfor %}
+
+</ul>
+
   </div>
 {% endblock %}

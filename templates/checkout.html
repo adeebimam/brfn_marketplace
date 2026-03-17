@@ -28,17 +28,48 @@ Delivery must be at least 48 hours from now.
 
 <h3>Order Summary</h3>
 
+{% if producers %}
+
+{% for producer, items in producers.items %}
+
+<h4>{{ producer }}</h4>
+<p><strong>Lead Time:</strong> {{ items.0.lead_time }} days</p>
+
+<label>Delivery Date for {{ producer }}</label>
+
+<input 
+    type="date" 
+    class="delivery-date"
+    data-lead="{{ items.0.lead_time }}"
+    name="delivery_{{ forloop.counter }}" 
+    required
+>
+
+<p class="lead-warning" style="color:red; display:none;">
+Delivery must be at least {{ items.0.lead_time }} days from now.
+</p>
+
+
+
+
 <ul>
-{% for product in products %}
+{% for item in items %}
 <li>
-{{ product.name }} - £{{ product.price }}
+{{ item.name }} (x{{ item.qty }}) - £{{ item.total }}
 </li>
 {% endfor %}
 </ul>
 
+{% endfor %}
+
+{% else %}
+
+<p>No items in cart.</p>
+
+{% endif %}
+
 <p>Subtotal: £{{ subtotal }}</p>
 <p>Network Commission (5%): £{{ commission }}</p>
-
 <p><strong>Total: £{{ total }}</strong></p>
 
 <br>
@@ -51,32 +82,29 @@ Proceed to Payment
 
 <script>
 
-document.addEventListener("DOMContentLoaded", function(){
+document.querySelectorAll(".delivery-date").forEach(function(input){
 
-    const dateInput = document.getElementById("id_delivery_date");
-    const warning = document.getElementById("date-warning");
+    const lead = parseInt(input.dataset.lead)
+    const warning = input.nextElementSibling
 
-    const today = new Date();
+    const today = new Date()
+    today.setDate(today.getDate() + lead)
 
-    // add 48 hours
-    today.setDate(today.getDate() + 2);
+    const minDate = today.toISOString().split("T")[0]
 
-    const minDate = today.toISOString().split("T")[0];
+    input.min = minDate
 
-    // prevent selecting earlier dates
-    dateInput.min = minDate;
+    input.addEventListener("change", function(){
 
-    dateInput.addEventListener("change", function(){
-
-        if(dateInput.value < minDate){
-            warning.style.display = "block";
+        if(input.value < minDate){
+            warning.style.display = "block"
         } else {
-            warning.style.display = "none";
+            warning.style.display = "none"
         }
 
-    });
+    })
 
-});
+})
 
 </script>
 
