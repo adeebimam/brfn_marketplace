@@ -1,51 +1,104 @@
 {% extends "base.html" %}
 {% block content %}
+
+
   <div class="card stack">
     <h1>Your Cart</h1>
 
     {% if cart_items %}
-      <table>
-        <thead>
-          <tr>
-            <th>Product</th>
-            <th>Producer</th>
-            <th>Unit</th>
-            <th>Qty</th>
-            <th>Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for item in cart_items %}
-            <tr>
-              <td>{{ item.product.name }}</td>
-              <td>{{ item.producer.username }}</td>
-              <td>£{{ item.unit_price }}</td>
-              <td>{{ item.qty }}</td>
-              <td>£{{ item.line_total }}</td>
-              <td> 
-                <form method="post" action="{% url 'cart:update' item.product.id %}">
-                {% csrf_token %}
-                <input type="number" name="qty" value="{{ item.qty }}" min="0" style="width:70px;">
-                <button class="btn" type="submit">Update</button>
-                </form>
-              </td>
+      <div class="cart-layout">
 
-              <td>
-                <form method="post" action="{% url 'cart:remove' item.product.id %}">
-                  {% csrf_token %}
-                  <button class="btn" type="submit">Remove</button>
-                </form>
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+        <div class="cart-main">
+          <table class="cart-table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Producer</th>
+                <th>Unit</th>
+                <th style="width:160px;">Qty</th>
+                <th>Total</th>
+                
+              </tr>
+            </thead>
 
-      <h3>Cart Total: £{{ cart_total }}</h3>
-      <a class="btn" href="{% url 'cart:checkout' %}">Proceed to Checkout</a>
+            <tbody>
+              {% for item in cart_items %}
+                <tr>
+                  <td>
+                    <a href="{% url 'marketplace:product_detail' item.product.pk %}">
+                      {{ item.product.name }}
+                    </a>
+                  </td>
+
+                  <td>
+                    {% if item.producer.profile.business_name %}
+                      {{ item.producer.profile.business_name }}
+                    {% else %}
+                      {{ item.producer.username }}
+                    {% endif %}
+                  </td>
+                  <td>£{{ item.unit_price }}</td>
+
+                  <!-- Auto-submit qty form on change -->
+                  <td>
+                    <form method="post" action="{% url 'cart:update' item.product.id %}" class="qty-form">
+                      {% csrf_token %}
+                      <input type="number" name="qty" value="{{ item.qty }}" min="0" style="width:70px;">
+                    </form>
+                  </td>
+
+                  <td>£{{ item.line_total }}</td>
+
+                  <!-- Remove items -->
+                  <td>
+                    <form method="post" action="{% url 'cart:remove' item.product.id %}">
+                      {% csrf_token %}
+                      <button class="btn" type="submit" title="Remove">
+                        <i class="fa-solid fa-trash"></i>
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+           <!-- Total summary -->
+        <aside class="cart-aside">
+          <div class="card stack cart-summary">
+            <h3>Order Total</h3>
+
+            <div>
+              <div style="display:flex; justify-content:space-between;">
+                <span>Total</span>
+                <strong>£{{ cart_total }}</strong>
+              </div>
+            </div>
+
+            <a class="btn btn-primary" href="{% url 'cart:checkout' %}" style="margin-top:1rem; display:inline-block;">
+              Proceed to Checkout
+            </a>
+          </div>
+        </aside>
+
+      </div>
     {% else %}
       <p>Your cart is empty.</p>
     {% endif %}
+
   </div>
-  
+
+  <!-- Auto update quanity JavaScript -->
+  <script>
+    document.querySelectorAll('.qty-form input[name="qty"]').forEach((input) => {
+      let t;
+      input.addEventListener('input', () => {
+        clearTimeout(t);
+        // debounce: wait 400ms before submitting prevents excessive requests while typing
+        t = setTimeout(() => input.closest('form').submit(), 400);
+      });
+      input.addEventListener('change', () => input.closest('form').submit());
+    });
+  </script>
+
 {% endblock %}

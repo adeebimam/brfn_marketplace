@@ -38,6 +38,7 @@ class CustomerRegisterForm(UserCreationForm):
         first = self.cleaned_data["first_name"].strip()
         last = self.cleaned_data["last_name"].strip()
 
+        # Username from first+last (internal only)
         base = f"{first}{last}".lower().replace(" ", "")
         base = "".join(ch for ch in base if ch.isalnum() or ch in ("_", "-"))
         if not base:
@@ -100,11 +101,13 @@ class ProducerRegisterForm(UserCreationForm):
             "postcode",
         )
 
+    
     def clean_email(self):
         email = self.cleaned_data["email"].strip()
         if User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError("An account with this email already exists.")
         return email
+
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -118,8 +121,7 @@ class ProducerRegisterForm(UserCreationForm):
         base = "".join(ch for ch in base if ch.isalnum() or ch in ("_", "-"))
         if not base:
             base = "producer"
-
-        base = base[:140]
+        base = base[:140]  # leave room for numeric suffix
         username = base
         counter = 1
         while User.objects.filter(username=username).exists():
