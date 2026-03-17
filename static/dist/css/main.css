@@ -97,6 +97,27 @@ body {
   background: #f3f4f6;
 }
 
+.nav a.btn-primary {
+  background: #1faa9f;
+  border-color: #1faa9f;
+  color: #111827;
+}
+
+.nav a.btn-primary:hover {
+  filter: brightness(0.95);
+  color: #111827;
+}
+
+.nav a.btn-danger {
+  background-color: red;
+  color: white;
+}
+
+.nav a.btn-danger:hover {
+  background-color: #db1919;
+  color: white;
+}
+
 /* ---- Buttons ---- */
 .btn {
   display: inline-flex;
@@ -115,36 +136,6 @@ body {
 }
 
 /* Use .btn.btn-logout (no space) to increase specificity */
-.btn.btn-logout {
-  background: #ef4444; /* Standard red */
-  border-color: #ef4444;
-  color: #ffffff; /* Changed to white for better contrast */
-}
-
-/* Force the hover state to stay red/dark-red */
-.btn.btn-logout:hover {
-  background: #dc2626;
-  border-color: #dc2626;
-  color: #ffffff;
-  filter: brightness(0.9);
-}
-
-.btn.btn-primary {
-  background: #1faa9f;
-  border-color: #1faa9f;
-  color: #ffffff;
-}
-
-.btn.btn-primary:hover {
-  background: #168e85;
-  border-color: #168e85;
-  filter: brightness(0.9);
-}
-
-.btn:hover {
-  background: #f9fafb;
-}
-
 .btn-primary {
   background: #1faa9f;
   border-color: #1faa9f;
@@ -156,13 +147,11 @@ body {
 }
 
 .btn-danger {
-  background: #ef4444;
-  border-color: #ef4444;
-  color: #111827;
+  background-color: red;
 }
 
 .btn-danger:hover {
-  filter: brightness(0.95);
+  background-color: #db1919;
 }
 
 /* ---- Forms ---- */
@@ -281,6 +270,14 @@ input:focus, select:focus, textarea:focus {
   color: #168e85;
 }
 
+.back-btn {
+  font-size: 15px;
+}
+
+.back-btn:hover {
+  text-decoration: underline;
+}
+
 .save-btn {
   background: #1faa9f;
   font-size: 15px;
@@ -295,6 +292,11 @@ input:focus, select:focus, textarea:focus {
   font-size: 50px;
   color: #666;
   margin-left: 4px;
+}
+
+.user-info {
+  font-size: large;
+  font-weight: bold;
 }
 
 /* Dashboard Page */
