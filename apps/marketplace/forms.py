@@ -1,7 +1,7 @@
 from django import forms
 from datetime import date, timedelta
+from .models import Product, Allergen
 
-<<<<<<< HEAD
 class ProductForm(forms.ModelForm):
     class Meta:
         model = Product
@@ -35,7 +35,6 @@ def clean(self):
             )
 
     return cleaned_data
-=======
 
 class CheckoutForm(forms.Form):
 
@@ -77,4 +76,3 @@ class CheckoutForm(forms.Form):
             )
 
         return selected_date
->>>>>>> melee
