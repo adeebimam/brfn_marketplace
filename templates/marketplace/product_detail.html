@@ -38,6 +38,24 @@
     >
   </div>
 
+  {% if product.allergens.exists or product.other_allergen_info %}
+  <div class="allergen-warning">
+    <strong>Contains allergens:</strong>
+    <ul>
+      {% for allergen in product.allergens.all %}
+        <li>{{ allergen.name }}</li>
+      {% endfor %}
+      {% if product.other_allergen_info %}
+        <li>{{ product.other_allergen_info }}</li>
+      {% endif %}
+    </ul>
+  </div>
+  {% else %}
+  <div class="allergen-safe">
+    <strong>No common allergens</strong>
+  </div>
+  {% endif %}
+
   {% if user.is_authenticated %}
     <button type="submit" class="btn btn-primary">Add to Cart</button>
   {% else %}
@@ -45,5 +63,5 @@
       Login to add to cart
     </a>
   {% endif %}
-</form>
+  </form>
 {% endblock %}

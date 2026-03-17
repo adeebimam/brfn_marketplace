@@ -1,11 +1,35 @@
 {% extends "base.html" %}
 {% block content %}
-  <div class="card stack">
-    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
-      <h1 style="margin:0;">Products</h1>
+  <div class="card stack product-list-page">
+    <div class="products-header">
+      <h1>Products</h1>
 
-      <form method="get" style="display:flex; gap:10px; align-items:end; flex-wrap:wrap;">
-        <div>
+      <form method="get" class="product-filters">
+        <div class="filter-group">
+          <label for="q">Search</label>
+          <input
+            type="text"
+            id="q"
+            name="q"
+            placeholder="Search products or allergens"
+            value="{{ query|default:'' }}"
+          >
+        </div>
+
+        <div class="filter-group">
+          <label for="allergen_filter">Allergens</label>
+          <select id="allergen_filter" name="allergen_filter">
+            <option value="">All products</option>
+            <option value="with" {% if allergen_filter == "with" %}selected{% endif %}>
+              Contains allergens
+            </option>
+            <option value="without" {% if allergen_filter == "without" %}selected{% endif %}>
+              No common allergens
+            </option>
+          </select>
+        </div>
+
+        <div class="filter-group">
           <label for="category">Category</label>
           <select id="category" name="category">
             <option value="">All</option>
@@ -16,34 +40,34 @@
             {% endfor %}
           </select>
         </div>
+
         <button class="btn" type="submit">Apply</button>
       </form>
     </div>
 
-    <ul class="list">
+    <ul class="list product-results">
       {% for p in products %}
-      <li>
-        <div>
-          <a class="product-link" href="{% url 'marketplace:product_detail' p.pk %}">
-            <strong>{{ p.name }}</strong>
-          </a>
+        <li class="product-card">
+          <div>
+            <a class="product-link" href="{% url 'marketplace:product_detail' p.pk %}">
+              <strong>{{ p.name }}</strong>
+            </a>
 
-          {% if p.category %}
-            <span class="badge">{{ p.category.name }}</span>
-          {% endif %}
+            {% if p.category %}
+              <span class="badge">{{ p.category.name }}</span>
+            {% endif %}
 
-          <div class="muted">
-            Sold by: <strong>{{ p.producer.username }}</strong>
+            <div class="muted">
+              Sold by: <strong>{{ p.producer.username }}</strong>
+            </div>
+
+            <div class="muted">
+              {{ p.description|truncatechars:80 }}
+            </div>
           </div>
 
-          <div class="muted">
-            {{ p.description|truncatechars:80 }}
-          </div>
-        </div>
-
-        <div class="price">£{{ p.price }}</div>
-      </li>
-
+          <div class="price">£{{ p.price }}</div>
+        </li>
       {% empty %}
         <li>No products found.</li>
       {% endfor %}
