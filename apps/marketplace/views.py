@@ -50,7 +50,7 @@ def product_list(request):
         "categories": categories,
         "selected_category": selected_category,
         "selected_seasons":selected_season,
-        "seasons": Product.SEASON_CHOICES
+        "seasons": Product.SEASON_CHOICES,
         "query": query,
         "allergen_filter": allergen_filter,
     }
