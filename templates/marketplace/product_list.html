@@ -4,7 +4,7 @@
     <div class="products-header">
       <h1>Products</h1>
 
-      <form method="get" class="product-filters">
+      <form method="get" class="product-filters" style="display:flex; gap:30px; align-items:end; flex-wrap:wrap;">
         <div class="filter-group">
           <label for="q">Search</label>
           <input
@@ -34,8 +34,20 @@
           <select id="category" name="category">
             <option value="">All</option>
             {% for c in categories %}
-              <option value="{{ c.id }}" {% if selected_category == c.id %}selected{% endif %}>
+              <option value="{{ c.id }}" {% if selected_category == c.id|stringformat:"s" %}selected{% endif %}>
                 {{ c.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="season">Season</label>
+          <select id="season" name="season">
+            <option value="">All</option>
+            {% for value, label in seasons %}
+              <option value="{{ value }}" {% if selected_season == value %}selected{% endif %}>
+                {{ label }}
               </option>
             {% endfor %}
           </select>
@@ -44,6 +56,8 @@
         <button class="btn" type="submit">Apply</button>
       </form>
     </div>
+
+    <br>
 
     <ul class="list product-results">
       {% for p in products %}
@@ -57,6 +71,10 @@
               <span class="badge">{{ p.category.name }}</span>
             {% endif %}
 
+            {% if p.season %}
+              <span class="badge">{{ p.get_season_display }}</span>
+            {% endif %}
+
             <div class="muted">
               Sold by: <strong>{{ p.producer.username }}</strong>
             </div>
@@ -64,9 +82,16 @@
             <div class="muted">
               {{ p.description|truncatechars:80 }}
             </div>
-          </div>
 
-          <div class="price">£{{ p.price }}</div>
+            <div class="price">£{{ p.price }}</div>
+
+            <form action="{% url 'cart:add' p.id %}" method="post" style="margin-top:10px;">
+              {% csrf_token %}
+              <button type="submit" class="btn">
+                Add to Cart
+              </button>
+            </form>
+          </div>
         </li>
       {% empty %}
         <li>No products found.</li>

@@ -16,11 +16,15 @@ def product_list(request):
     categories = Category.objects.order_by("name")
 
     selected_category = request.GET.get("category", "").strip()
+    selected_season = request.GET.get("season", "").strip()
     query = request.GET.get("q", "").strip()
     allergen_filter = request.GET.get("allergen_filter", "").strip()
 
     if selected_category:
         products = products.filter(category_id=selected_category)
+
+    if selected_season:
+        products = products.filter(season=selected_season)
 
     if query:
         products = products.filter(
@@ -45,8 +49,8 @@ def product_list(request):
         "products": products,
         "categories": categories,
         "selected_category": selected_category,
-        "selected_seasons":selected_season,
-        "seasons": Product.SEASON_CHOICES, 
+        "selected_season": selected_season,
+        "seasons": Product.SEASON_CHOICES,
         "query": query,
         "allergen_filter": allergen_filter,
     }

@@ -25,6 +25,14 @@ class Allergen(models.Model):
         return self.name
 
 class Product(models.Model):
+    SEASON_CHOICES = [
+        ("SPRING", "Spring"),
+        ("SUMMER", "Summer"),
+        ("AUTUMN", "Autumn"),
+        ("WINTER", "Winter"),
+        ("ALL", "All Season"),
+    ]
+
     producer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="products")
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
 
@@ -36,6 +44,12 @@ class Product(models.Model):
     other_allergen_info = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    season = models.CharField(
+        max_length=10,
+        choices=SEASON_CHOICES,
+        default="ALL"
+    )
+
 
     def __str__(self):
         return self.name
