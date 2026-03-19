@@ -6,8 +6,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.marketplace.models import Product
+from apps.marketplace.forms import CheckoutForm
 from .models import Cart, CartItem
-
 
 def _sync_session_cart(request, cart):
     """
@@ -138,6 +138,61 @@ def checkout(request):
         messages.info(request, "Your cart is empty.")
         return redirect("cart:detail")
 
+    items = cart.items.select_related("product", "product__producer")
+    producers = {}
+    subtotal = Decimal("0.00")
+    cart_items = []
+
+    for item in items:
+        line_total = (item.product.price * item.quantity).quantize(Decimal("0.01"))
+        subtotal += line_total
+        producer_name = item.product.producer.name if hasattr(item.product.producer, 'name') else str(item.product.producer)
+        lead_time = getattr(item.product.producer, 'lead_time', 2)
+        if producer_name not in producers:
+            producers[producer_name] = []
+        producers[producer_name].append({
+            "name": item.product.name,
+            "qty": item.quantity,
+            "unit_price": str(item.product.price),
+            "total": str(line_total),
+            "lead_time": lead_time,
+        })
+        cart_items.append({
+            "product": {"name": item.product.name, "id": item.product.id},
+            "qty": item.quantity
+        })
+
+    commission = (subtotal * Decimal("0.05")).quantize(Decimal("0.01"))
+    total = (subtotal + commission).quantize(Decimal("0.01"))
+
     _sync_session_cart(request, cart)
 
-    return render(request, "cart/checkout.html")
+    initial = {}
+    if hasattr(request.user, 'profile') and request.user.profile.delivery_address:
+        initial['delivery_address'] = request.user.profile.delivery_address
+    form = CheckoutForm(initial=initial)
+
+    if request.method == "POST":
+        form = CheckoutForm(request.POST)
+        if form.is_valid():
+            request.session['order_total'] = str(total)
+            request.session['cart_items'] = cart_items
+            request.session['delivery_address'] = form.cleaned_data.get('delivery_address', '')
+            # Convert delivery_date to string for session storage
+            delivery_date = form.cleaned_data.get('delivery_date', '')
+            if hasattr(delivery_date, 'isoformat'):
+                delivery_date = delivery_date.isoformat()
+            request.session['delivery_date'] = delivery_date
+            request.session['payment_method'] = form.cleaned_data.get('payment_method', '')
+            request.session['producers'] = producers
+            request.session['subtotal'] = str(subtotal)
+            request.session['commission'] = str(commission)
+            return redirect("orders:payment")
+
+    return render(request, "cart/checkout.html", {
+        "form": form,
+        "producers": producers,
+        "subtotal": subtotal,
+        "commission": commission,
+        "total": total,
+    })

@@ -219,11 +219,13 @@ input:focus, select:focus, textarea:focus {
   color: #168e85;
 }
 
-.back-btn{
+.non-primary-btn {
   font-size: 15px;
 }
-.back-btn:hover{
-  text-decoration: underline;}
+.non-primary-btn:hover {
+  text-decoration: underline;
+  background: #99999c;
+}
 
 .save-btn{
   background: #1faa9f;
@@ -242,4 +244,9 @@ input:focus, select:focus, textarea:focus {
 .user-info{
   font-size: large;
   font-weight: bold;
+}
+
+.item-info{
+  font-size: 12px;
+  text-decoration: underline;
 }

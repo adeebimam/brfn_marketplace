@@ -1,8 +1,111 @@
 {% extends "base.html" %}
+
 {% block content %}
-  <div class="card stack">
-    <h1>Checkout</h1>
-    <p>Checkout placeholder (login required).</p>
-    <a class="btn" href="{% url 'cart:detail' %}">Back to Cart</a>
-  </div>
+
+<h1>Checkout</h1>
+
+<form method="POST">
+{% csrf_token %}
+
+<h3>Delivery Address</h3>
+{{ form.delivery_address }}
+
+<h3>Delivery Date</h3>
+<input type="date" name="delivery_date" id="id_delivery_date" required>
+
+<p id="date-warning" style="color:red; display:none;">
+Delivery must be at least 48 hours from now.
+</p>
+
+{% if form.delivery_date.errors %}
+<p style="color:red;">
+{{ form.delivery_date.errors }}
+</p>
+{% endif %}
+
+<h3>Payment Method</h3>
+{{ form.payment_method }}
+
+<h3>Order Summary</h3>
+
+{% if producers %}
+<p><strong>Sold by:</strong>
+    {% for producer in producers.keys %}
+        {{ producer }}{% if not forloop.last %}, {% endif %}
+    {% endfor %}
+</p>
+
+{% for producer, items in producers.items %}
+
+
+<p><strong>Lead Time:</strong> {{ items.0.lead_time }} days</p>
+
+<label>Delivery Date for {{ producer }}</label>
+<input type="date" class="delivery-date" data-lead="{{ items.0.lead_time }}"
+       name="delivery_{{ forloop.counter }}"
+       required>
+
+<p class="lead-warning" style="color:red; display:none;">
+Delivery must be at least {{ items.0.lead_time }} days from now.
+</p>
+
+<ul>
+{% for item in items %}
+<li>
+{{ item.name }} (x{{ item.qty }}) - £{{ item.total }}
+</li>
+{% endfor %}
+</ul>
+
+{% endfor %}
+
+{% else %}
+
+<p>No items in cart.</p>
+
+{% endif %}
+
+<p>Subtotal: £{{ subtotal }}</p>
+<p>Network Commission (5%): £{{ commission }}</p>
+<p><strong>Total: £{{ total }}</strong></p>
+
+<br>
+
+<button class="save-btn btn" type="submit">
+Proceed to Payment
+</button>
+
+</form>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Set default delivery date to 2 days from today for the main delivery date input
+    var input = document.getElementById("id_delivery_date");
+    if (input && !input.value) {
+        var today = new Date();
+        today.setDate(today.getDate() + 2);
+        var minDate = today.toISOString().split("T")[0];
+        input.value = minDate;
+        input.min = minDate;
+    }
+    // Set default and min for each producer delivery date input
+    document.querySelectorAll(".delivery-date").forEach(function(input){
+        const lead = parseInt(input.dataset.lead) || 2;
+        const warning = input.nextElementSibling;
+        var today = new Date();
+        today.setDate(today.getDate() + lead);
+        var minDate = today.toISOString().split("T")[0];
+        input.min = minDate;
+        if (!input.value) input.value = minDate;
+        input.addEventListener("change", function(){
+            if(input.value < minDate){
+                warning.style.display = "block"
+            } else {
+                warning.style.display = "none"
+            }
+        })
+    });
+});
+</script>
+
 {% endblock %}

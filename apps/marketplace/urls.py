@@ -17,4 +17,7 @@ urlpatterns = [
     # Checkout flow
     path("checkout/", views.checkout, name="checkout"),   
     path("payment/", views.payment, name="payment"),
+
+    # Allergen test
+    path("allergen-test/", views.allergen_test, name="allergen_test"),
 ]

@@ -3,7 +3,16 @@
   <h1>{% if mode == "create" %}Create{% else %}Edit{% endif %} Product</h1>
   <form method="post">
     {% csrf_token %}
-    {{ form.as_p }}
+    {{ form.non_field_errors }}
+    {{ form.category.label_tag }} {{ form.category }}<br><br>
+    {{ form.name.label_tag }} {{ form.name }}<br><br>
+    {{ form.description.label_tag }} {{ form.description }}<br><br>
+    {{ form.price.label_tag }} {{ form.price }}<br><br>
+    {{ form.stock_quantity.label_tag }} {{ form.stock_quantity }}<br><br>
+    {{ form.is_active.label_tag }} {{ form.is_active }}<br><br>
+    {{ form.season.label_tag }} {{ form.season }}<br><br>
+    {{ form.allergens.label_tag }} {{ form.allergens }}<br><br>
+    {{ form.other_allergen_info.label_tag }} {{ form.other_allergen_info }}<br><br>
     <button class="save-btn btn" type="submit">Save</button>
     <button class="back-btn btn" type="button" onclick="window.history.back();">Back</button>
   </form>

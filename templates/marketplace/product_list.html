@@ -17,15 +17,12 @@
         </div>
 
         <div class="filter-group">
-          <label for="allergen_filter">Allergens</label>
-          <select id="allergen_filter" name="allergen_filter">
-            <option value="">All products</option>
-            <option value="with" {% if allergen_filter == "with" %}selected{% endif %}>
-              Contains allergens
-            </option>
-            <option value="without" {% if allergen_filter == "without" %}selected{% endif %}>
-              No common allergens
-            </option>
+          <label for="selected_allergen">Allergen</label>
+          <select id="selected_allergen" name="selected_allergen">
+            <option value="">All</option>
+            {% for allergen in allergens %}
+              <option value="{{ allergen.id }}" {% if selected_allergen == allergen.id|stringformat:"s" %}selected{% endif %}>{{ allergen.name }}</option>
+            {% endfor %}
           </select>
         </div>
 
@@ -53,7 +50,7 @@
           </select>
         </div>
 
-        <button class="btn" type="submit">Apply</button>
+        <button class="non-primary-btn btn" type="submit">Apply</button>
       </form>
     </div>
 
@@ -66,16 +63,18 @@
             <a class="product-link" href="{% url 'marketplace:product_detail' p.pk %}">
               <strong>{{ p.name }}</strong>
             </a>
-
+            <br>
             {% if p.category %}
-              <span class="badge">{{ p.category.name }}</span>
+              <span class="item-info">{{ p.category.name }}</span>
             {% endif %}
-
+            {% if p.category and p.season %}
+              <span class="dot-separator">&bull;</span>
+            {% endif %}
             {% if p.season %}
-              <span class="badge">{{ p.get_season_display }}</span>
+              <span class="item-info" >{{ p.get_season_display }}</span>
             {% endif %}
 
-            <div class="muted">
+            <div class="muted" style="margin-top: 20px;">
               Sold by: <strong>{{ p.producer.username }}</strong>
             </div>
 
@@ -83,11 +82,11 @@
               {{ p.description|truncatechars:80 }}
             </div>
 
-            <div class="price">£{{ p.price }}</div>
+            <div class="price" style="margin-top: 20px;">£{{ p.price }}</div>
 
             <form action="{% url 'cart:add' p.id %}" method="post" style="margin-top:10px;">
               {% csrf_token %}
-              <button type="submit" class="btn">
+              <button type="submit" class="non-primary-btn btn">
                 Add to Cart
               </button>
             </form>

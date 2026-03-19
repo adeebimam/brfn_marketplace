@@ -11,13 +11,6 @@ class Category(models.Model):
     class Meta:
         verbose_name_plural = "Categories"
 
-class Category(models.Model):
-    name=models.CharField(max_length=100, unique=True)
-    def __str__(self):
-        return self.name
-    class Meta:
-        verbose_name_plural = "Categories"
-
 class Allergen(models.Model):
     name = models.CharField(max_length=100, unique=True)
 

@@ -10,7 +10,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.accounts.models import Profile
 from .forms import CheckoutForm, ProductForm
-from .models import Category, Product
+from .models import Category, Product, Allergen
 
 
 # ----------------------------
@@ -31,11 +31,13 @@ def _require_producer(request):
 def product_list(request):
     products = Product.objects.all().select_related("category", "producer").prefetch_related("allergens")
     categories = Category.objects.order_by("name")
+    allergens = Allergen.objects.order_by("name")
 
     selected_category = request.GET.get("category", "").strip()
     selected_season = request.GET.get("season", "").strip()
     query = request.GET.get("q", "").strip()
     allergen_filter = request.GET.get("allergen_filter", "").strip()
+    selected_allergen = request.GET.get("selected_allergen", "").strip()
 
     if selected_category:
         products = products.filter(category_id=selected_category)
@@ -61,14 +63,19 @@ def product_list(request):
             other_allergen_info=""
         ).distinct()
 
+    if selected_allergen:
+        products = products.filter(allergens__id=selected_allergen)
+
     context = {
         "products": products,
         "categories": categories,
+        "allergens": allergens,
         "selected_category": selected_category,
         "selected_season": selected_season,
         "seasons": Product.SEASON_CHOICES,
         "query": query,
         "allergen_filter": allergen_filter,
+        "selected_allergen": selected_allergen,
     }
     return render(request, "marketplace/product_list.html", context)
 
@@ -95,7 +102,7 @@ def producer_product_list(request):
         return HttpResponseForbidden("Producer access only.")
 
     products = Product.objects.filter(producer=request.user).select_related("category").order_by("-created_at")
-    return render(request, "producer/product_list.html", {"products": products})
+    return render(request, "marketplace/producer_product_list.html", {"products": products})
 
 
 # ----------------------------
@@ -282,3 +289,12 @@ def payment(request):
     return render(request, "payment.html", {
         "order": order,
     })
+
+
+# ----------------------------
+# ALLERGEN TEST
+# ----------------------------
+
+def allergen_test(request):
+    form = ProductForm()
+    return render(request, "marketplace/allergen_test.html", {"form": form})

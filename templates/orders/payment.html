@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="payment-container">
+    <h1 class="page-title">Payment</h1>
+
+    <div class="payment-summary">
+        <p class="payment-total">Total Amount: <span>£{{ total }}</span></p>
+        {% if cart_items %}
+        <ul class="payment-items">
+            {% for item in cart_items %}
+            <li>{{ item.product.name }} (x{{ item.qty }})</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+
+    <form method="POST" class="payment-form">
+        {% csrf_token %}
+
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label for="card-number">Card Number</label>
+            <input type="text" id="card-number" name="card_number" placeholder="4242 4242 4242 4242" required pattern="\d{16}" maxlength="16" title="Card number must be 16 digits">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label for="expiry">Expiry</label>
+            <input type="text" id="expiry" name="expiry" placeholder="MM/YY" required pattern="(0[1-9]|1[0-2])\/\d{2}" maxlength="5" title="Expiry must be in MM/YY format">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label for="cvc">CVC</label>
+            <input type="text" id="cvc" name="cvc" placeholder="123" required pattern="\d{3}" maxlength="3" title="CVC must be a 3-digit number">
+        </div>
+
+        <br>
+
+        <button class="save-btn btn" type="submit">Confirm Payment</button>
+    </form>
+</div>
+{% endblock %}

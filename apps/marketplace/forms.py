@@ -3,6 +3,11 @@ from datetime import date, timedelta
 from .models import Product, Allergen
 
 class ProductForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["allergens"].queryset = Allergen.objects.all()
+        self.fields["allergens"].widget = forms.CheckboxSelectMultiple()
+        self.fields["allergens"].help_text = "Tick all that apply. Leave all unticked if no allergens."
     class Meta:
         model = Product
         fields = ["category", 
@@ -12,9 +17,11 @@ class ProductForm(forms.ModelForm):
                   "stock_quantity", 
                   "is_active",
                   "season",
+                  "allergens",  # Added allergens field
+                  "other_allergen_info",  # Added other allergen info field
                   ]
         widgets = {
-            "allergens": forms.CheckboxSelectMultiple(),
+            # 'allergens' widget is overridden in __init__
             "other_allergen_info": forms.Textarea(
                 attrs={
                     "rows": 3,
@@ -22,19 +29,19 @@ class ProductForm(forms.ModelForm):
                 }
             ),
         }
-def clean(self):
-    cleaned_data = super().clean()
-    allergens = cleaned_data.get("allergens")
-    other_allergen_info = cleaned_data.get("other_allergen_info")
-    category = cleaned_data.get("category")
+    def clean(self):
+        cleaned_data = super().clean()
+        allergens = cleaned_data.get("allergens")
+        other_allergen_info = cleaned_data.get("other_allergen_info")
+        category = cleaned_data.get("category")
 
-    if category and category.name.lower() in ["bakery", "dairy", "food", "produce"]:
-        if (not allergens or len(allergens) == 0) and not other_allergen_info:
-            raise forms.ValidationError(
-                "Allergen information must be provided for food products."
-            )
+        if category and category.name.lower() in ["bakery", "dairy", "food", "produce"]:
+            if (not allergens or len(allergens) == 0) and not other_allergen_info:
+                raise forms.ValidationError(
+                    "Allergen information must be provided for food products."
+                )
 
-    return cleaned_data
+        return cleaned_data
 
 class CheckoutForm(forms.Form):
 

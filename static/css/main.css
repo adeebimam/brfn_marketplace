@@ -272,3 +272,53 @@ input:focus, select:focus, textarea:focus {
   font-weight: bold;
   color: #087d73;
 }
+
+/* Modern checkboxes for allergens */
+.allergen-checkboxes label {
+  display: flex;
+  align-items: center;
+  min-width: 160px;
+  gap: 0.7em;
+  margin-bottom: 0.5em;
+  font-weight: 500;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.allergen-checkboxes input[type="checkbox"] {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #1faa9f;
+  border-radius: 6px;
+  background: #fff;
+  margin: 0;
+  margin-right: 6px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  position: relative;
+}
+
+.allergen-checkboxes input[type="checkbox"]:checked {
+  background: #1faa9f;
+  border-color: #1faa9f;
+}
+
+.allergen-checkboxes input[type="checkbox"]:checked::after {
+  content: "";
+  display: block;
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 6px;
+  height: 12px;
+  border: solid #fff;
+  border-width: 0 3px 3px 0;
+  transform: rotate(45deg);
+}
+
+.allergen-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5em;
+  align-items: flex-start;
+}
