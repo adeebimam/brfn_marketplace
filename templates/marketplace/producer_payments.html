@@ -8,6 +8,13 @@
   <p><strong>Gross Sales:</strong> £{{ gross_total }}</p>
   <p><strong>Commission (5%):</strong> £{{ commission }}</p>
   <p><strong>Net Payment:</strong> £{{ net_payment }}</p>
+  <p><strong>Payment Status:</strong> Pending Bank Transfer</p>
+  <p><strong>Settlement Reference:</strong> SET-{{ user.id }}-{{ orders|length }}</p>
+
+  <a href="{% url 'marketplace:download_payments_csv' %}" class="btn">
+  Download CSV Report
+</a>
+
 </div>
 
 <div style="height:20px;"></div>

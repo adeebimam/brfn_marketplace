@@ -1,6 +1,8 @@
 from datetime import timedelta
 from django.utils import timezone
 from decimal import Decimal
+from django.http import HttpResponse, HttpResponseForbidden
+import csv
 
 
 from django.contrib import messages
@@ -264,3 +266,31 @@ def producer_payments(request):
         "marketplace/producer_payments.html",
         context
     )
+
+@login_required
+def download_payments_csv(request):
+    if not _require_producer(request):
+        return HttpResponseForbidden("Producer access only.")
+
+    producer = request.user
+
+    orders = ProducerOrder.objects.filter(
+        producer=producer,
+        status=ProducerOrder.Status.DELIVERED
+    )
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="payments_report.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(["Order ID", "Customer", "Delivery Date", "Total"])
+
+    for order in orders:
+        writer.writerow([
+            order.order.id,
+            f"{order.order.customer.first_name} {order.order.customer.last_name}",
+            order.delivery_date,
+            order.total_value,
+        ])
+
+    return response
