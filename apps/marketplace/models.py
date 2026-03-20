@@ -10,7 +10,6 @@ class Category(models.Model):
     class Meta:
         verbose_name_plural = "Categories"
 
-<<<<<<< HEAD
 class Allergen(models.Model):
     name = models.CharField(max_length=100, unique=True)
 
@@ -28,25 +27,6 @@ class Product(models.Model):
 
     producer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="products")
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
-=======
-    def __str__(self):
-        return self.name
-
-
-class Product(models.Model):
-    producer = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="products"
-    )
-
-    category = models.ForeignKey(
-        Category,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
-    )
->>>>>>> Lihasha
 
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)

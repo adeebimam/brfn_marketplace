@@ -1,75 +1,27 @@
-<<<<<<< HEAD
-from collections import defaultdict
-from decimal import Decimal
+import csv
 import random
+from collections import defaultdict
+from datetime import date, timedelta
+from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
-from django.http import HttpResponseForbidden
-=======
-import csv
-from decimal import Decimal
-from collections import defaultdict
-from datetime import date, timedelta
-
-from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseForbidden
->>>>>>> Lihasha
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from apps.accounts.models import Profile
-<<<<<<< HEAD
-from .forms import CheckoutForm, ProductForm
-from .models import Category, Product, Allergen
-
-
-# ----------------------------
-# HELPERS
-# ----------------------------
-=======
-from .forms import ProductForm, ProducerOrderStatusForm
-from .models import Product, Category, ProducerOrder, ProducerOrderStatusHistory
-
-
-# -----------------------------
-# Customer product browsing
-# -----------------------------
-
-def product_list(request):
-    products = Product.objects.filter(is_active=True).order_by("-created_at")
-    categories = Category.objects.order_by("name")
-
-    selected_category = request.GET.get("category")
-
-    if selected_category:
-        products = products.filter(category_id=selected_category)
-
-    context = {
-        "products": products,
-        "categories": categories,
-        "selected_category": selected_category,
-    }
-
-    return render(request, "marketplace/product_list.html", context)
-
-
-def product_detail(request, pk):
-    product = get_object_or_404(Product, pk=pk, is_active=True)
-
-    return render(
-        request,
-        "marketplace/product_detail.html",
-        {"product": product}
-    )
+from .forms import CheckoutForm, ProductForm, ProducerOrderStatusForm
+from .models import (
+    Allergen, Category, Product,
+    ProducerOrder, ProducerOrderStatusHistory,
+)
 
 
 # -----------------------------
 # Producer access check
 # -----------------------------
->>>>>>> Lihasha
 
 def _require_producer(request):
     if not request.user.is_authenticated:
@@ -79,7 +31,6 @@ def _require_producer(request):
     return profile.role == "PRODUCER"
 
 
-<<<<<<< HEAD
 # ----------------------------
 # PRODUCT LIST
 # ----------------------------
@@ -148,13 +99,30 @@ def product_detail(request, pk):
     return render(request, "marketplace/product_detail.html", {"product": product})
 
 
-# ----------------------------
-# PRODUCER PRODUCT LIST
-# ----------------------------
-=======
 # -----------------------------
 # TC-012 helper functions
 # -----------------------------
+
+COMMISSION_RATE = Decimal("0.05")
+TWO_PLACES = Decimal("0.01")
+
+
+def _compute_financials(gross):
+    """Return (commission, net) for a given gross amount."""
+    gross = gross.quantize(TWO_PLACES)
+    commission = (gross * COMMISSION_RATE).quantize(TWO_PLACES)
+    net = (gross - commission).quantize(TWO_PLACES)
+    return commission, net
+
+
+def _build_settlement_ref(producer_id, week_start, week_end):
+    """Return a deterministic settlement reference string."""
+    return (
+        f"SET-{producer_id}-"
+        f"{week_start.strftime('%Y%m%d')}-"
+        f"{week_end.strftime('%Y%m%d')}"
+    )
+
 
 def _last_completed_week_range(today=None):
     """
@@ -201,27 +169,14 @@ def _anonymise_customer(user):
 # -----------------------------
 # Producer product management
 # -----------------------------
->>>>>>> Lihasha
 
 @login_required
 def producer_product_list(request):
     if not _require_producer(request):
         return HttpResponseForbidden("Producer access only.")
 
-<<<<<<< HEAD
     products = Product.objects.filter(producer=request.user).select_related("category").order_by("-created_at")
     return render(request, "marketplace/producer_product_list.html", {"products": products})
-=======
-    products = Product.objects.filter(
-        producer=request.user
-    ).order_by("-created_at")
-
-    return render(
-        request,
-        "marketplace/producer_product_list.html",
-        {"products": products},
-    )
->>>>>>> Lihasha
 
 
 # ----------------------------
@@ -240,11 +195,8 @@ def product_create(request):
             product = form.save(commit=False)
             product.producer = request.user
             product.save()
-<<<<<<< HEAD
             form.save_m2m()
-=======
 
->>>>>>> Lihasha
             messages.success(request, "Product created.")
             return redirect("marketplace:producer_product_list")
     else:
@@ -276,15 +228,11 @@ def product_update(request, pk):
         form = ProductForm(request.POST, instance=product)
 
         if form.is_valid():
-<<<<<<< HEAD
             product = form.save(commit=False)
             product.producer = request.user
             product.save()
             form.save_m2m()
-=======
-            form.save()
 
->>>>>>> Lihasha
             messages.success(request, "Product updated.")
             return redirect("marketplace:producer_product_list")
     else:
@@ -320,16 +268,11 @@ def product_delete(request, pk):
 
     return render(
         request,
-<<<<<<< HEAD
-        "producer/product_confirm_delete.html",
-=======
         "marketplace/product_confirm_delete.html",
->>>>>>> Lihasha
         {"product": product},
     )
 
 
-<<<<<<< HEAD
 # ----------------------------
 # CHECKOUT (MULTI PRODUCER)
 # ----------------------------
@@ -442,7 +385,8 @@ def payment(request):
 def allergen_test(request):
     form = ProductForm()
     return render(request, "marketplace/allergen_test.html", {"form": form})
-=======
+
+
 # -----------------------------
 # TC-009 Producer Order List
 # -----------------------------
@@ -535,10 +479,9 @@ def producer_payments(request):
     gross_total = sum(
         (order.total_value for order in weekly_orders),
         Decimal("0.00")
-    ).quantize(Decimal("0.01"))
+    ).quantize(TWO_PLACES)
 
-    commission = (gross_total * Decimal("0.05")).quantize(Decimal("0.01"))
-    net_payment = (gross_total * Decimal("0.95")).quantize(Decimal("0.01"))
+    commission, net_payment = _compute_financials(gross_total)
 
     tax_year_orders = all_delivered_orders.filter(
         delivery_date__gte=tax_year_start
@@ -547,13 +490,9 @@ def producer_payments(request):
     tax_year_total = sum(
         (order.total_value for order in tax_year_orders),
         Decimal("0.00")
-    ).quantize(Decimal("0.01"))
+    ).quantize(TWO_PLACES)
 
-    settlement_reference = (
-        f"SET-{producer.id}-"
-        f"{week_start.strftime('%Y%m%d')}-"
-        f"{week_end.strftime('%Y%m%d')}"
-    )
+    settlement_reference = _build_settlement_ref(producer.id, week_start, week_end)
 
     history_map = defaultdict(list)
 
@@ -571,10 +510,9 @@ def producer_payments(request):
         hist_gross = sum(
             (o.total_value for o in orders_in_week),
             Decimal("0.00")
-        ).quantize(Decimal("0.01"))
+        ).quantize(TWO_PLACES)
 
-        hist_commission = (hist_gross * Decimal("0.05")).quantize(Decimal("0.01"))
-        hist_net = (hist_gross * Decimal("0.95")).quantize(Decimal("0.01"))
+        hist_commission, hist_net = _compute_financials(hist_gross)
 
         historical_records.append({
             "week_start": hist_start,
@@ -643,11 +581,7 @@ def download_payments_csv(request):
         "Status",
     ])
 
-    settlement_reference = (
-        f"SET-{producer.id}-"
-        f"{week_start.strftime('%Y%m%d')}-"
-        f"{week_end.strftime('%Y%m%d')}"
-    )
+    settlement_reference = _build_settlement_ref(producer.id, week_start, week_end)
 
     for order in orders:
         items_sold = ", ".join(
@@ -655,9 +589,8 @@ def download_payments_csv(request):
             for item in order.items.all()
         )
 
-        gross = order.total_value.quantize(Decimal("0.01"))
-        commission = (gross * Decimal("0.05")).quantize(Decimal("0.01"))
-        net = (gross * Decimal("0.95")).quantize(Decimal("0.01"))
+        gross = order.total_value.quantize(TWO_PLACES)
+        commission, net = _compute_financials(gross)
 
         writer.writerow([
             settlement_reference,
@@ -727,4 +660,3 @@ def producer_order_update_status(request, pk):
             "form": form,
         },
     )
->>>>>>> Lihasha

@@ -26,11 +26,7 @@ urlpatterns = [
 
     # Marketplace routes
     path("", include("apps.marketplace.urls")),
-<<<<<<< HEAD
     
     path("orders/", include("orders.urls")),
-=======
-
->>>>>>> Lihasha
     
 ]
