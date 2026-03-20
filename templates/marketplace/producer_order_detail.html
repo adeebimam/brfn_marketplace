@@ -10,8 +10,14 @@
   <p><strong>Order date:</strong> {{ po.order.created_at|date:"F j, Y, P" }}</p>
   <p><strong>Delivery date:</strong> {{ po.delivery_date|date:"F j, Y" }}</p>
 
-  <p><strong>Status:</strong> {{ po.status }}</p>
+  <p><strong>Status:</strong> {{ po.get_status_display }}</p>
   <p><strong>Total:</strong> £{{ po.total_value }}</p>
+
+  <p style="margin-top: 16px;">
+    <a href="{% url 'marketplace:producer_order_update_status' po.pk %}" class="btn">
+      Update Status
+    </a>
+  </p>
 
   <hr>
 
@@ -45,6 +51,34 @@
       {% empty %}
         <tr>
           <td colspan="4">No items.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2 style="margin-top: 16px;">Status History</h2>
+  <table class="table" style="width:100%; margin-top: 8px;">
+    <thead>
+      <tr>
+        <th>Date / Time</th>
+        <th>From</th>
+        <th>To</th>
+        <th>Changed By</th>
+        <th>Note</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for entry in po.status_history.all %}
+        <tr>
+          <td>{{ entry.changed_at|date:"F j, Y, P" }}</td>
+          <td>{{ entry.old_status }}</td>
+          <td>{{ entry.new_status }}</td>
+          <td>{{ entry.changed_by.username }}</td>
+          <td>{{ entry.note|default:"-" }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5">No status changes yet.</td>
         </tr>
       {% endfor %}
     </tbody>

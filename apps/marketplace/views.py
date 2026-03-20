@@ -10,8 +10,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from apps.accounts.models import Profile
-from .forms import ProductForm
-from .models import Product, Category, ProducerOrder
+from .forms import ProductForm, ProducerOrderStatusForm
+from .models import Product, Category, ProducerOrder, ProducerOrderStatusHistory
 
 
 # -----------------------------
@@ -431,3 +431,58 @@ def download_payments_csv(request):
         ])
 
     return response
+
+@login_required
+def producer_order_update_status(request, pk):
+    if not _require_producer(request):
+        return HttpResponseForbidden("Producer access only.")
+
+    po = get_object_or_404(
+        ProducerOrder.objects.select_related("order", "order__customer"),
+        pk=pk,
+        producer=request.user,
+    )
+
+    allowed_transitions = {
+        ProducerOrder.Status.PENDING: [ProducerOrder.Status.CONFIRMED],
+        ProducerOrder.Status.CONFIRMED: [ProducerOrder.Status.READY],
+        ProducerOrder.Status.READY: [ProducerOrder.Status.DELIVERED],
+        ProducerOrder.Status.DELIVERED: [],
+    }
+
+    if request.method == "POST":
+        form = ProducerOrderStatusForm(request.POST)
+
+        if form.is_valid():
+            new_status = form.cleaned_data["status"]
+            note = form.cleaned_data["note"]
+
+            if new_status not in allowed_transitions.get(po.status, []):
+                messages.error(request, "Invalid status progression.")
+                return redirect("marketplace:producer_order_detail", pk=po.pk)
+
+            old_status = po.status
+            po.status = new_status
+            po.save()
+
+            ProducerOrderStatusHistory.objects.create(
+                producer_order=po,
+                old_status=old_status,
+                new_status=new_status,
+                note=note,
+                changed_by=request.user,
+            )
+
+            messages.success(request, "Order status updated successfully.")
+            return redirect("marketplace:producer_order_detail", pk=po.pk)
+    else:
+        form = ProducerOrderStatusForm(initial={"status": po.status})
+
+    return render(
+        request,
+        "marketplace/producer_order_update_status.html",
+        {
+            "po": po,
+            "form": form,
+        },
+    )

@@ -1,6 +1,5 @@
 from django.conf import settings
 from django.db import models
-from django.utils import timezone
 from django.core.exceptions import ValidationError
 from datetime import timedelta
 
@@ -105,14 +104,13 @@ class ProducerOrder(models.Model):
             order_date = self.order.created_at.date()
             minimum_delivery = order_date + timedelta(days=2)
 
-        if self.delivery_date < minimum_delivery:
+            if self.delivery_date < minimum_delivery:
                 raise ValidationError({
-                    "delivery_date":
-                    "Delivery date must be at least 48 hours after the order date."
+                    "delivery_date": "Delivery date must be at least 48 hours after the order date."
                 })
 
     def save(self, *args, **kwargs):
-        self.full_clean()  # ensure validation always runs
+        self.full_clean()
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -120,7 +118,6 @@ class ProducerOrder(models.Model):
 
 
 class OrderItem(models.Model):
-
     producer_order = models.ForeignKey(
         ProducerOrder,
         on_delete=models.CASCADE,
@@ -145,4 +142,25 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return f"{self.product.name} x{self.quantity}"
-    
+
+
+class ProducerOrderStatusHistory(models.Model):
+    producer_order = models.ForeignKey(
+        ProducerOrder,
+        on_delete=models.CASCADE,
+        related_name="status_history"
+    )
+    old_status = models.CharField(max_length=20)
+    new_status = models.CharField(max_length=20)
+    note = models.TextField(blank=True)
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE
+    )
+    changed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-changed_at"]
+
+    def __str__(self):
+        return f"Order {self.producer_order_id}: {self.old_status} -> {self.new_status}"
