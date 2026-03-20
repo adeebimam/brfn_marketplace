@@ -19,10 +19,24 @@
     <nav class="nav-links">
       <a href="{% url 'marketplace:product_list' %}">Products</a>
 
+<<<<<<< HEAD
       <a href="{% url 'cart:detail' %}">
         <i class="fa-solid fa-cart-shopping" style="font-size:22px;"></i>
         {% if cart_item_count > 0 %}
           ({{ cart_item_count }})
+=======
+        {% if user.is_authenticated %}
+          {{ request.user.username|title }},<span style="color: #087d73;">({{ request.user.profile.role|title }})</span>
+          {% if user.profile.role == "PRODUCER" %}
+            <a href="{% url 'marketplace:producer_product_list' %}">My Products</a>
+            <a href="{% url 'marketplace:producer_order_list' %}">Order Management</a>
+            <a href="{% url 'marketplace:producer_payments' %}">Payments</a>
+          {% endif %}
+          <a class="btn" href="{% url 'accounts:logout' %}">Logout</a>
+        {% else %}
+          <a href="{% url 'accounts:login' %}">Login</a>
+          <a class="btn btn-primary" href="{% url 'accounts:register' %}">Register</a>
+>>>>>>> Lihasha
         {% endif %}
       </a>
 

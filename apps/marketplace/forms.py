@@ -1,6 +1,11 @@
 from django import forms
+<<<<<<< HEAD
 from datetime import date, timedelta
 from .models import Product, Allergen
+=======
+from .models import Product, ProducerOrder
+
+>>>>>>> Lihasha
 
 class ProductForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
@@ -10,6 +15,7 @@ class ProductForm(forms.ModelForm):
         self.fields["allergens"].help_text = "Tick all that apply. Leave all unticked if no allergens."
     class Meta:
         model = Product
+<<<<<<< HEAD
         fields = ["category", 
                   "name", 
                   "description", 
@@ -83,3 +89,23 @@ class CheckoutForm(forms.Form):
             )
 
         return selected_date
+=======
+        fields = [
+            "category",
+            "name",
+            "description",
+            "price",
+            "stock_quantity",
+            "is_active",
+        ]
+
+
+class ProducerOrderStatusForm(forms.Form):
+    status = forms.ChoiceField(
+        choices=ProducerOrder.Status.choices
+    )
+    note = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3})
+    )
+>>>>>>> Lihasha

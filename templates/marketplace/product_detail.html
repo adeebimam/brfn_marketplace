@@ -21,6 +21,7 @@
     <p class="price">£{{ product.price }}</p>
     <p>Stock: {{ product.stock_quantity }}</p>
 
+<<<<<<< HEAD
   <!-- Add to cart form -->
   <form method="post" action="{% url 'cart:add' product.id %}" class="add-to-cart">
     {% csrf_token %}
@@ -44,6 +45,18 @@
     </button>
   </form>
   
+=======
+    <!-- Add to cart form with quantity input -->
+    <form method="post" action="{% url 'cart:add' product.id %}">
+      {% csrf_token %}
+      <label for="qty">Quantity:</label>
+      <input type="number" id="qty" name="qty" value="1" min="1" max="{{ product.stock_quantity }}" style="width:70px; margin-right:10px;">
+      <button type="submit" class="btn" style="display:block; width:100%;">
+        Add to Cart
+      </button>
+    </form>
+
+>>>>>>> Lihasha
     <a class="btn" href="{% url 'marketplace:product_list' %}">Back</a>
   </div>
 

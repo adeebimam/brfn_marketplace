@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>Producer Payment Settlement</h1>
+
+<div class="card">
+  <p><strong>Settlement Week:</strong> {{ week_start }} to {{ week_end }}</p>
+  <p><strong>Gross Sales:</strong> £{{ gross_total }}</p>
+  <p><strong>Commission (5%):</strong> £{{ commission }}</p>
+  <p><strong>Net Payment:</strong> £{{ net_payment }}</p>
+  <p><strong>Payment Status:</strong> {{ payment_status }}</p>
+  <p><strong>Settlement Reference:</strong> {{ settlement_reference }}</p>
+  <p><strong>Tax Year Total:</strong> £{{ tax_year_total }}</p>
+
+  <a href="{% url 'marketplace:download_payments_csv' %}" class="btn">
+    Download CSV Report
+  </a>
+</div>
+
+<div style="height:20px;"></div>
+
+<h2>Completed Orders (This Week)</h2>
+
+<table border="1" cellpadding="8">
+  <thead>
+    <tr>
+      <th>Order</th>
+      <th>Customer</th>
+      <th>Items</th>
+      <th>Delivery Date</th>
+      <th>Gross</th>
+      <th>Commission</th>
+      <th>Net</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    {% for order in orders %}
+    <tr>
+      <td>#{{ order.order.id }}</td>
+
+      <!-- anonymised customer -->
+      <td>
+        {{ order.order.customer.first_name|slice:":1" }}.
+        {{ order.order.customer.last_name|slice:":1" }}.
+      </td>
+
+      <!-- items -->
+      <td>
+        {% for item in order.items.all %}
+          {{ item.product.name }} x{{ item.quantity }}{% if not forloop.last %}, {% endif %}
+        {% endfor %}
+      </td>
+
+      <td>{{ order.delivery_date }}</td>
+
+      <td>£{{ order.total_value }}</td>
+      <td>£{% widthratio order.total_value 100 5 %}</td>
+      <td>£{% widthratio order.total_value 100 95 %}</td>
+
+      <td>{{ order.get_status_display }}</td>
+    </tr>
+
+    {% empty %}
+    <tr>
+      <td colspan="8">No delivered orders found for this week.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div style="height:20px;"></div>
+
+<h2>Historical Payment Records</h2>
+
+<table border="1" cellpadding="8">
+  <thead>
+    <tr>
+      <th>Week</th>
+      <th>Orders</th>
+      <th>Gross</th>
+      <th>Commission</th>
+      <th>Net</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    {% for record in historical_records %}
+    <tr>
+      <td>{{ record.week_start }} to {{ record.week_end }}</td>
+      <td>{{ record.order_count }}</td>
+      <td>£{{ record.gross }}</td>
+      <td>£{{ record.commission }}</td>
+      <td>£{{ record.net }}</td>
+    </tr>
+
+    {% empty %}
+    <tr>
+      <td colspan="5">No historical records available.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}

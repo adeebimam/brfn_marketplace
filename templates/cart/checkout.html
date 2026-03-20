@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+<<<<<<< HEAD
 
 {% block content %}
 
@@ -108,4 +109,12 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 </script>
 
+=======
+{% block content %}
+  <div class="card stack">
+    <h1>Checkout</h1>
+    <p>Checkout placeholder (login required).</p>
+    <a class="btn" href="{% url 'cart:detail' %}">Back to Cart</a>
+  </div>
+>>>>>>> Lihasha
 {% endblock %}

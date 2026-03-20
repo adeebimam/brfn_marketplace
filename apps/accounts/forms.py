@@ -10,6 +10,7 @@ class CustomerRegisterForm(UserCreationForm):
     delivery_address = forms.CharField(widget=forms.Textarea, required=True)
     delivery_postcode = forms.CharField(max_length=20, required=True)
     phone = forms.CharField(max_length=20, required=True)
+<<<<<<< HEAD
 
     class Meta:
         model = User
@@ -23,6 +24,13 @@ class CustomerRegisterForm(UserCreationForm):
             "delivery_postcode",
             "phone",
         )
+=======
+
+
+    class Meta:
+        model = User
+        fields = ("email", "password1", "password2", "first_name", "last_name", "delivery_address", "delivery_postcode","phone")
+>>>>>>> Lihasha
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip()
@@ -59,6 +67,7 @@ class CustomerRegisterForm(UserCreationForm):
         if commit:
             user.save()
             Profile.objects.create(
+<<<<<<< HEAD
                 user=user,
                 role=Profile.Role.CUSTOMER,
                 contact_first_name=first,
@@ -67,6 +76,15 @@ class CustomerRegisterForm(UserCreationForm):
                 delivery_address=self.cleaned_data["delivery_address"].strip(),
                 delivery_postcode=self.cleaned_data["delivery_postcode"].strip(),
             )
+=======
+                user=user, 
+                role=Profile.Role.CUSTOMER,
+                phone=self.cleaned_data["phone"].strip(),
+                delivery_address = self.cleaned_data["delivery_address"].strip(),
+                delivery_postcode = self.cleaned_data["delivery_postcode"].strip(),)
+            
+            
+>>>>>>> Lihasha
 
         return user
 
@@ -145,9 +163,18 @@ class ProducerRegisterForm(UserCreationForm):
             )
 
         return user
+<<<<<<< HEAD
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["email"].help_text = ""
         self.fields["password1"].help_text = "At least 8 characters."
         self.fields["password2"].help_text = "Re-enter the password."
+=======
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+
+        self.fields["email"].help_text = ""
+        self.fields["password1"].help_text = "Atleast have 8 characters"
+        self.fields["password2"].help_text = "Re-enter the password"
+>>>>>>> Lihasha
