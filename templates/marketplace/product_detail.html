@@ -18,6 +18,26 @@
     <p class="price">£{{ product.price }}</p>
     <p>Stock: {{ product.stock_quantity }}</p>
 
+    {% if product.allergens.exists or product.other_allergen_info %}
+      <div class="allergen-warning">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <strong>Contains allergens:</strong>
+        <ul class="allergen-list">
+          {% for allergen in product.allergens.all %}
+            <li><span class="allergen-tag">{{ allergen.name }}</span></li>
+          {% endfor %}
+          {% if product.other_allergen_info %}
+            <li><span class="allergen-tag allergen-other">{{ product.other_allergen_info }}</span></li>
+          {% endif %}
+        </ul>
+      </div>
+    {% else %}
+      <div class="allergen-safe">
+        <i class="fa-solid fa-circle-check"></i>
+        <strong>No common allergens declared</strong>
+      </div>
+    {% endif %}
+
     {% if user.is_authenticated %}
       <form method="post" action="{% url 'cart:add' product.id %}" class="add-to-cart">
         {% csrf_token %}
@@ -48,22 +68,4 @@
 
     <a class="btn" href="{% url 'marketplace:product_list' %}">Back</a>
   </div>
-
-  {% if product.allergens.exists or product.other_allergen_info %}
-  <div class="allergen-warning">
-    <strong>Contains allergens:</strong>
-    <ul>
-      {% for allergen in product.allergens.all %}
-        <li>{{ allergen.name }}</li>
-      {% endfor %}
-      {% if product.other_allergen_info %}
-        <li>{{ product.other_allergen_info }}</li>
-      {% endif %}
-    </ul>
-  </div>
-  {% else %}
-  <div class="allergen-safe">
-    <strong>No common allergens</strong>
-  </div>
-  {% endif %}
 {% endblock %}

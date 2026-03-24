@@ -44,7 +44,6 @@ def product_list(request):
     selected_season = request.GET.get("season", "").strip()
     query = request.GET.get("q", "").strip()
     allergen_filter = request.GET.get("allergen_filter", "").strip()
-    selected_allergen = request.GET.get("selected_allergen", "").strip()
 
     if selected_category:
         products = products.filter(category_id=selected_category)
@@ -57,7 +56,8 @@ def product_list(request):
             Q(name__icontains=query) |
             Q(description__icontains=query) |
             Q(allergens__name__icontains=query) |
-            Q(other_allergen_info__icontains=query)
+            Q(other_allergen_info__icontains=query) |
+            Q(producer__username__icontains=query)
         ).distinct()
 
     if allergen_filter == "with":
@@ -65,13 +65,12 @@ def product_list(request):
             Q(allergens__isnull=False) | ~Q(other_allergen_info="")
         ).distinct()
     elif allergen_filter == "without":
-        products = products.filter(
-            allergens__isnull=True,
-            other_allergen_info=""
-        ).distinct()
-
-    if selected_allergen:
-        products = products.filter(allergens__id=selected_allergen)
+        products = products.exclude(
+            allergens__isnull=False
+        ).filter(other_allergen_info="")
+    elif allergen_filter.startswith("specific_"):
+        allergen_id = allergen_filter.split("_")[1]
+        products = products.filter(allergens__id=allergen_id)
 
     context = {
         "products": products,
@@ -82,7 +81,6 @@ def product_list(request):
         "seasons": Product.SEASON_CHOICES,
         "query": query,
         "allergen_filter": allergen_filter,
-        "selected_allergen": selected_allergen,
     }
     return render(request, "marketplace/product_list.html", context)
 
@@ -125,9 +123,6 @@ def _build_settlement_ref(producer_id, week_start, week_end):
 
 
 def _last_completed_week_range(today=None):
-    """
-    Return Monday-Sunday for the last completed week.
-    """
     if today is None:
         today = timezone.localdate()
 
@@ -139,9 +134,6 @@ def _last_completed_week_range(today=None):
 
 
 def _uk_tax_year_start(today=None):
-    """
-    UK tax year starts on 6 April.
-    """
     if today is None:
         today = timezone.localdate()
 
@@ -605,6 +597,7 @@ def download_payments_csv(request):
         ])
 
     return response
+
 
 @login_required
 def producer_order_update_status(request, pk):

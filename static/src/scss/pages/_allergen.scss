@@ -1,55 +1,62 @@
-.product-list-page {
-  gap: 20px;
-}
-
-.products-header {
+// === Allergen Warning ===
+.allergen-warning {
   display: flex;
-  flex-direction: column;
-  gap: 20px;
-
-  h1 {
-    margin: 0;
-  }
-}
-
-.product-filters {
-  display: grid;
-  grid-template-columns: 2fr 1.3fr 1.2fr auto;
-  gap: 14px;
-  align-items: end;
-}
-
-.filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.filter-group input,
-.filter-group select {
-  width: 100%;
-}
-
-.product-results {
-  gap: 16px;
-}
-
-.product-card {
-  display: flex;
-  justify-content: space-between;
   align-items: flex-start;
-  gap: 16px;
-  padding: 18px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 14px;
+  gap: 8px;
+  background: #fff8e1;
+  border: 1px solid #f5c518;
+  border-radius: 10px;
+  padding: 12px 16px;
+  color: #7a5c00;
+  font-size: 0.9rem;
+
+  .allergen-list {
+    list-style: none;
+    padding: 0;
+    margin: 6px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
 }
 
-@media (max-width: 900px) {
-  .product-filters {
-    grid-template-columns: 1fr;
-  }
+.allergen-warning--compact {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  margin-top: 8px;
+}
 
-  .product-card {
-    flex-direction: column;
-  }
+// === Allergen Tags ===
+.allergen-tag {
+  display: inline-block;
+  background: #ffe08a;
+  color: #7a5c00;
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.allergen-other {
+  background: #ffd0b0;
+  color: #7a2e00;
+}
+
+// === Allergen Safe ===
+.allergen-safe {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f0faf0;
+  border: 1px solid #a8d5a2;
+  border-radius: 10px;
+  padding: 12px 16px;
+  color: #2e6b2e;
+  font-size: 0.9rem;
+}
+
+.allergen-safe--compact {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  margin-top: 8px;
 }
