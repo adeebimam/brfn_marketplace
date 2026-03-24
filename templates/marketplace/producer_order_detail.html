@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+  <h1>Order #{{ po.order.id }}</h1>
+
+  <p><strong>Customer:</strong> {{ po.order.customer.username }}</p>
+  <p><strong>Customer email:</strong> {{ po.order.customer.email }}</p>
+
+  <p><strong>Order date:</strong> {{ po.order.created_at|date:"F j, Y, P" }}</p>
+  <p><strong>Delivery date:</strong> {{ po.delivery_date|date:"F j, Y" }}</p>
+
+  <p><strong>Status:</strong> {{ po.get_status_display }}</p>
+  <p><strong>Total:</strong> £{{ po.total_value }}</p>
+
+  <p style="margin-top: 16px;">
+    <a href="{% url 'marketplace:producer_order_update_status' po.pk %}" class="btn">
+      Update Status
+    </a>
+  </p>
+
+  <hr>
+
+  <h2>Delivery Address</h2>
+  <p>
+    {{ po.order.delivery_address }}<br>
+    {{ po.order.delivery_postcode }}
+  </p>
+
+  <h2 style="margin-top: 16px;">Special Instructions</h2>
+  <p>{{ po.order.special_instructions|default:"None" }}</p>
+
+  <h2 style="margin-top: 16px;">Items</h2>
+  <table class="table" style="width:100%; margin-top: 8px;">
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th>Quantity</th>
+        <th>Unit Price</th>
+        <th>Line Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in po.items.all %}
+        <tr>
+          <td>{{ item.product.name }}</td>
+          <td>{{ item.quantity }}</td>
+          <td>£{{ item.unit_price }}</td>
+          <td>£{{ item.line_total }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="4">No items.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2 style="margin-top: 16px;">Status History</h2>
+  <table class="table" style="width:100%; margin-top: 8px;">
+    <thead>
+      <tr>
+        <th>Date / Time</th>
+        <th>From</th>
+        <th>To</th>
+        <th>Changed By</th>
+        <th>Note</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for entry in po.status_history.all %}
+        <tr>
+          <td>{{ entry.changed_at|date:"F j, Y, P" }}</td>
+          <td>{{ entry.old_status }}</td>
+          <td>{{ entry.new_status }}</td>
+          <td>{{ entry.changed_by.username }}</td>
+          <td>{{ entry.note|default:"-" }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5">No status changes yet.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <p style="margin-top: 16px;">
+    <a href="{% url 'marketplace:producer_order_list' %}">← Back to Order Management</a>
+  </p>
+</div>
+
+{% endblock %}

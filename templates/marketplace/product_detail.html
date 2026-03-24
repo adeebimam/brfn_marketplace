@@ -1,8 +1,5 @@
 {% extends "base.html" %}
 {% block content %}
-
-
-
   <div class="card stack">
     <h1>{{ product.name }}</h1>
 
@@ -21,29 +18,34 @@
     <p class="price">£{{ product.price }}</p>
     <p>Stock: {{ product.stock_quantity }}</p>
 
-  <!-- Add to cart form -->
-  <form method="post" action="{% url 'cart:add' product.id %}" class="add-to-cart">
-    {% csrf_token %}
+    {% if user.is_authenticated %}
+      <form method="post" action="{% url 'cart:add' product.id %}" class="add-to-cart">
+        {% csrf_token %}
 
-    <div class="qty-row">
-      <label for="qty" class="muted">Quantity</label>
-      <input
-        type="number"
-        id="qty"
-        name="qty"
-        value="1"
-        min="1"
-        max="{{ product.stock_quantity }}"
-        class="qty-input"
-        style="width:70px; margin-right:10px;"
-      >
-    </div>
+        <div class="qty-row">
+          <label for="qty" class="muted">Quantity</label>
+          <input
+            type="number"
+            id="qty"
+            name="qty"
+            value="1"
+            min="1"
+            max="{{ product.stock_quantity }}"
+            class="qty-input"
+            style="width:70px; margin-right:10px;"
+          >
+        </div>
 
-    <button type="submit" class="btn" style="display:block; width:100%;">
-      Add to Cart
-    </button>
-  </form>
-  
+        <button type="submit" class="btn" style="display:block; width:100%;">
+          Add to Cart
+        </button>
+      </form>
+    {% else %}
+      <a class="btn btn-primary" href="{% url 'accounts:login' %}?next={{ request.path }}">
+        Login to add to cart
+      </a>
+    {% endif %}
+
     <a class="btn" href="{% url 'marketplace:product_list' %}">Back</a>
   </div>
 
@@ -64,13 +66,4 @@
     <strong>No common allergens</strong>
   </div>
   {% endif %}
-
-  {% if user.is_authenticated %}
-    <button type="submit" class="btn btn-primary">Add to Cart</button>
-  {% else %}
-    <a class="btn btn-primary" href="{% url 'accounts:login' %}?next={{ request.path }}">
-      Login to add to cart
-    </a>
-  {% endif %}
-  </form>
 {% endblock %}

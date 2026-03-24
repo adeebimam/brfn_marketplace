@@ -5,11 +5,6 @@ from django.shortcuts import redirect, render
 from .forms import CustomerRegisterForm
 from .models import Profile
 from .forms import ProducerRegisterForm
-from django.contrib.auth import logout
-from django.shortcuts import redirect
-
-
-
 
 def producer_register_view(request):
     if request.method == "POST":

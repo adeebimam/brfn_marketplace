@@ -11,10 +11,18 @@ class CustomerRegisterForm(UserCreationForm):
     delivery_postcode = forms.CharField(max_length=20, required=True)
     phone = forms.CharField(max_length=20, required=True)
 
-
     class Meta:
         model = User
-        fields = ("email", "password1", "password2", "first_name", "last_name", "delivery_address", "delivery_postcode","phone")
+        fields = (
+            "email",
+            "password1",
+            "password2",
+            "first_name",
+            "last_name",
+            "delivery_address",
+            "delivery_postcode",
+            "phone",
+        )
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip()
@@ -51,13 +59,14 @@ class CustomerRegisterForm(UserCreationForm):
         if commit:
             user.save()
             Profile.objects.create(
-                user=user, 
+                user=user,
                 role=Profile.Role.CUSTOMER,
+                contact_first_name=first,
+                contact_last_name=last,
                 phone=self.cleaned_data["phone"].strip(),
-                delivery_address = self.cleaned_data["delivery_address"].strip(),
-                delivery_postcode = self.cleaned_data["delivery_postcode"].strip(),)
-            
-            
+                delivery_address=self.cleaned_data["delivery_address"].strip(),
+                delivery_postcode=self.cleaned_data["delivery_postcode"].strip(),
+            )
 
         return user
 
@@ -136,9 +145,9 @@ class ProducerRegisterForm(UserCreationForm):
             )
 
         return user
-    def __init__(self,*args,**kwargs):
-        super().__init__(*args,**kwargs)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.fields["email"].help_text = ""
-        self.fields["password1"].help_text = "Atleast have 8 characters"
-        self.fields["password2"].help_text = "Re-enter the password"
+        self.fields["password1"].help_text = "At least 8 characters."
+        self.fields["password2"].help_text = "Re-enter the password."

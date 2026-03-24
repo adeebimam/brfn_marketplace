@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2>Order Confirmation</h2>
+
+<p><strong>Order Number:</strong> {{ order_number }}</p>
+
+<p><strong>Delivery Address:</strong> {{ address }}</p>
+<p><strong>Delivery Date:</strong> {{ date }}</p>
+<p><strong>Payment Method:</strong> {{ payment }}</p>
+
+<hr>
+
+<h3>Order Breakdown by Producer</h3>
+
+{% for producer, items in producers.items %}
+
+<h4>{{ producer }}</h4>
+
+<ul>
+{% for item in items %}
+<li>
+{{ item.name }} (x{{ item.qty }}) - £{{ item.total }}
+</li>
+{% endfor %}
+</ul>
+
+{% endfor %}
+
+<hr>
+
+<h3>Order Summary</h3>
+
+<p>Subtotal: £{{ subtotal }}</p>
+<p>Network Commission (5%): £{{ commission }}</p>
+<p><strong>Total Paid: £{{ total }}</strong></p>
+
+<p style="color:green;">
+✔ Each producer has been notified about their portion of the order.
+</p>
+
+<h2>Thank You! Your order has been placed successfully.</h2>
+<button class="save-btn btn" onclick="window.print()">Print Order</button>
+<button class="back-btn btn" onclick="window.location.href='/'">Continue Shopping</button>
+
+
+{% endblock %}
