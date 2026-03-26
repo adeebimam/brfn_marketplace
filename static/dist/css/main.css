@@ -438,4 +438,68 @@ input:focus, select:focus, textarea:focus {
   margin-top: 8px;
 }
 
+.producer-product-form .allergen-section {
+  margin-top: 8px;
+}
+
+.producer-product-form .allergen-checkboxes {
+  width: min(100%, 760px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.allergen-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid #d7dee8;
+  border-radius: 999px;
+  background: #ffffff;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: 0;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.allergen-option:hover {
+  border-color: #1faa9f;
+  background: #f3fbfa;
+}
+
+.allergen-option input[type=checkbox] {
+  width: 16px !important;
+  height: 16px;
+  margin: 0;
+  flex: 0 0 auto;
+  accent-color: #1faa9f;
+}
+
+.allergen-option:has(input[type=checkbox]:checked) {
+  border-color: #1faa9f;
+  background: #e8f7f5;
+  box-shadow: 0 0 0 1px rgba(31, 170, 159, 0.18);
+}
+
+.allergen-option span {
+  line-height: 1.2;
+}
+
+.allergen-help-text {
+  margin: 8px 0 0;
+  color: #5f6b7a;
+  font-size: 0.92rem;
+}
+
+@media (max-width: 520px) {
+  .producer-product-form .allergen-checkboxes {
+    gap: 8px;
+  }
+  .allergen-option {
+    width: 100%;
+    border-radius: 14px;
+  }
+}
+
 /*# sourceMappingURL=main.css.map */

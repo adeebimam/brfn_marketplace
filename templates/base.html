@@ -19,10 +19,6 @@
     <nav class="nav-links">
       <a href="{% url 'marketplace:product_list' %}">Products</a>
 
-      {% if user.is_authenticated and user.profile.role == "PRODUCER" %}
-        <a href="{% url 'marketplace:producer_product_list' %}">My Products</a>
-      {% endif %}
-
       <a href="{% url 'cart:detail' %}">
         <i class="fa-solid fa-cart-shopping" style="font-size:22px;"></i>
         {% if cart_item_count > 0 %}
@@ -31,10 +27,6 @@
       </a>
 
       {% if user.is_authenticated %}
-        <span>
-          {{ request.user.username|title }},
-          <span style="color: #087d73;">({{ request.user.profile.role|title }})</span>
-        </span>
         {% if user.profile.role == "PRODUCER" %}
           <a href="{% url 'marketplace:producer_product_list' %}">My Products</a>
           <a href="{% url 'marketplace:producer_order_list' %}">Orders</a>

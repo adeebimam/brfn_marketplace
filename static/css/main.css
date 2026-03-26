@@ -98,7 +98,6 @@ body {
 }
 
 /* ---- Buttons ---- */
-/* ---- Buttons ---- */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -112,17 +111,15 @@ body {
   text-decoration: none;
   cursor: pointer;
   font-weight: 600;
-  transition: all 0.2s ease; /* Smooth transition */
+  transition: all 0.2s ease;
 }
 
-/* Use .btn.btn-logout (no space) to increase specificity */
 .btn.btn-logout {
-  background: #ef4444; /* Standard red */
+  background: #ef4444;
   border-color: #ef4444;
-  color: #ffffff; /* Changed to white for better contrast */
+  color: #ffffff;
 }
 
-/* Force the hover state to stay red/dark-red */
 .btn.btn-logout:hover {
   background: #dc2626;
   border-color: #dc2626;
@@ -148,6 +145,7 @@ label {
   display: block;
   margin-bottom: 6px;
 }
+
 
 input, select, textarea {
   width: 100%;
@@ -178,6 +176,7 @@ input:focus, select:focus, textarea:focus {
     grid-template-columns: 1fr 1fr;
   }
 }
+
 /* ---- Messages ---- */
 .alert {
   padding: 10px 12px;
@@ -196,7 +195,7 @@ input:focus, select:focus, textarea:focus {
   background: rgba(239, 68, 68, 0.08);
 }
 
-/* ---- Lists / tables-ish ---- */
+/* ---- Lists ---- */
 .list {
   list-style: none;
   padding: 0;
@@ -222,7 +221,7 @@ input:focus, select:focus, textarea:focus {
   color: #6b7280;
 }
 
-/* ---- Product page bits ---- */
+/* ---- Product ---- */
 .badge {
   display: inline-block;
   padding: 4px 10px;
@@ -230,7 +229,6 @@ input:focus, select:focus, textarea:focus {
   font-size: 12px;
   border: 1px solid #e5e7eb;
   background: #f9fafb;
-  color: #111827;
 }
 
 .price {
@@ -264,61 +262,45 @@ input:focus, select:focus, textarea:focus {
 }
 
 .save-btn:hover {
-  text-decoration: underline;
   background: #168e85;
 }
 
-.user-info{
+.user-info {
   font-weight: bold;
   color: #087d73;
 }
 
-/* Modern checkboxes for allergens */
+/* ----Allergen---- */
+
+.allergen-checkboxes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 8px 16px;
+}
+
+.allergen-checkboxes > div {
+  display: flex;
+  align-items: center;
+}
+
 .allergen-checkboxes label {
   display: flex;
   align-items: center;
-  min-width: 160px;
-  gap: 0.7em;
-  margin-bottom: 0.5em;
+  gap: 8px;
+  margin-bottom: 0;
   font-weight: 500;
-  font-size: 15px;
   cursor: pointer;
 }
 
 .allergen-checkboxes input[type="checkbox"] {
-  appearance: none;
-  width: 20px;
-  height: 20px;
-  border: 2px solid #1faa9f;
-  border-radius: 6px;
-  background: #fff;
+  width: auto;
+  flex: 0 0 auto;
   margin: 0;
-  margin-right: 6px;
-  transition: border-color 0.2s, box-shadow 0.2s;
-  position: relative;
 }
 
-.allergen-checkboxes input[type="checkbox"]:checked {
-  background: #1faa9f;
-  border-color: #1faa9f;
-}
-
-.allergen-checkboxes input[type="checkbox"]:checked::after {
-  content: "";
-  display: block;
-  position: absolute;
-  left: 6px;
-  top: 2px;
-  width: 6px;
-  height: 12px;
-  border: solid #fff;
-  border-width: 0 3px 3px 0;
-  transform: rotate(45deg);
-}
-
-.allergen-checkboxes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5em;
-  align-items: flex-start;
+/* Optional: 3 columns on larger screens */
+@media (min-width: 768px) {
+  .allergen-checkboxes {
+    grid-template-columns: repeat(3, minmax(160px, 1fr));
+  }
 }
