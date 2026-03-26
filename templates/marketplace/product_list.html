@@ -1,11 +1,32 @@
 {% extends "base.html" %}
 {% block content %}
-  <div class="card stack">
-    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
-      <h1 style="margin:0;">Products</h1>
+  <div class="card stack product-list-page">
+    <div class="products-header">
+      <h1>Products</h1>
 
-      <form method="get" style="display:flex; gap:10px; align-items:end; flex-wrap:wrap;">
-        <div>
+      <form method="get" class="product-filters" style="display:flex; gap:30px; align-items:end; flex-wrap:wrap;">
+        <div class="filter-group">
+          <label for="q">Search</label>
+          <input
+            type="text"
+            id="q"
+            name="q"
+            placeholder="Search products or allergens"
+            value="{{ query|default:'' }}"
+          >
+        </div>
+
+        <div class="filter-group">
+          <label for="selected_allergen">Allergen</label>
+          <select id="selected_allergen" name="selected_allergen">
+            <option value="">All</option>
+            {% for allergen in allergens %}
+              <option value="{{ allergen.id }}" {% if selected_allergen == allergen.id|stringformat:"s" %}selected{% endif %}>{{ allergen.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="filter-group">
           <label for="category">Category</label>
           <select id="category" name="category">
             <option value="">All</option>
@@ -16,34 +37,61 @@
             {% endfor %}
           </select>
         </div>
-        <button class="btn" type="submit">Apply</button>
+
+        <div class="filter-group">
+          <label for="season">Season</label>
+          <select id="season" name="season">
+            <option value="">All</option>
+            {% for value, label in seasons %}
+              <option value="{{ value }}" {% if selected_season == value %}selected{% endif %}>
+                {{ label }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <button class="non-primary-btn btn" type="submit">Apply</button>
       </form>
     </div>
 
-    <ul class="list">
+    <br>
+
+    <ul class="list product-results">
       {% for p in products %}
-      <li>
-        <div>
-          <a class="product-link" href="{% url 'marketplace:product_detail' p.pk %}">
-            <strong>{{ p.name }}</strong>
-          </a>
+        <li class="product-card">
+          <div>
+            <a class="product-link" href="{% url 'marketplace:product_detail' p.pk %}">
+              <strong>{{ p.name }}</strong>
+            </a>
+            <br>
+            {% if p.category %}
+              <span class="item-info">{{ p.category.name }}</span>
+            {% endif %}
+            {% if p.category and p.season %}
+              <span class="dot-separator">&bull;</span>
+            {% endif %}
+            {% if p.season %}
+              <span class="item-info" >{{ p.get_season_display }}</span>
+            {% endif %}
 
-          {% if p.category %}
-            <span class="badge">{{ p.category.name }}</span>
-          {% endif %}
+            <div class="muted" style="margin-top: 20px;">
+              Sold by: <strong>{{ p.producer.username }}</strong>
+            </div>
 
-          <div class="muted">
-            Sold by: <strong>{{ p.producer.username }}</strong>
+            <div class="muted">
+              {{ p.description|truncatechars:80 }}
+            </div>
+
+            <div class="price" style="margin-top: 20px;">£{{ p.price }}</div>
+
+            <form action="{% url 'cart:add' p.id %}" method="post" style="margin-top:10px;">
+              {% csrf_token %}
+              <button type="submit" class="non-primary-btn btn">
+                Add to Cart
+              </button>
+            </form>
           </div>
-
-          <div class="muted">
-            {{ p.description|truncatechars:80 }}
-          </div>
-        </div>
-
-        <div class="price">£{{ p.price }}</div>
-      </li>
-
+        </li>
       {% empty %}
         <li>No products found.</li>
       {% endfor %}

@@ -1,6 +1,73 @@
 from django.contrib import admin
-from .models import Category, Product
-# Register your models here.
+from django import forms
+from .models import (
+    Allergen, Category, Product,
+    Order, ProducerOrder, OrderItem, ProducerOrderStatusHistory,
+)
+
+
+class ProductAdminForm(forms.ModelForm):
+    class Meta:
+        model = Product
+        fields = "__all__"
+        widgets = {
+            "allergens": forms.CheckboxSelectMultiple(),
+        }
+
+
+class ProductAdmin(admin.ModelAdmin):
+    form = ProductAdminForm
+
+
+class OrderItemInline(admin.TabularInline):
+    model = OrderItem
+    extra = 0
+    readonly_fields = ("product", "quantity", "unit_price")
+
+
+class ProducerOrderInline(admin.TabularInline):
+    model = ProducerOrder
+    extra = 0
+    readonly_fields = ("producer", "delivery_date", "status", "total_value")
+    show_change_link = True
+
+
+class StatusHistoryInline(admin.TabularInline):
+    model = ProducerOrderStatusHistory
+    extra = 0
+    readonly_fields = ("old_status", "new_status", "note", "changed_by", "changed_at")
+
+
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    list_display = ("id", "customer", "created_at", "delivery_address")
+    list_filter = ("created_at",)
+    search_fields = ("customer__username", "delivery_address")
+    inlines = [ProducerOrderInline]
+
+
+@admin.register(ProducerOrder)
+class ProducerOrderAdmin(admin.ModelAdmin):
+    list_display = ("id", "order", "producer", "status", "delivery_date", "total_value")
+    list_filter = ("status", "delivery_date")
+    search_fields = ("producer__username", "order__id")
+    list_editable = ("status",)
+    inlines = [OrderItemInline, StatusHistoryInline]
+
+
+@admin.register(OrderItem)
+class OrderItemAdmin(admin.ModelAdmin):
+    list_display = ("id", "producer_order", "product", "quantity", "unit_price")
+    search_fields = ("product__name",)
+
+
+@admin.register(ProducerOrderStatusHistory)
+class ProducerOrderStatusHistoryAdmin(admin.ModelAdmin):
+    list_display = ("producer_order", "old_status", "new_status", "changed_by", "changed_at")
+    list_filter = ("new_status", "changed_at")
+    readonly_fields = ("producer_order", "old_status", "new_status", "note", "changed_by", "changed_at")
+
 
 admin.site.register(Category)
-admin.site.register(Product)
+admin.site.register(Allergen)
+admin.site.register(Product, ProductAdmin)

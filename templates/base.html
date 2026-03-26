@@ -1,49 +1,73 @@
 {% load static %}
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>BRFN Marketplace</title>
+
   <link rel="stylesheet" href="{% static 'dist/css/main.css' %}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 </head>
+
 <body>
 
-  <header class="nav">
-    <div class="nav-inner">
-      <a class="brand" href="{% url 'home' %}">BRFN Marketplace</a>
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="{% url 'home' %}">BRFN Marketplace</a>
 
-      <nav class="nav-links">
-        <a href="{% url 'marketplace:product_list' %}">Products</a>
+    <nav class="nav-links">
+      <a href="{% url 'marketplace:product_list' %}">Products</a>
 
-        {% if user.is_authenticated %}
-          {{ request.user.username|title }},<span style="color: #087d73;">({{ request.user.profile.role|title }})</span>
-          {% if user.profile.role == "PRODUCER" %}
-            <a href="{% url 'marketplace:producer_product_list' %}">My Products</a>
-          {% endif %}
-          <a class="btn" href="{% url 'accounts:logout' %}">Logout</a>
-        {% else %}
-          <a href="{% url 'accounts:login' %}">Login</a>
-          <a class="btn btn-primary" href="{% url 'accounts:register' %}">Register</a>
+      <a href="{% url 'cart:detail' %}">
+        <i class="fa-solid fa-cart-shopping" style="font-size:22px;"></i>
+        {% if cart_item_count > 0 %}
+          ({{ cart_item_count }})
         {% endif %}
-      </nav>
+      </a>
+
+      {% if user.is_authenticated %}
+        {% if user.profile.role == "PRODUCER" %}
+          <a href="{% url 'marketplace:producer_product_list' %}">My Products</a>
+          <a href="{% url 'marketplace:producer_order_list' %}">Orders</a>
+          <a href="{% url 'marketplace:producer_payments' %}">Payments</a>
+        {% endif %}
+        <a class="btn" href="{% url 'accounts:logout' %}">Logout</a>
+      {% else %}
+        <a href="{% url 'accounts:login' %}">Login</a>
+        <a class="btn btn-primary" href="{% url 'accounts:register' %}">Register</a>
+      {% endif %}
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  {% if user.is_authenticated %}
+    <div class="user-info">
+      {% if request.user.profile.role == "PRODUCER" %}
+        Welcome back, {{ request.user.profile.business_name|title }}!
+        <span style="color: #087d73;">({{ request.user.profile.role|title }})</span>
+      {% else %}
+        Welcome back, {{ request.user.profile.contact_first_name|title }} {{ request.user.profile.contact_last_name|title }}!
+        <span style="color: #087d73;">({{ request.user.profile.role|title }})</span>
+      {% endif %}
     </div>
-  </header>
+    <br>
+  {% endif %}
 
-  <main class="container">
-    {% if messages %}
-      <div class="stack">
-        {% for message in messages %}
-          <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
-            {{ message }}
-          </div>
-        {% endfor %}
-      </div>
-      <div style="height: 12px;"></div>
-    {% endif %}
+  {% if messages %}
+    <div class="stack">
+      {% for message in messages %}
+        <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    </div>
+    <div style="height: 12px;"></div>
+  {% endif %}
 
-    {% block content %}{% endblock %}
-  </main>
+  {% block content %}{% endblock %}
+</main>
 
 </body>
 </html>

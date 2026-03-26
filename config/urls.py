@@ -26,6 +26,7 @@ urlpatterns = [
 
     # Marketplace routes
     path("", include("apps.marketplace.urls")),
-
+    
+    path("orders/", include("orders.urls")),
     
 ]

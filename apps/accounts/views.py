@@ -61,6 +61,8 @@ def profile_view(request):
     profile, _ = Profile.objects.get_or_create(user=request.user)
     return render(request, "accounts/profile.html", {"profile": profile})
 
+
+ #CART 
 def logout_view(request):
     logout(request)
     return redirect("accounts:login")
