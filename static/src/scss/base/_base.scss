@@ -124,6 +124,27 @@ body {
 /* Use .btn.btn-logout (no space) to increase specificity */
 
 
+/* Force the hover state to stay red/dark-red */
+.btn.btn-logout:hover { 
+  background: #dc2626; 
+  border-color: #dc2626;
+  color: #ffffff;
+  filter: brightness(0.9); 
+}
+
+.btn.btn-primary {
+  background: #1faa9f;
+  border-color: #1faa9f;
+  color: #ffffff;
+}
+
+.btn.btn-primary:hover { 
+  background: #168e85;
+  border-color: #168e85;
+  filter: brightness(0.9); 
+}
+
+.btn:hover { background: #f9fafb; }
 .btn-primary {
   background: #1faa9f;
   border-color: #1faa9f;

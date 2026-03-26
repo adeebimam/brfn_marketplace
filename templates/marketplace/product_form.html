@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
   <h1>{% if mode == "create" %}Create{% else %}Edit{% endif %} Product</h1>
-  <form method="post">
+  <form method="post" class="producer-product-form">
     {% csrf_token %}
     {{ form.non_field_errors }}
     {{ form.category.label_tag }} {{ form.category }}<br><br>
