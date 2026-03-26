@@ -10,10 +10,50 @@
     {{ form.price.label_tag }} {{ form.price }}<br><br>
     {{ form.stock_quantity.label_tag }} {{ form.stock_quantity }}<br><br>
     {{ form.not_available.label_tag }} {{ form.not_available }}<br><br>
-    {{ form.season.label_tag }} {{ form.season }}<br><br>
-    {{ form.allergens.label_tag }} {{ form.allergens }}<br><br>
-    {{ form.other_allergen_info.label_tag }} {{ form.other_allergen_info }}<br><br>
+
+    <fieldset style="border:1px solid #ddd; padding:1rem; border-radius:8px; margin-bottom:1rem;">
+      <legend style="font-weight:600; padding:0 0.5rem;">Seasonal Availability</legend>
+      <div style="margin-bottom:0.75rem;">
+        {{ form.season.label_tag }} {{ form.season }}
+      </div>
+      <div id="seasonal-months" style="display:flex; gap:1rem; flex-wrap:wrap;">
+        <div>
+          {{ form.available_from_month.label_tag }} {{ form.available_from_month }}
+        </div>
+        <div>
+          {{ form.available_to_month.label_tag }} {{ form.available_to_month }}
+        </div>
+      </div>
+      <p class="muted" style="font-size:0.85rem; margin-top:0.5rem;">
+        Select "All Season" for year-round products. For seasonal products, choose a season and set the month range.
+      </p>
+    </fieldset>
+
+    <fieldset class="allergen-fieldset" style="border:1px solid #ddd; padding:1rem; border-radius:8px; margin-bottom:1rem;">
+      <legend style="font-weight:600; padding:0 0.5rem;">Allergen Information <span class="muted" style="font-weight:400; font-size:0.85rem;">(optional)</span></legend>
+      <div>
+        <label for="id_other_allergen_info">Additional allergen details</label>
+        {{ form.other_allergen_info }}
+      </div>
+    </fieldset>
     <button class="save-btn btn" type="submit">Save</button>
     <button class="back-btn btn" type="button" onclick="window.history.back();">Back</button>
   </form>
+
+  <script>
+    // Show/hide month fields based on season selection
+    const seasonField = document.getElementById('id_season');
+    const monthsDiv = document.getElementById('seasonal-months');
+
+    function toggleMonths() {
+      if (seasonField.value === 'ALL' || seasonField.value === '') {
+        monthsDiv.style.display = 'none';
+      } else {
+        monthsDiv.style.display = 'flex';
+      }
+    }
+
+    seasonField.addEventListener('change', toggleMonths);
+    toggleMonths(); // run on page load
+  </script>
 {% endblock %}

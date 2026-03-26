@@ -170,6 +170,16 @@ input, select, textarea {
   font-size: 14px;
 }
 
+/* Prevent global input styles from breaking checkboxes & radios */
+input[type=checkbox],
+input[type=radio] {
+  width: auto;
+  padding: 0;
+  border-radius: 0;
+  border: revert;
+  background: revert;
+}
+
 textarea {
   min-height: 110px;
 }
@@ -445,6 +455,69 @@ span.helptext {
   color: #6b7280;
   font-size: 0.85rem;
   margin-top: 2px;
+}
+
+.allergen-checkboxes > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em 1.5em;
+  align-items: flex-start;
+}
+.allergen-checkboxes > div > div {
+  flex: 0 0 auto;
+}
+.allergen-checkboxes label {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.5em;
+  min-width: 140px;
+  font-weight: 500;
+  font-size: 15px;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-bottom: 0;
+}
+.allergen-checkboxes input[type=checkbox] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px !important;
+  height: 20px;
+  min-width: 20px;
+  border: 2px solid #1faa9f !important;
+  border-radius: 6px !important;
+  background: #fff;
+  padding: 0 !important;
+  margin: 0;
+  cursor: pointer;
+  position: relative;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+.allergen-checkboxes input[type=checkbox]:hover {
+  border-color: #168e85;
+  box-shadow: 0 0 0 3px rgba(31, 170, 159, 0.15);
+}
+.allergen-checkboxes input[type=checkbox]:focus {
+  box-shadow: 0 0 0 3px rgba(31, 170, 159, 0.25);
+}
+.allergen-checkboxes input[type=checkbox]:checked {
+  background: #1faa9f;
+  border-color: #1faa9f !important;
+}
+.allergen-checkboxes input[type=checkbox]:checked::after {
+  content: "";
+  display: block;
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 6px;
+  height: 12px;
+  border: solid #fff;
+  border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg);
+}
+
+.allergen-fieldset legend {
+  font-weight: 600;
 }
 
 /*# sourceMappingURL=main.css.map */

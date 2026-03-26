@@ -14,7 +14,7 @@ from django.utils import timezone
 from apps.accounts.models import Profile
 from .forms import CheckoutForm, ProductForm, ProducerOrderStatusForm
 from .models import (
-    Allergen, Category, Product,
+    Allergen, Category, Product, MONTH_NAMES,
     ProducerOrder, ProducerOrderStatusHistory,
 )
 
@@ -78,6 +78,16 @@ def product_list(request):
     if selected_allergen:
         products = products.filter(allergens__id=selected_allergen)
 
+    # Auto-hide out-of-season products (date-based filtering)
+    today = date.today()
+    current_month = today.month
+    # Keep products that are year-round (ALL or no months set) OR currently in season
+    products = [p for p in products if p.is_in_season(today)]
+
+    # Annotate each product with season status for template use
+    for p in products:
+        p.in_season_now = p.is_in_season(today)
+
     context = {
         "products": products,
         "categories": categories,
@@ -88,6 +98,7 @@ def product_list(request):
         "query": query,
         "allergen_filter": allergen_filter,
         "selected_allergen": selected_allergen,
+        "current_month": current_month,
     }
     return render(request, "marketplace/product_list.html", context)
 
@@ -101,12 +112,16 @@ def product_detail(request, pk):
         Product.objects.select_related("category", "producer").prefetch_related("allergens"),
         pk=pk
     )
-    # If the product is not available or out of stock, only the producer can view it
-    if (not product.is_active or product.stock_quantity <= 0):
+    # If the product is not available, out of stock, or out of season — only the producer can view
+    if (not product.is_active or product.stock_quantity <= 0 or not product.is_in_season()):
         if request.user != product.producer:
             from django.http import Http404
             raise Http404("This product is not currently available.")
-    return render(request, "marketplace/product_detail.html", {"product": product})
+
+    return render(request, "marketplace/product_detail.html", {
+        "product": product,
+        "is_in_season": product.is_in_season(),
+    })
 
 
 # -----------------------------

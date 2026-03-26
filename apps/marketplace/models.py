@@ -1,7 +1,16 @@
 from django.conf import settings
 from django.db import models
 from django.core.exceptions import ValidationError
-from datetime import timedelta
+from datetime import timedelta, date
+
+MONTH_CHOICES = [
+    (1, "January"), (2, "February"), (3, "March"),
+    (4, "April"), (5, "May"), (6, "June"),
+    (7, "July"), (8, "August"), (9, "September"),
+    (10, "October"), (11, "November"), (12, "December"),
+]
+
+MONTH_NAMES = dict(MONTH_CHOICES)
 
 
 class Category(models.Model):
@@ -9,6 +18,9 @@ class Category(models.Model):
 
     class Meta:
         verbose_name_plural = "Categories"
+
+    def __str__(self):
+        return self.name
 
 class Allergen(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -43,6 +55,70 @@ class Product(models.Model):
         default="ALL"
     )
 
+    # ── Seasonal date-range fields ────────────────────────
+    available_from_month = models.PositiveSmallIntegerField(
+        choices=MONTH_CHOICES, null=True, blank=True,
+        help_text="Month when this product comes into season (leave blank for year-round).",
+    )
+    available_to_month = models.PositiveSmallIntegerField(
+        choices=MONTH_CHOICES, null=True, blank=True,
+        help_text="Last month this product is in season (leave blank for year-round).",
+    )
+
+    # ── Computed helpers ──────────────────────────────────
+    @property
+    def is_year_round(self):
+        """True when no seasonal month range is set (or season is ALL)."""
+        return (
+            self.season == "ALL"
+            or (self.available_from_month is None and self.available_to_month is None)
+        )
+
+    def is_in_season(self, ref_date=None):
+        """
+        Return True if the product is currently in season.
+        Year-round products are always in season.
+        Handles ranges that wrap around the year (e.g. Nov-Feb).
+        """
+        if self.is_year_round:
+            return True
+        if self.available_from_month is None or self.available_to_month is None:
+            return True  # incomplete range → treat as available
+
+        if ref_date is None:
+            ref_date = date.today()
+        month = ref_date.month
+
+        if self.available_from_month <= self.available_to_month:
+            # Simple range, e.g. June (6) – August (8)
+            return self.available_from_month <= month <= self.available_to_month
+        else:
+            # Wraps around year-end, e.g. November (11) – February (2)
+            return month >= self.available_from_month or month <= self.available_to_month
+
+    @property
+    def season_label(self):
+        """
+        Human-readable season string.
+        • Year-round → "Available Year-Round"
+        • Seasonal  → "June – August"
+        """
+        if self.is_year_round:
+            return "Available Year-Round"
+        if self.available_from_month and self.available_to_month:
+            return f"{MONTH_NAMES[self.available_from_month]} – {MONTH_NAMES[self.available_to_month]}"
+        return self.get_season_display()
+
+    def clean(self):
+        super().clean()
+        if self.season != "ALL":
+            # If a season is picked but months are blank, auto-fill them
+            if self.available_from_month is None or self.available_to_month is None:
+                return  # will be filled by the form/save
+        if (self.available_from_month is None) != (self.available_to_month is None):
+            raise ValidationError(
+                "You must set both 'Available from' and 'Available to' months, or leave both blank."
+            )
 
     def __str__(self):
         return self.name

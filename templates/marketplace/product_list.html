@@ -63,6 +63,16 @@
             <a class="product-link" href="{% url 'marketplace:product_detail' p.pk %}">
               <strong>{{ p.name }}</strong>
             </a>
+
+            {# ── Seasonal badges ── #}
+            {% if p.is_year_round %}
+              {# Year-round: no seasonal badge needed #}
+            {% elif p.in_season_now %}
+              <span style="display:inline-block; margin-left:0.4rem; font-size:0.8rem; color:#15803d; background:#dcfce7; padding:2px 8px; border-radius:4px; font-weight:600;">
+                🌿 In Season
+              </span>
+            {% endif %}
+
             <br>
             {% if p.category %}
               <span class="item-info">{{ p.category.name }}</span>
@@ -71,7 +81,7 @@
               <span class="dot-separator">&bull;</span>
             {% endif %}
             {% if p.season %}
-              <span class="item-info" >{{ p.get_season_display }}</span>
+              <span class="item-info">{{ p.season_label }}</span>
             {% endif %}
 
             <div class="muted" style="margin-top: 20px;">

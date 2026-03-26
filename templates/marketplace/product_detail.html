@@ -12,6 +12,20 @@
       {% endif %}
     </div>
 
+    {# ── Seasonal indicator ── #}
+    {% if product.is_year_round %}
+      <p style="color:#6b7280; font-size:0.9rem;">Available Year-Round</p>
+    {% elif product.is_in_season %}
+      <p style="font-size:0.9rem;">
+        <span style="display:inline-block; color:#15803d; background:#dcfce7; padding:2px 10px; border-radius:4px; font-weight:600;">
+          🌿 In Season
+        </span>
+        <span style="color:#6b7280; margin-left:0.5rem;">
+          Available: {{ product.season_label }}
+        </span>
+      </p>
+    {% endif %}
+
     <p class="muted">
       Sold by: <strong>{{ product.producer.username }}</strong>
     </p>

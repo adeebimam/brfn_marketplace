@@ -1,6 +1,6 @@
 from django import forms
 from datetime import date, timedelta
-from .models import Product, Allergen, ProducerOrder
+from .models import Product, ProducerOrder, MONTH_CHOICES
 
 class ProductForm(forms.ModelForm):
     # Virtual field: ticking "Not available" sets is_active=False
@@ -8,12 +8,17 @@ class ProductForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["allergens"].queryset = Allergen.objects.all()
-        self.fields["allergens"].widget = forms.CheckboxSelectMultiple()
-        self.fields["allergens"].help_text = "Tick all that apply. Leave all unticked if no allergens."
         # Pre-populate: if is_active is False, tick "Not available"
         if self.instance and self.instance.pk:
             self.fields["not_available"].initial = not self.instance.is_active
+
+        # Friendly labels for seasonal fields
+        self.fields["available_from_month"].label = "In season from"
+        self.fields["available_to_month"].label = "In season to"
+
+        # Make month fields optional with blank option
+        self.fields["available_from_month"].required = False
+        self.fields["available_to_month"].required = False
 
     class Meta:
         model = Product
@@ -23,11 +28,11 @@ class ProductForm(forms.ModelForm):
                   "price", 
                   "stock_quantity", 
                   "season",
-                  "allergens",  # Added allergens field
-                  "other_allergen_info",  # Added other allergen info field
+                  "available_from_month",
+                  "available_to_month",
+                  "other_allergen_info",
                   ]
         widgets = {
-            # 'allergens' widget is overridden in __init__
             "other_allergen_info": forms.Textarea(
                 attrs={
                     "rows": 3,
@@ -35,6 +40,32 @@ class ProductForm(forms.ModelForm):
                 }
             ),
         }
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        season = cleaned_data.get("season")
+        from_month = cleaned_data.get("available_from_month")
+        to_month = cleaned_data.get("available_to_month")
+
+        # If season is not ALL, require both month fields
+        if season and season != "ALL":
+            if not from_month or not to_month:
+                raise forms.ValidationError(
+                    "Please select both 'In season from' and 'In season to' months for seasonal products."
+                )
+        # If ALL, clear month fields
+        if season == "ALL":
+            cleaned_data["available_from_month"] = None
+            cleaned_data["available_to_month"] = None
+
+        # If one month is set the other must be too
+        if (from_month and not to_month) or (to_month and not from_month):
+            raise forms.ValidationError(
+                "Please set both 'In season from' and 'In season to', or leave both blank for year-round."
+            )
+
+        return cleaned_data
 
     def save(self, commit=True):
         product = super().save(commit=False)
@@ -44,19 +75,6 @@ class ProductForm(forms.ModelForm):
             product.save()
             self.save_m2m()
         return product
-    def clean(self):
-        cleaned_data = super().clean()
-        allergens = cleaned_data.get("allergens")
-        other_allergen_info = cleaned_data.get("other_allergen_info")
-        category = cleaned_data.get("category")
-
-        if category and category.name.lower() in ["bakery", "dairy", "food", "produce"]:
-            if (not allergens or len(allergens) == 0) and not other_allergen_info:
-                raise forms.ValidationError(
-                    "Allergen information must be provided for food products."
-                )
-
-        return cleaned_data
 
 class CheckoutForm(forms.Form):
 

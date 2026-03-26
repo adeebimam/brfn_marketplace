@@ -147,6 +147,15 @@ input, select, textarea {
   background: #ffffff;
   font-size: 14px;
 }
+/* Prevent global input styles from breaking checkboxes & radios */
+input[type="checkbox"],
+input[type="radio"] {
+  width: auto;
+  padding: 0;
+  border-radius: 0;
+  border: revert;
+  background: revert;
+}
 textarea { min-height: 110px; }
 input:focus, select:focus, textarea:focus {
   outline: none;
