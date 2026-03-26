@@ -3,11 +3,18 @@ from datetime import date, timedelta
 from .models import Product, Allergen, ProducerOrder
 
 class ProductForm(forms.ModelForm):
+    # Virtual field: ticking "Not available" sets is_active=False
+    not_available = forms.BooleanField(required=False, label="Not available")
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["allergens"].queryset = Allergen.objects.all()
         self.fields["allergens"].widget = forms.CheckboxSelectMultiple()
         self.fields["allergens"].help_text = "Tick all that apply. Leave all unticked if no allergens."
+        # Pre-populate: if is_active is False, tick "Not available"
+        if self.instance and self.instance.pk:
+            self.fields["not_available"].initial = not self.instance.is_active
+
     class Meta:
         model = Product
         fields = ["category", 
@@ -15,7 +22,6 @@ class ProductForm(forms.ModelForm):
                   "description", 
                   "price", 
                   "stock_quantity", 
-                  "is_active",
                   "season",
                   "allergens",  # Added allergens field
                   "other_allergen_info",  # Added other allergen info field
@@ -29,6 +35,15 @@ class ProductForm(forms.ModelForm):
                 }
             ),
         }
+
+    def save(self, commit=True):
+        product = super().save(commit=False)
+        # Invert: "Not available" checked → is_active = False
+        product.is_active = not self.cleaned_data.get("not_available", False)
+        if commit:
+            product.save()
+            self.save_m2m()
+        return product
     def clean(self):
         cleaned_data = super().clean()
         allergens = cleaned_data.get("allergens")

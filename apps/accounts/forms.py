@@ -4,9 +4,32 @@ from django.contrib.auth.models import User
 from .models import Profile
 
 class CustomerRegisterForm(UserCreationForm):
+    ACCOUNT_TYPE_CHOICES = [
+        (Profile.Role.CUSTOMER, "Customer"),
+        (Profile.Role.COMMUNITY_GROUP, "Community Group"),
+        (Profile.Role.RESTAURANT, "Restaurant / Café"),
+    ]
+
     email = forms.EmailField(required=True)
+    account_type = forms.ChoiceField(
+        choices=ACCOUNT_TYPE_CHOICES,
+        initial=Profile.Role.CUSTOMER,
+        widget=forms.RadioSelect,
+        label="Account type",
+    )
     first_name = forms.CharField(max_length=150, required=True)
     last_name = forms.CharField(max_length=150, required=True)
+    business_name = forms.CharField(
+        max_length=255,
+        required=False,
+        label="Organisation / Business name",
+        help_text="Required for Community Groups and Restaurants / Cafés.",
+    )
+    business_type = forms.ChoiceField(
+        choices=[("", "– Select type –")] + list(Profile.BusinessType.choices),
+        required=False,
+        label="Type of establishment",
+    )
     delivery_address = forms.CharField(widget=forms.Textarea, required=True)
     delivery_postcode = forms.CharField(max_length=20, required=True)
     phone = forms.CharField(max_length=20, required=True)
@@ -15,10 +38,13 @@ class CustomerRegisterForm(UserCreationForm):
         model = User
         fields = (
             "email",
+            "account_type",
             "password1",
             "password2",
             "first_name",
             "last_name",
+            "business_name",
+            "business_type",
             "delivery_address",
             "delivery_postcode",
             "phone",
@@ -30,18 +56,41 @@ class CustomerRegisterForm(UserCreationForm):
             raise forms.ValidationError("An account with this email already exists.")
         return email
 
+    def clean(self):
+        cleaned = super().clean()
+        acct = cleaned.get("account_type", Profile.Role.CUSTOMER)
+        bname = (cleaned.get("business_name") or "").strip()
+        btype = cleaned.get("business_type", "")
+
+        if acct in (Profile.Role.COMMUNITY_GROUP, Profile.Role.RESTAURANT) and not bname:
+            self.add_error(
+                "business_name",
+                "Organisation / Business name is required for this account type.",
+            )
+
+        if acct == Profile.Role.RESTAURANT and not btype:
+            self.add_error(
+                "business_type",
+                "Please select your type of establishment.",
+            )
+
+        return cleaned
+
     def save(self, commit=True):
         user = super().save(commit=False)
 
         email = self.cleaned_data["email"].strip()
         first = self.cleaned_data["first_name"].strip()
         last = self.cleaned_data["last_name"].strip()
+        role = self.cleaned_data["account_type"]
+        bname = (self.cleaned_data.get("business_name") or "").strip()
+        btype = self.cleaned_data.get("business_type", "") if role == Profile.Role.RESTAURANT else ""
 
         # Username from first+last (internal only)
         base = f"{first}{last}".lower().replace(" ", "")
         base = "".join(ch for ch in base if ch.isalnum() or ch in ("_", "-"))
         if not base:
-            base = "customer"
+            base = "user"
 
         base = base[:140]
         username = base
@@ -60,7 +109,9 @@ class CustomerRegisterForm(UserCreationForm):
             user.save()
             Profile.objects.create(
                 user=user,
-                role=Profile.Role.CUSTOMER,
+                role=role,
+                business_name=bname,
+                business_type=btype,
                 contact_first_name=first,
                 contact_last_name=last,
                 phone=self.cleaned_data["phone"].strip(),

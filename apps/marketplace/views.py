@@ -36,7 +36,12 @@ def _require_producer(request):
 # ----------------------------
 
 def product_list(request):
-    products = Product.objects.all().select_related("category", "producer").prefetch_related("allergens")
+    # Only show products where stock > 0 AND is_active (not marked "Not available")
+    products = (
+        Product.objects.filter(is_active=True, stock_quantity__gt=0)
+        .select_related("category", "producer")
+        .prefetch_related("allergens")
+    )
     categories = Category.objects.order_by("name")
     allergens = Allergen.objects.order_by("name")
 
@@ -96,6 +101,11 @@ def product_detail(request, pk):
         Product.objects.select_related("category", "producer").prefetch_related("allergens"),
         pk=pk
     )
+    # If the product is not available or out of stock, only the producer can view it
+    if (not product.is_active or product.stock_quantity <= 0):
+        if request.user != product.producer:
+            from django.http import Http404
+            raise Http404("This product is not currently available.")
     return render(request, "marketplace/product_detail.html", {"product": product})
 
 
