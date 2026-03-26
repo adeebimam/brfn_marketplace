@@ -17,12 +17,18 @@
         </div>
 
         <div class="filter-group">
-          <label for="selected_allergen">Allergen</label>
-          <select id="selected_allergen" name="selected_allergen">
-            <option value="">All</option>
-            {% for allergen in allergens %}
-              <option value="{{ allergen.id }}" {% if selected_allergen == allergen.id|stringformat:"s" %}selected{% endif %}>{{ allergen.name }}</option>
-            {% endfor %}
+          <label for="allergen_filter">Allergen Filter</label>
+          <select id="allergen_filter" name="allergen_filter">
+            <option value="">All products</option>
+            <option value="with" {% if allergen_filter == "with" %}selected{% endif %}>Contains allergens</option>
+            <option value="without" {% if allergen_filter == "without" %}selected{% endif %}>No common allergens</option>
+            <optgroup label="── Filter by specific allergen ──">
+              {% for allergen in allergens %}
+                <option value="specific_{{ allergen.id }}" {% if allergen_filter == "specific_"|add:allergen.id|stringformat:"s" %}selected{% endif %}>
+                  {{ allergen.name }}
+                </option>
+              {% endfor %}
+            </optgroup>
           </select>
         </div>
 
@@ -71,7 +77,11 @@
               <span class="dot-separator">&bull;</span>
             {% endif %}
             {% if p.season %}
-              <span class="item-info" >{{ p.get_season_display }}</span>
+              <span class="item-info">{{ p.get_season_display }}</span>
+            {% endif %}
+
+            {% if p.season %}
+              <span class="badge">{{ p.get_season_display }}</span>
             {% endif %}
 
             <div class="muted" style="margin-top: 20px;">
@@ -82,14 +92,24 @@
               {{ p.description|truncatechars:80 }}
             </div>
 
-            <div class="price" style="margin-top: 20px;">£{{ p.price }}</div>
-
-            <form action="{% url 'cart:add' p.id %}" method="post" style="margin-top:10px;">
-              {% csrf_token %}
-              <button type="submit" class="non-primary-btn btn">
-                Add to Cart
-              </button>
-            </form>
+            {# ALLERGENS #}
+            {% if p.allergens.exists or p.other_allergen_info %}
+              <div class="allergen-warning allergen-warning--compact">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span>
+                  {% for allergen in p.allergens.all %}
+                    <span class="allergen-tag">{{ allergen.name }}</span>
+                  {% endfor %}
+                  {% if p.other_allergen_info %}
+                    <span class="allergen-tag allergen-other">{{ p.other_allergen_info }}</span>
+                  {% endif %}
+                </span>
+              </div>
+            {% else %}
+              <div class="allergen-safe allergen-safe--compact">
+                <i class="fa-solid fa-circle-check"></i> No common allergens declared
+              </div>
+            {% endif %}
           </div>
         </li>
       {% empty %}

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
   <h1>{% if mode == "create" %}Create{% else %}Edit{% endif %} Product</h1>
-  <form method="post">
+  <form method="post" class="producer-product-form">
     {% csrf_token %}
     {{ form.non_field_errors }}
     {{ form.category.label_tag }} {{ form.category }}<br><br>
@@ -11,8 +11,21 @@
     {{ form.stock_quantity.label_tag }} {{ form.stock_quantity }}<br><br>
     {{ form.not_available.label_tag }} {{ form.not_available }}<br><br>
     {{ form.season.label_tag }} {{ form.season }}<br><br>
-    {{ form.allergens.label_tag }} {{ form.allergens }}<br><br>
-    {{ form.other_allergen_info.label_tag }} {{ form.other_allergen_info }}<br><br>
+    <div class="allergen-section">
+      {{ form.allergens.label_tag }}
+      <div class="allergen-checkboxes" role="group" aria-label="Allergens">
+        {% for checkbox in form.allergens %}
+          <label class="allergen-option" for="{{ checkbox.id_for_label }}">
+            {{ checkbox.tag }}
+            <span>{{ checkbox.choice_label }}</span>
+          </label>
+        {% endfor %}
+      </div>
+    </div>
+    {% if form.allergens.help_text %}
+      <p class="allergen-help-text">{{ form.allergens.help_text }}</p>
+    {% endif %}
+    <br>
     <button class="save-btn btn" type="submit">Save</button>
     <button class="back-btn btn" type="button" onclick="window.history.back();">Back</button>
   </form>
