@@ -1,0 +1,1146 @@
+[
+  {
+    "model": "auth.user",
+    "pk": 1,
+    "fields": {
+      "password": "pbkdf2_sha256$1000000$brfnsalt1234$eG+VFGUKcH/IVDUSHRNEeVW/wesdDUqGUn8JYGWwhJA=",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "jane_smith",
+      "first_name": "Jane",
+      "last_name": "Smith",
+      "email": "jane.smith@bristolvalleyfarm.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2026-03-01T09:00:00Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": 2,
+    "fields": {
+      "password": "pbkdf2_sha256$1000000$brfnsalt1234$eG+VFGUKcH/IVDUSHRNEeVW/wesdDUqGUn8JYGWwhJA=",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "hillside_dairy",
+      "first_name": "Hillside",
+      "last_name": "Dairy",
+      "email": "orders@hillsidedairy.co.uk",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2026-03-01T09:00:00Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": 3,
+    "fields": {
+      "password": "pbkdf2_sha256$1000000$brfnsalt1234$eG+VFGUKcH/IVDUSHRNEeVW/wesdDUqGUn8JYGWwhJA=",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "avon_bakery",
+      "first_name": "Avon",
+      "last_name": "Bakery",
+      "email": "contact@avonbakery.co.uk",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2026-03-01T09:00:00Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": 4,
+    "fields": {
+      "password": "pbkdf2_sha256$1000000$brfnsalt1234$eG+VFGUKcH/IVDUSHRNEeVW/wesdDUqGUn8JYGWwhJA=",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "severn_orchards",
+      "first_name": "Severn",
+      "last_name": "Orchards",
+      "email": "hello@severnorchards.co.uk",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2026-03-01T09:00:00Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": 5,
+    "fields": {
+      "password": "pbkdf2_sha256$1000000$brfnsalt1234$eG+VFGUKcH/IVDUSHRNEeVW/wesdDUqGUn8JYGWwhJA=",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "robert_johnson",
+      "first_name": "Robert",
+      "last_name": "Johnson",
+      "email": "robert.johnson@email.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2026-03-01T09:00:00Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": 6,
+    "fields": {
+      "password": "pbkdf2_sha256$1000000$brfnsalt1234$eG+VFGUKcH/IVDUSHRNEeVW/wesdDUqGUn8JYGWwhJA=",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "sarah_williams",
+      "first_name": "Sarah",
+      "last_name": "Williams",
+      "email": "sarah.williams@email.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2026-03-01T09:00:00Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": 7,
+    "fields": {
+      "password": "pbkdf2_sha256$1000000$brfnsalt1234$eG+VFGUKcH/IVDUSHRNEeVW/wesdDUqGUn8JYGWwhJA=",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "clifton_school",
+      "first_name": "Clifton",
+      "last_name": "School",
+      "email": "catering@cliftonschool.org.uk",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2026-03-01T09:00:00Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": 8,
+    "fields": {
+      "password": "pbkdf2_sha256$1000000$adminsalt123$/JXGhRRhtSSYIR8U0rgX6pOCo18HmR5GAZEOleZ7PFw=",
+      "last_login": null,
+      "is_superuser": true,
+      "username": "brfn_admin",
+      "first_name": "BRFN",
+      "last_name": "Admin",
+      "email": "admin@brfn.local",
+      "is_staff": true,
+      "is_active": true,
+      "date_joined": "2026-03-01T09:00:00Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "accounts.profile",
+    "pk": 1,
+    "fields": {
+      "user": 1,
+      "role": "PRODUCER",
+      "business_name": "Bristol Valley Farm",
+      "contact_first_name": "Jane",
+      "contact_last_name": "Smith",
+      "phone": "01179123456",
+      "address": "Bristol Valley Farm, 1 Farm Lane",
+      "postcode": "BS1 4DJ",
+      "delivery_address": "",
+      "delivery_postcode": ""
+    }
+  },
+  {
+    "model": "accounts.profile",
+    "pk": 2,
+    "fields": {
+      "user": 2,
+      "role": "PRODUCER",
+      "business_name": "Hillside Dairy",
+      "contact_first_name": "Tom",
+      "contact_last_name": "Harding",
+      "phone": "01179222333",
+      "address": "22 Meadow Road",
+      "postcode": "BS7 8AA",
+      "delivery_address": "",
+      "delivery_postcode": ""
+    }
+  },
+  {
+    "model": "accounts.profile",
+    "pk": 3,
+    "fields": {
+      "user": 3,
+      "role": "PRODUCER",
+      "business_name": "Avon Bakery",
+      "contact_first_name": "Rita",
+      "contact_last_name": "Cole",
+      "phone": "01179444555",
+      "address": "10 Bread Street",
+      "postcode": "BS2 9BB",
+      "delivery_address": "",
+      "delivery_postcode": ""
+    }
+  },
+  {
+    "model": "accounts.profile",
+    "pk": 4,
+    "fields": {
+      "user": 4,
+      "role": "PRODUCER",
+      "business_name": "Severn Orchards",
+      "contact_first_name": "Maya",
+      "contact_last_name": "Green",
+      "phone": "01179666777",
+      "address": "5 Apple Way",
+      "postcode": "BS10 3CC",
+      "delivery_address": "",
+      "delivery_postcode": ""
+    }
+  },
+  {
+    "model": "accounts.profile",
+    "pk": 5,
+    "fields": {
+      "user": 5,
+      "role": "CUSTOMER",
+      "business_name": "",
+      "contact_first_name": "Robert",
+      "contact_last_name": "Johnson",
+      "phone": "07700900123",
+      "address": "45 Park Street",
+      "postcode": "BS1 5JG",
+      "delivery_address": "45 Park Street, Bristol",
+      "delivery_postcode": "BS1 5JG"
+    }
+  },
+  {
+    "model": "accounts.profile",
+    "pk": 6,
+    "fields": {
+      "user": 6,
+      "role": "CUSTOMER",
+      "business_name": "",
+      "contact_first_name": "Sarah",
+      "contact_last_name": "Williams",
+      "phone": "07700900124",
+      "address": "18 Redland Road",
+      "postcode": "BS6 6TT",
+      "delivery_address": "18 Redland Road, Bristol",
+      "delivery_postcode": "BS6 6TT"
+    }
+  },
+  {
+    "model": "accounts.profile",
+    "pk": 7,
+    "fields": {
+      "user": 7,
+      "role": "CUSTOMER",
+      "business_name": "Clifton School Kitchen",
+      "contact_first_name": "Paula",
+      "contact_last_name": "Evans",
+      "phone": "01179888999",
+      "address": "12 School Lane",
+      "postcode": "BS8 2ZZ",
+      "delivery_address": "School Kitchen, 12 School Lane, Bristol",
+      "delivery_postcode": "BS8 2ZZ"
+    }
+  },
+  {
+    "model": "marketplace.category",
+    "pk": 1,
+    "fields": {
+      "name": "Vegetables"
+    }
+  },
+  {
+    "model": "marketplace.category",
+    "pk": 2,
+    "fields": {
+      "name": "Dairy & Eggs"
+    }
+  },
+  {
+    "model": "marketplace.category",
+    "pk": 3,
+    "fields": {
+      "name": "Bakery Goods"
+    }
+  },
+  {
+    "model": "marketplace.category",
+    "pk": 4,
+    "fields": {
+      "name": "Preserves"
+    }
+  },
+  {
+    "model": "marketplace.category",
+    "pk": 5,
+    "fields": {
+      "name": "Seasonal Specialities"
+    }
+  },
+  {
+    "model": "marketplace.allergen",
+    "pk": 1,
+    "fields": {
+      "name": "Celery"
+    }
+  },
+  {
+    "model": "marketplace.allergen",
+    "pk": 2,
+    "fields": {
+      "name": "Cereals containing gluten"
+    }
+  },
+  {
+    "model": "marketplace.allergen",
+    "pk": 3,
+    "fields": {
+      "name": "Crustaceans"
+    }
+  },
+  {
+    "model": "marketplace.allergen",
+    "pk": 4,
+    "fields": {
+      "name": "Eggs"
+    }
+  },
+  {
+    "model": "marketplace.allergen",
+    "pk": 5,
+    "fields": {
+      "name": "Fish"
+    }
+  },
+  {
+    "model": "marketplace.allergen",
+    "pk": 6,
+    "fields": {
+      "name": "Lupin"
+    }
+  },
+  {
+    "model": "marketplace.allergen",
+    "pk": 7,
+    "fields": {
+      "name": "Milk"
+    }
+  },
+  {
+    "model": "marketplace.allergen",
+    "pk": 8,
+    "fields": {
+      "name": "Molluscs"
+    }
+  },
+  {
+    "model": "marketplace.allergen",
+    "pk": 9,
+    "fields": {
+      "name": "Mustard"
+    }
+  },
+  {
+    "model": "marketplace.allergen",
+    "pk": 10,
+    "fields": {
+      "name": "Peanuts"
+    }
+  },
+  {
+    "model": "marketplace.allergen",
+    "pk": 11,
+    "fields": {
+      "name": "Sesame"
+    }
+  },
+  {
+    "model": "marketplace.allergen",
+    "pk": 12,
+    "fields": {
+      "name": "Soybeans"
+    }
+  },
+  {
+    "model": "marketplace.allergen",
+    "pk": 13,
+    "fields": {
+      "name": "Sulphur dioxide / sulphites"
+    }
+  },
+  {
+    "model": "marketplace.allergen",
+    "pk": 14,
+    "fields": {
+      "name": "Tree nuts"
+    }
+  },
+  {
+    "model": "marketplace.product",
+    "pk": 1,
+    "fields": {
+      "producer": 1,
+      "category": 2,
+      "name": "Organic Free Range Eggs",
+      "description": "Fresh eggs collected daily from free-range hens.",
+      "price": "3.50",
+      "unit": "dozen",
+      "stock_quantity": 50,
+      "allergens": [
+        4
+      ],
+      "other_allergen_info": "",
+      "harvest_date": "2026-03-20T08:00:00Z",
+      "is_active": true,
+      "created_at": "2026-03-24T10:00:00Z",
+      "season": "ALL"
+    }
+  },
+  {
+    "model": "marketplace.product",
+    "pk": 2,
+    "fields": {
+      "producer": 1,
+      "category": 1,
+      "name": "Organic Carrots",
+      "description": "Sweet carrots grown without synthetic pesticides.",
+      "price": "1.80",
+      "unit": "kg",
+      "stock_quantity": 80,
+      "allergens": [],
+      "other_allergen_info": "",
+      "harvest_date": "2026-03-21T09:30:00Z",
+      "is_active": true,
+      "created_at": "2026-03-24T10:00:00Z",
+      "season": "AUTUMN"
+    }
+  },
+  {
+    "model": "marketplace.product",
+    "pk": 3,
+    "fields": {
+      "producer": 1,
+      "category": 1,
+      "name": "Organic Tomatoes",
+      "description": "Vine-ripened tomatoes for salads and sauces.",
+      "price": "3.20",
+      "unit": "kg",
+      "stock_quantity": 20,
+      "allergens": [],
+      "other_allergen_info": "",
+      "harvest_date": "2026-03-19T07:45:00Z",
+      "is_active": true,
+      "created_at": "2026-03-24T10:00:00Z",
+      "season": "SUMMER"
+    }
+  },
+  {
+    "model": "marketplace.product",
+    "pk": 4,
+    "fields": {
+      "producer": 1,
+      "category": 1,
+      "name": "Stored Potatoes",
+      "description": "Good for roasting, baking, and mashing.",
+      "price": "1.40",
+      "unit": "kg",
+      "stock_quantity": 200,
+      "allergens": [],
+      "other_allergen_info": "",
+      "harvest_date": "2026-03-15T08:30:00Z",
+      "is_active": true,
+      "created_at": "2026-03-24T10:00:00Z",
+      "season": "ALL"
+    }
+  },
+  {
+    "model": "marketplace.product",
+    "pk": 5,
+    "fields": {
+      "producer": 1,
+      "category": 4,
+      "name": "Tomato Chutney",
+      "description": "Homemade chutney made from surplus tomatoes.",
+      "price": "4.20",
+      "unit": "jar",
+      "stock_quantity": 35,
+      "allergens": [
+        9
+      ],
+      "other_allergen_info": "Prepared in a kitchen that also handles celery.",
+      "harvest_date": "2026-03-10T11:00:00Z",
+      "is_active": true,
+      "created_at": "2026-03-24T10:00:00Z",
+      "season": "ALL"
+    }
+  },
+  {
+    "model": "marketplace.product",
+    "pk": 6,
+    "fields": {
+      "producer": 2,
+      "category": 2,
+      "name": "Fresh Milk",
+      "description": "Whole milk delivered chilled.",
+      "price": "1.50",
+      "unit": "litre",
+      "stock_quantity": 120,
+      "allergens": [
+        7
+      ],
+      "other_allergen_info": "",
+      "harvest_date": "2026-03-22T05:30:00Z",
+      "is_active": true,
+      "created_at": "2026-03-24T10:00:00Z",
+      "season": "ALL"
+    }
+  },
+  {
+    "model": "marketplace.product",
+    "pk": 7,
+    "fields": {
+      "producer": 2,
+      "category": 2,
+      "name": "Cheddar Cheese",
+      "description": "Mature cheddar made with local milk.",
+      "price": "4.50",
+      "unit": "200g",
+      "stock_quantity": 40,
+      "allergens": [
+        7
+      ],
+      "other_allergen_info": "",
+      "harvest_date": "2026-03-12T10:00:00Z",
+      "is_active": true,
+      "created_at": "2026-03-24T10:00:00Z",
+      "season": "ALL"
+    }
+  },
+  {
+    "model": "marketplace.product",
+    "pk": 8,
+    "fields": {
+      "producer": 2,
+      "category": 2,
+      "name": "Natural Yogurt",
+      "description": "Plain natural yogurt for breakfast or cooking.",
+      "price": "2.80",
+      "unit": "500g",
+      "stock_quantity": 30,
+      "allergens": [
+        7
+      ],
+      "other_allergen_info": "",
+      "harvest_date": "2026-03-21T06:00:00Z",
+      "is_active": true,
+      "created_at": "2026-03-24T10:00:00Z",
+      "season": "ALL"
+    }
+  },
+  {
+    "model": "marketplace.product",
+    "pk": 9,
+    "fields": {
+      "producer": 3,
+      "category": 3,
+      "name": "Walnut Bread",
+      "description": "Artisan loaf with toasted walnuts.",
+      "price": "3.90",
+      "unit": "loaf",
+      "stock_quantity": 25,
+      "allergens": [
+        2,
+        14
+      ],
+      "other_allergen_info": "",
+      "harvest_date": "2026-03-22T04:00:00Z",
+      "is_active": true,
+      "created_at": "2026-03-24T10:00:00Z",
+      "season": "ALL"
+    }
+  },
+  {
+    "model": "marketplace.product",
+    "pk": 10,
+    "fields": {
+      "producer": 3,
+      "category": 3,
+      "name": "Sourdough Loaf",
+      "description": "Slow-fermented sourdough bread.",
+      "price": "3.50",
+      "unit": "loaf",
+      "stock_quantity": 30,
+      "allergens": [
+        2
+      ],
+      "other_allergen_info": "",
+      "harvest_date": "2026-03-22T04:15:00Z",
+      "is_active": true,
+      "created_at": "2026-03-24T10:00:00Z",
+      "season": "ALL"
+    }
+  },
+  {
+    "model": "marketplace.product",
+    "pk": 11,
+    "fields": {
+      "producer": 3,
+      "category": 3,
+      "name": "Sesame Crackers",
+      "description": "Savory crackers topped with sesame seeds.",
+      "price": "2.70",
+      "unit": "box",
+      "stock_quantity": 18,
+      "allergens": [
+        2,
+        11
+      ],
+      "other_allergen_info": "",
+      "harvest_date": "2026-03-18T09:00:00Z",
+      "is_active": true,
+      "created_at": "2026-03-24T10:00:00Z",
+      "season": "ALL"
+    }
+  },
+  {
+    "model": "marketplace.product",
+    "pk": 12,
+    "fields": {
+      "producer": 4,
+      "category": 1,
+      "name": "Fresh Apples",
+      "description": "Crisp eating apples picked at peak ripeness.",
+      "price": "2.50",
+      "unit": "kg",
+      "stock_quantity": 60,
+      "allergens": [],
+      "other_allergen_info": "",
+      "harvest_date": "2026-03-17T10:30:00Z",
+      "is_active": true,
+      "created_at": "2026-03-24T10:00:00Z",
+      "season": "AUTUMN"
+    }
+  },
+  {
+    "model": "marketplace.product",
+    "pk": 13,
+    "fields": {
+      "producer": 4,
+      "category": 5,
+      "name": "Strawberries",
+      "description": "Sweet strawberries, best eaten the same day.",
+      "price": "3.20",
+      "unit": "punnet",
+      "stock_quantity": 15,
+      "allergens": [],
+      "other_allergen_info": "",
+      "harvest_date": "2026-03-22T07:00:00Z",
+      "is_active": true,
+      "created_at": "2026-03-24T10:00:00Z",
+      "season": "SUMMER"
+    }
+  },
+  {
+    "model": "marketplace.product",
+    "pk": 14,
+    "fields": {
+      "producer": 4,
+      "category": 5,
+      "name": "Pumpkin",
+      "description": "Large pumpkin for roasting or soups.",
+      "price": "4.80",
+      "unit": "each",
+      "stock_quantity": 12,
+      "allergens": [],
+      "other_allergen_info": "",
+      "harvest_date": "2026-03-05T12:00:00Z",
+      "is_active": true,
+      "created_at": "2026-03-24T10:00:00Z",
+      "season": "AUTUMN"
+    }
+  },
+  {
+    "model": "marketplace.product",
+    "pk": 15,
+    "fields": {
+      "producer": 1,
+      "category": 5,
+      "name": "Spring Greens",
+      "description": "Tender leafy greens ideal for steaming.",
+      "price": "2.20",
+      "unit": "bag",
+      "stock_quantity": 16,
+      "allergens": [],
+      "other_allergen_info": "",
+      "harvest_date": "2026-03-23T09:00:00Z",
+      "is_active": true,
+      "created_at": "2026-03-24T10:00:00Z",
+      "season": "SPRING"
+    }
+  },
+  {
+    "model": "marketplace.product",
+    "pk": 16,
+    "fields": {
+      "producer": 2,
+      "category": 2,
+      "name": "Goat Cheese",
+      "description": "Soft goat cheese with a creamy texture.",
+      "price": "5.60",
+      "unit": "150g",
+      "stock_quantity": 8,
+      "allergens": [
+        7
+      ],
+      "other_allergen_info": "",
+      "harvest_date": "2026-03-16T08:00:00Z",
+      "is_active": true,
+      "created_at": "2026-03-24T10:00:00Z",
+      "season": "SPRING"
+    }
+  },
+  {
+    "model": "marketplace.product",
+    "pk": 17,
+    "fields": {
+      "producer": 3,
+      "category": 3,
+      "name": "Winter Fruit Loaf",
+      "description": "Fruit loaf with warming spices.",
+      "price": "4.10",
+      "unit": "loaf",
+      "stock_quantity": 10,
+      "allergens": [
+        2
+      ],
+      "other_allergen_info": "May contain traces of tree nuts.",
+      "harvest_date": "2026-03-14T06:30:00Z",
+      "is_active": true,
+      "created_at": "2026-03-24T10:00:00Z",
+      "season": "WINTER"
+    }
+  },
+  {
+    "model": "marketplace.product",
+    "pk": 18,
+    "fields": {
+      "producer": 4,
+      "category": 5,
+      "name": "Inactive Test Product",
+      "description": "This product is hidden from normal browsing.",
+      "price": "9.99",
+      "unit": "item",
+      "stock_quantity": 0,
+      "allergens": [],
+      "other_allergen_info": "",
+      "harvest_date": null,
+      "is_active": false,
+      "created_at": "2026-03-24T10:00:00Z",
+      "season": "ALL"
+    }
+  },
+  {
+    "model": "cart.cart",
+    "pk": 1,
+    "fields": {
+      "user": 5
+    }
+  },
+  {
+    "model": "cart.cart",
+    "pk": 2,
+    "fields": {
+      "user": 6
+    }
+  },
+  {
+    "model": "cart.cart",
+    "pk": 3,
+    "fields": {
+      "user": 7
+    }
+  },
+  {
+    "model": "cart.cartitem",
+    "pk": 1,
+    "fields": {
+      "cart": 1,
+      "product": 2,
+      "quantity": 3
+    }
+  },
+  {
+    "model": "cart.cartitem",
+    "pk": 2,
+    "fields": {
+      "cart": 1,
+      "product": 6,
+      "quantity": 2
+    }
+  },
+  {
+    "model": "cart.cartitem",
+    "pk": 3,
+    "fields": {
+      "cart": 2,
+      "product": 10,
+      "quantity": 1
+    }
+  },
+  {
+    "model": "cart.cartitem",
+    "pk": 4,
+    "fields": {
+      "cart": 2,
+      "product": 12,
+      "quantity": 2
+    }
+  },
+  {
+    "model": "cart.cartitem",
+    "pk": 5,
+    "fields": {
+      "cart": 3,
+      "product": 1,
+      "quantity": 4
+    }
+  },
+  {
+    "model": "cart.cartitem",
+    "pk": 6,
+    "fields": {
+      "cart": 3,
+      "product": 4,
+      "quantity": 10
+    }
+  },
+  {
+    "model": "marketplace.order",
+    "pk": 1,
+    "fields": {
+      "customer": 5,
+      "created_at": "2026-03-16T10:00:00Z",
+      "delivery_address": "45 Park Street, Bristol",
+      "delivery_postcode": "BS1 5JG",
+      "special_instructions": ""
+    }
+  },
+  {
+    "model": "marketplace.order",
+    "pk": 2,
+    "fields": {
+      "customer": 5,
+      "created_at": "2026-03-12T11:30:00Z",
+      "delivery_address": "45 Park Street, Bristol",
+      "delivery_postcode": "BS1 5JG",
+      "special_instructions": "Leave by side door"
+    }
+  },
+  {
+    "model": "marketplace.order",
+    "pk": 3,
+    "fields": {
+      "customer": 7,
+      "created_at": "2026-03-10T09:15:00Z",
+      "delivery_address": "School Kitchen, 12 School Lane, Bristol",
+      "delivery_postcode": "BS8 2ZZ",
+      "special_instructions": "Deliver to kitchen entrance"
+    }
+  },
+  {
+    "model": "marketplace.order",
+    "pk": 4,
+    "fields": {
+      "customer": 6,
+      "created_at": "2026-03-18T14:20:00Z",
+      "delivery_address": "18 Redland Road, Bristol",
+      "delivery_postcode": "BS6 6TT",
+      "special_instructions": "Call on arrival"
+    }
+  },
+  {
+    "model": "marketplace.producerorder",
+    "pk": 1,
+    "fields": {
+      "order": 1,
+      "producer": 1,
+      "delivery_date": "2026-03-18",
+      "status": "PENDING",
+      "total_value": "8.90"
+    }
+  },
+  {
+    "model": "marketplace.producerorder",
+    "pk": 2,
+    "fields": {
+      "order": 2,
+      "producer": 1,
+      "delivery_date": "2026-03-15",
+      "status": "DELIVERED",
+      "total_value": "13.40"
+    }
+  },
+  {
+    "model": "marketplace.producerorder",
+    "pk": 3,
+    "fields": {
+      "order": 2,
+      "producer": 2,
+      "delivery_date": "2026-03-16",
+      "status": "DELIVERED",
+      "total_value": "4.50"
+    }
+  },
+  {
+    "model": "marketplace.producerorder",
+    "pk": 4,
+    "fields": {
+      "order": 3,
+      "producer": 1,
+      "delivery_date": "2026-03-12",
+      "status": "READY",
+      "total_value": "13.40"
+    }
+  },
+  {
+    "model": "marketplace.producerorder",
+    "pk": 5,
+    "fields": {
+      "order": 3,
+      "producer": 2,
+      "delivery_date": "2026-03-12",
+      "status": "READY",
+      "total_value": "4.50"
+    }
+  },
+  {
+    "model": "marketplace.producerorder",
+    "pk": 6,
+    "fields": {
+      "order": 4,
+      "producer": 3,
+      "delivery_date": "2026-03-21",
+      "status": "CONFIRMED",
+      "total_value": "8.70"
+    }
+  },
+  {
+    "model": "marketplace.orderitem",
+    "pk": 1,
+    "fields": {
+      "producer_order": 1,
+      "product": 1,
+      "quantity": 1,
+      "unit_price": "3.50"
+    }
+  },
+  {
+    "model": "marketplace.orderitem",
+    "pk": 2,
+    "fields": {
+      "producer_order": 1,
+      "product": 2,
+      "quantity": 3,
+      "unit_price": "1.80"
+    }
+  },
+  {
+    "model": "marketplace.orderitem",
+    "pk": 3,
+    "fields": {
+      "producer_order": 2,
+      "product": 3,
+      "quantity": 2,
+      "unit_price": "3.20"
+    }
+  },
+  {
+    "model": "marketplace.orderitem",
+    "pk": 4,
+    "fields": {
+      "producer_order": 2,
+      "product": 4,
+      "quantity": 5,
+      "unit_price": "1.40"
+    }
+  },
+  {
+    "model": "marketplace.orderitem",
+    "pk": 5,
+    "fields": {
+      "producer_order": 3,
+      "product": 6,
+      "quantity": 3,
+      "unit_price": "1.50"
+    }
+  },
+  {
+    "model": "marketplace.orderitem",
+    "pk": 6,
+    "fields": {
+      "producer_order": 4,
+      "product": 2,
+      "quantity": 5,
+      "unit_price": "1.80"
+    }
+  },
+  {
+    "model": "marketplace.orderitem",
+    "pk": 7,
+    "fields": {
+      "producer_order": 4,
+      "product": 15,
+      "quantity": 2,
+      "unit_price": "2.20"
+    }
+  },
+  {
+    "model": "marketplace.orderitem",
+    "pk": 8,
+    "fields": {
+      "producer_order": 5,
+      "product": 6,
+      "quantity": 3,
+      "unit_price": "1.50"
+    }
+  },
+  {
+    "model": "marketplace.orderitem",
+    "pk": 9,
+    "fields": {
+      "producer_order": 6,
+      "product": 10,
+      "quantity": 1,
+      "unit_price": "3.50"
+    }
+  },
+  {
+    "model": "marketplace.orderitem",
+    "pk": 10,
+    "fields": {
+      "producer_order": 6,
+      "product": 12,
+      "quantity": 1,
+      "unit_price": "2.50"
+    }
+  },
+  {
+    "model": "marketplace.orderitem",
+    "pk": 11,
+    "fields": {
+      "producer_order": 6,
+      "product": 11,
+      "quantity": 1,
+      "unit_price": "2.70"
+    }
+  },
+  {
+    "model": "marketplace.producerorderstatushistory",
+    "pk": 1,
+    "fields": {
+      "producer_order": 2,
+      "old_status": "PENDING",
+      "new_status": "CONFIRMED",
+      "note": "Producer accepted the order.",
+      "changed_by": 1,
+      "changed_at": "2026-03-12T12:00:00Z"
+    }
+  },
+  {
+    "model": "marketplace.producerorderstatushistory",
+    "pk": 2,
+    "fields": {
+      "producer_order": 2,
+      "old_status": "CONFIRMED",
+      "new_status": "READY",
+      "note": "Packed and ready for dispatch.",
+      "changed_by": 1,
+      "changed_at": "2026-03-14T09:00:00Z"
+    }
+  },
+  {
+    "model": "marketplace.producerorderstatushistory",
+    "pk": 3,
+    "fields": {
+      "producer_order": 2,
+      "old_status": "READY",
+      "new_status": "DELIVERED",
+      "note": "Delivered to customer.",
+      "changed_by": 1,
+      "changed_at": "2026-03-15T17:30:00Z"
+    }
+  },
+  {
+    "model": "marketplace.producerorderstatushistory",
+    "pk": 4,
+    "fields": {
+      "producer_order": 3,
+      "old_status": "PENDING",
+      "new_status": "CONFIRMED",
+      "note": "Milk order confirmed.",
+      "changed_by": 2,
+      "changed_at": "2026-03-13T08:15:00Z"
+    }
+  },
+  {
+    "model": "marketplace.producerorderstatushistory",
+    "pk": 5,
+    "fields": {
+      "producer_order": 3,
+      "old_status": "CONFIRMED",
+      "new_status": "DELIVERED",
+      "note": "Delivered successfully.",
+      "changed_by": 2,
+      "changed_at": "2026-03-16T12:45:00Z"
+    }
+  },
+  {
+    "model": "marketplace.producerorderstatushistory",
+    "pk": 6,
+    "fields": {
+      "producer_order": 4,
+      "old_status": "PENDING",
+      "new_status": "READY",
+      "note": "Prepared for collection.",
+      "changed_by": 1,
+      "changed_at": "2026-03-11T16:00:00Z"
+    }
+  },
+  {
+    "model": "marketplace.producerorderstatushistory",
+    "pk": 7,
+    "fields": {
+      "producer_order": 5,
+      "old_status": "PENDING",
+      "new_status": "READY",
+      "note": "Bulk milk packed.",
+      "changed_by": 2,
+      "changed_at": "2026-03-11T16:10:00Z"
+    }
+  },
+  {
+    "model": "marketplace.producerorderstatushistory",
+    "pk": 8,
+    "fields": {
+      "producer_order": 6,
+      "old_status": "PENDING",
+      "new_status": "CONFIRMED",
+      "note": "Order accepted by bakery.",
+      "changed_by": 3,
+      "changed_at": "2026-03-19T09:10:00Z"
+    }
+  }
+]

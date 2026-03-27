@@ -14,6 +14,7 @@ class ProductForm(forms.ModelForm):
                   "name", 
                   "description", 
                   "price", 
+                  "unit", 
                   "stock_quantity", 
                   "is_active",
                   "season",
@@ -29,6 +30,8 @@ class ProductForm(forms.ModelForm):
                     "placeholder": "Provide details about any other allergens not listed above.",
                 }
             ),
+            "harvest_date": forms.DateInput(attrs={"type": "date"}),
+            "unit": forms.Select(choices=Product.UNIT_CHOICES),
         }
     def clean(self):
         cleaned_data = super().clean()

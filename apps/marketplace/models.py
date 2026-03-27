@@ -32,11 +32,23 @@ class Product(models.Model):
     description = models.TextField(blank=True)
 
     price = models.DecimalField(max_digits=10, decimal_places=2)
-    unit = models.CharField(max_length=200)
+    # Common units for products (stored as short codes)
+    UNIT_CHOICES = [
+        ("each", "Each"),
+        ("kg", "Kilogram"),
+        ("g", "Gram"),
+        ("bunch", "Bunch"),
+        ("litre", "Litre"),
+        ("pack", "Pack"),
+    ]
+
+    unit = models.CharField(max_length=50, choices=UNIT_CHOICES, default="each")
     stock_quantity = models.PositiveIntegerField(default=0)
     
     allergens = models.ManyToManyField(Allergen, blank=True)
     other_allergen_info = models.TextField(blank=True)
+    # Keep DateTimeField for compatibility with existing fixtures which include times.
+    # We can migrate to DateField later after normalising fixture data.
     harvest_date = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -36,7 +36,7 @@ def _require_producer(request):
 # ----------------------------
 
 def product_list(request):
-    products = Product.objects.all().filter(is_active=True).order_by("-created_at").select_related("category", "producer").prefetch_related("allergens")
+    products = Product.objects.all().select_related("category", "producer").prefetch_related("allergens")
     categories = Category.objects.order_by("name")
     allergens = Allergen.objects.order_by("name")
 
@@ -92,10 +92,11 @@ def product_list(request):
 # ----------------------------
 
 def product_detail(request, pk):
-    product = get_object_or_404(Product, pk=pk, in_season=True)
+    # Only show products that are active (formerly `in_season`)
     product = get_object_or_404(
         Product.objects.select_related("category", "producer").prefetch_related("allergens"),
-        pk=pk
+        pk=pk,
+        is_active=True,
     )
     return render(request, "marketplace/product_detail.html", {"product": product})
 
