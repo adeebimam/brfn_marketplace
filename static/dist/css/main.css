@@ -97,6 +97,11 @@ body {
   background: #f3f4f6;
 }
 
+.nav a.active {
+  color: #168e85;
+  font-weight: 700;
+}
+
 .nav a.btn-primary {
   background: #1faa9f;
   border-color: #1faa9f;
@@ -391,7 +396,7 @@ input:focus, select:focus, textarea:focus {
 
 .allergen-warning {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
   background: #fff8e1;
   border: 1px solid #f5c518;
@@ -400,12 +405,23 @@ input:focus, select:focus, textarea:focus {
   color: #7a5c00;
   font-size: 0.9rem;
 }
+.allergen-warning > i {
+  flex-shrink: 0;
+  line-height: 1;
+}
+.allergen-warning > span {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
 .allergen-warning .allergen-list {
   list-style: none;
   padding: 0;
-  margin: 6px 0 0;
+  margin: 0;
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
 }
 
@@ -511,6 +527,46 @@ input:focus, select:focus, textarea:focus {
     border-radius: 14px;
   }
 }
+.product-filters {
+  display: flex;
+  gap: 20px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.product-filters .filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.product-filters .filter-group label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+.product-filters .filter-group input,
+.product-filters .filter-group select {
+  height: 42px;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+.product-filters .btn {
+  height: 42px;
+  align-self: flex-end;
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .product-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .product-filters .filter-group {
+    flex: 1 1 100%;
+  }
+}
 /* ---- Registration form ---- */
 .account-type-fieldset {
   border: 1px solid #d1d5db;
@@ -550,47 +606,53 @@ span.helptext {
   margin-top: 2px;
 }
 
-.allergen-checkboxes > div {
+.allergen-checkboxes {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5em 1.5em;
-  align-items: flex-start;
+  gap: 12px;
 }
-.allergen-checkboxes > div > div {
-  flex: 0 0 auto;
-}
-.allergen-checkboxes label {
+.allergen-checkboxes label,
+.allergen-checkboxes .allergen-option {
   display: inline-flex !important;
   align-items: center;
-  gap: 0.5em;
-  min-width: 140px;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 999px;
+  background: #fff;
   font-weight: 500;
-  font-size: 15px;
+  font-size: 14px;
   cursor: pointer;
-  padding: 4px 0;
   margin-bottom: 0;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  user-select: none;
+}
+.allergen-checkboxes label:hover,
+.allergen-checkboxes .allergen-option:hover {
+  border-color: #9ca3af;
+  background: #f9fafb;
+}
+.allergen-checkboxes label:has(input:checked),
+.allergen-checkboxes .allergen-option:has(input:checked) {
+  border-color: #1faa9f;
+  background: rgba(31, 170, 159, 0.08);
+  box-shadow: 0 0 0 1px #1faa9f;
 }
 .allergen-checkboxes input[type=checkbox] {
   appearance: none;
   -webkit-appearance: none;
-  width: 20px !important;
-  height: 20px;
-  min-width: 20px;
-  border: 2px solid #1faa9f !important;
-  border-radius: 6px !important;
+  width: 16px !important;
+  height: 16px;
+  min-width: 16px;
+  border: 2px solid #9ca3af !important;
+  border-radius: 4px !important;
   background: #fff;
   padding: 0 !important;
   margin: 0;
   cursor: pointer;
   position: relative;
-  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
-}
-.allergen-checkboxes input[type=checkbox]:hover {
-  border-color: #168e85;
-  box-shadow: 0 0 0 3px rgba(31, 170, 159, 0.15);
-}
-.allergen-checkboxes input[type=checkbox]:focus {
-  box-shadow: 0 0 0 3px rgba(31, 170, 159, 0.25);
+  transition: border-color 0.15s, background 0.15s;
+  flex-shrink: 0;
 }
 .allergen-checkboxes input[type=checkbox]:checked {
   background: #1faa9f;
@@ -600,12 +662,12 @@ span.helptext {
   content: "";
   display: block;
   position: absolute;
-  left: 5px;
-  top: 1px;
-  width: 6px;
-  height: 12px;
+  left: 3px;
+  top: 0px;
+  width: 5px;
+  height: 9px;
   border: solid #fff;
-  border-width: 0 2.5px 2.5px 0;
+  border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
 
