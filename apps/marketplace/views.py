@@ -87,10 +87,17 @@ def product_list(request):
     for p in products:
         p.in_season_now = p.is_in_season(today)
 
+    # Build allergen choices with pre-formatted value strings for template
+    allergen_choices = [
+        {"value": f"specific_{a.id}", "name": a.name}
+        for a in allergens
+    ]
+
     context = {
         "products": products,
         "categories": categories,
         "allergens": allergens,
+        "allergen_choices": allergen_choices,
         "selected_category": selected_category,
         "selected_season": selected_season,
         "seasons": Product.SEASON_CHOICES,

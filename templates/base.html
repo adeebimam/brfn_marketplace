@@ -17,13 +17,13 @@
     <a class="brand" href="{% url 'home' %}">BRFN Marketplace</a>
 
     <nav class="nav-links">
-      <a href="{% url 'marketplace:product_list' %}">Products</a>
+      <a href="{% url 'marketplace:product_list' %}" {% if request.resolver_match.url_name == 'product_list' %}class="active"{% endif %}>Products</a>
 
       {% if user.is_authenticated %}
         {% if user.profile.role == "PRODUCER" %}
-          <a href="{% url 'marketplace:producer_product_list' %}">My Products</a>
-          <a href="{% url 'marketplace:producer_order_list' %}">Orders</a>
-          <a href="{% url 'marketplace:producer_payments' %}">Payments</a>
+          <a href="{% url 'marketplace:producer_product_list' %}" {% if request.resolver_match.url_name == 'producer_product_list' or request.resolver_match.url_name == 'product_create' or request.resolver_match.url_name == 'product_update' %}class="active"{% endif %}>My Products</a>
+          <a href="{% url 'marketplace:producer_order_list' %}" {% if request.resolver_match.url_name == 'producer_order_list' or request.resolver_match.url_name == 'producer_order_detail' %}class="active"{% endif %}>Orders</a>
+          <a href="{% url 'marketplace:producer_payments' %}" {% if request.resolver_match.url_name == 'producer_payments' %}class="active"{% endif %}>Payments</a>
         {% elif user.profile.role == "CUSTOMER" or user.profile.role == "COMMUNITY_GROUP" or user.profile.role == "RESTAURANT" %}
                 <a href="{% url 'cart:detail' %}">
                   <i class="fa-solid fa-cart-shopping" style="font-size:22px;"></i>

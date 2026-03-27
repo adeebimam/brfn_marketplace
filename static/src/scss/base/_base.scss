@@ -85,6 +85,11 @@ body {
   background: #f3f4f6;
 }
 
+.nav a.active {
+  color: #168e85;
+  font-weight: 700;
+}
+
 .nav a.btn-primary {
   background: #1faa9f;
   border-color: #1faa9f;

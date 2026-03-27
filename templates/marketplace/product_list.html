@@ -4,7 +4,7 @@
     <div class="products-header">
       <h1>Products</h1>
 
-      <form method="get" class="product-filters" style="display:flex; gap:30px; align-items:end; flex-wrap:wrap;">
+      <form method="get" class="product-filters">
         <div class="filter-group">
           <label for="q">Search</label>
           <input
@@ -19,12 +19,12 @@
         <div class="filter-group">
           <label for="allergen_filter">Allergen Filter</label>
           <select id="allergen_filter" name="allergen_filter">
-            <option value="">All products</option>
+            <option value="" {% if not allergen_filter %}selected{% endif %}>All products</option>
             <option value="with" {% if allergen_filter == "with" %}selected{% endif %}>Contains allergens</option>
             <option value="without" {% if allergen_filter == "without" %}selected{% endif %}>No common allergens</option>
             <optgroup label="── Filter by specific allergen ──">
-              {% for allergen in allergens %}
-                <option value="specific_{{ allergen.id }}" {% if allergen_filter == "specific_"|add:allergen.id|stringformat:"s" %}selected{% endif %}>
+              {% for allergen in allergen_choices %}
+                <option value="{{ allergen.value }}" {% if allergen_filter == allergen.value %}selected{% endif %}>
                   {{ allergen.name }}
                 </option>
               {% endfor %}

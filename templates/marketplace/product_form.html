@@ -33,13 +33,22 @@
 
     <fieldset class="allergen-fieldset" style="border:1px solid #ddd; padding:1rem; border-radius:8px; margin-bottom:1rem;">
       <legend style="font-weight:600; padding:0 0.5rem;">Allergen Information <span class="muted" style="font-weight:400; font-size:0.85rem;">(optional)</span></legend>
-      <div style="margin-bottom:0.75rem;">
+      <div class="allergen-section">
         {{ form.allergens.label_tag }}
-        {{ form.allergens }}
-        {{ form.allergens.errors }}
+        <div class="allergen-checkboxes" role="group" aria-label="Allergens">
+          {% for checkbox in form.allergens %}
+            <label class="allergen-option" for="{{ checkbox.id_for_label }}">
+              {{ checkbox.tag }}
+              <span>{{ checkbox.choice_label }}</span>
+            </label>
+          {% endfor %}
+        </div>
+        {% if form.allergens.help_text %}
+          <p class="allergen-help-text muted" style="font-size:0.85rem; margin-top:0.5rem;">{{ form.allergens.help_text }}</p>
+        {% endif %}
       </div>
-      <div>
-        {{ form.other_allergen_info.label_tag }}
+      <div style="margin-top:0.75rem;">
+        <label for="id_other_allergen_info">Additional allergen details</label>
         {{ form.other_allergen_info }}
       </div>
     </fieldset>
