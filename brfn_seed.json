@@ -397,7 +397,7 @@
       "name": "Organic Free Range Eggs",
       "description": "Fresh eggs collected daily from free-range hens.",
       "price": "3.50",
-      "unit": "dozen",
+      "unit": "pack",
       "stock_quantity": 50,
       "allergens": [
         4
@@ -423,6 +423,8 @@
       "allergens": [],
       "other_allergen_info": "",
       "harvest_date": "2026-03-21T09:30:00Z",
+      "available_from_month": 9,
+      "available_to_month": 11,
       "is_active": true,
       "created_at": "2026-03-24T10:00:00Z",
       "season": "AUTUMN"
@@ -442,6 +444,8 @@
       "allergens": [],
       "other_allergen_info": "",
       "harvest_date": "2026-03-19T07:45:00Z",
+      "available_from_month": 6,
+      "available_to_month": 8,
       "is_active": true,
       "created_at": "2026-03-24T10:00:00Z",
       "season": "SUMMER"
@@ -475,10 +479,11 @@
       "name": "Tomato Chutney",
       "description": "Homemade chutney made from surplus tomatoes.",
       "price": "4.20",
-      "unit": "jar",
+      "unit": "pack",
       "stock_quantity": 35,
       "allergens": [
-        9
+        9,
+        1
       ],
       "other_allergen_info": "Prepared in a kitchen that also handles celery.",
       "harvest_date": "2026-03-10T11:00:00Z",
@@ -517,7 +522,7 @@
       "name": "Cheddar Cheese",
       "description": "Mature cheddar made with local milk.",
       "price": "4.50",
-      "unit": "200g",
+      "unit": "g",
       "stock_quantity": 40,
       "allergens": [
         7
@@ -538,7 +543,7 @@
       "name": "Natural Yogurt",
       "description": "Plain natural yogurt for breakfast or cooking.",
       "price": "2.80",
-      "unit": "500g",
+      "unit": "g",
       "stock_quantity": 30,
       "allergens": [
         7
@@ -559,7 +564,7 @@
       "name": "Walnut Bread",
       "description": "Artisan loaf with toasted walnuts.",
       "price": "3.90",
-      "unit": "loaf",
+      "unit": "each",
       "stock_quantity": 25,
       "allergens": [
         2,
@@ -581,10 +586,11 @@
       "name": "Sourdough Loaf",
       "description": "Slow-fermented sourdough bread.",
       "price": "3.50",
-      "unit": "loaf",
+      "unit": "each",
       "stock_quantity": 30,
       "allergens": [
-        2
+        2,
+        14
       ],
       "other_allergen_info": "",
       "harvest_date": "2026-03-22T04:15:00Z",
@@ -602,7 +608,7 @@
       "name": "Sesame Crackers",
       "description": "Savory crackers topped with sesame seeds.",
       "price": "2.70",
-      "unit": "box",
+      "unit": "pack",
       "stock_quantity": 18,
       "allergens": [
         2,
@@ -629,6 +635,8 @@
       "allergens": [],
       "other_allergen_info": "",
       "harvest_date": "2026-03-17T10:30:00Z",
+      "available_from_month": 9,
+      "available_to_month": 11,
       "is_active": true,
       "created_at": "2026-03-24T10:00:00Z",
       "season": "AUTUMN"
@@ -643,11 +651,13 @@
       "name": "Strawberries",
       "description": "Sweet strawberries, best eaten the same day.",
       "price": "3.20",
-      "unit": "punnet",
+      "unit": "pack",
       "stock_quantity": 15,
       "allergens": [],
       "other_allergen_info": "",
       "harvest_date": "2026-03-22T07:00:00Z",
+      "available_from_month": 6,
+      "available_to_month": 8,
       "is_active": true,
       "created_at": "2026-03-24T10:00:00Z",
       "season": "SUMMER"
@@ -681,11 +691,13 @@
       "name": "Spring Greens",
       "description": "Tender leafy greens ideal for steaming.",
       "price": "2.20",
-      "unit": "bag",
+      "unit": "pack",
       "stock_quantity": 16,
       "allergens": [],
       "other_allergen_info": "",
       "harvest_date": "2026-03-23T09:00:00Z",
+      "available_from_month": 3,
+      "available_to_month": 5,
       "is_active": true,
       "created_at": "2026-03-24T10:00:00Z",
       "season": "SPRING"
@@ -700,13 +712,15 @@
       "name": "Goat Cheese",
       "description": "Soft goat cheese with a creamy texture.",
       "price": "5.60",
-      "unit": "150g",
+      "unit": "g",
       "stock_quantity": 8,
       "allergens": [
         7
       ],
       "other_allergen_info": "",
       "harvest_date": "2026-03-16T08:00:00Z",
+      "available_from_month": 3,
+      "available_to_month": 5,
       "is_active": true,
       "created_at": "2026-03-24T10:00:00Z",
       "season": "SPRING"
@@ -721,13 +735,15 @@
       "name": "Winter Fruit Loaf",
       "description": "Fruit loaf with warming spices.",
       "price": "4.10",
-      "unit": "loaf",
+      "unit": "each",
       "stock_quantity": 10,
       "allergens": [
         2
       ],
       "other_allergen_info": "May contain traces of tree nuts.",
       "harvest_date": "2026-03-14T06:30:00Z",
+      "available_from_month": 12,
+      "available_to_month": 2,
       "is_active": true,
       "created_at": "2026-03-24T10:00:00Z",
       "season": "WINTER"
@@ -742,7 +758,7 @@
       "name": "Inactive Test Product",
       "description": "This product is hidden from normal browsing.",
       "price": "9.99",
-      "unit": "item",
+      "unit": "each",
       "stock_quantity": 0,
       "allergens": [],
       "other_allergen_info": "",

@@ -49,6 +49,7 @@ class Product(models.Model):
         ("each", "Each"),
         ("kg", "Kilogram"),
         ("g", "Gram"),
+        ("dozen", "Dozen"),
         ("bunch", "Bunch"),
         ("litre", "Litre"),
         ("pack", "Pack"),
@@ -59,8 +60,6 @@ class Product(models.Model):
     
     allergens = models.ManyToManyField(Allergen, blank=True)
     other_allergen_info = models.TextField(blank=True)
-    # Keep DateTimeField for compatibility with existing fixtures which include times.
-    # We can migrate to DateField later after normalising fixture data.
     harvest_date = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

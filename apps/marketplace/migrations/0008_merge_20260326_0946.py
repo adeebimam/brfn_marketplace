@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('marketplace', '0007_merge_20260320_1231'),
+        ('marketplace', '0007_merge_20260320_1203'),
         ('marketplace', '0007_rename_is_active_product_in_season_and_more'),
     ]
 
