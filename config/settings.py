@@ -39,11 +39,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'axes',
     'apps.accounts.apps.AccountsConfig',
     'apps.marketplace.apps.MarketplaceConfig',
     "apps.cart.apps.CartConfig",
-
-
 ]
 
 MIDDLEWARE = [
@@ -54,6 +53,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'axes.middleware.AxesMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -80,19 +80,30 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.mysql",
-        "NAME": os.getenv("DB_NAME", "brfn_db"),
-        "USER": os.getenv("DB_USER", "brfn_user"),
-        "PASSWORD": os.getenv("DB_PASSWORD", "123456789"),
-        "HOST": os.getenv("DB_HOST", "127.0.0.1"),
-        "PORT": os.getenv("DB_PORT", "3306"),
-        "OPTIONS": {
-            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
-        },
+import sys
+
+if "test" in sys.argv:
+    # Use fast in-memory SQLite for tests (no MySQL permissions needed)
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": ":memory:",
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.mysql",
+            "NAME": os.getenv("DB_NAME", "brfn_db"),
+            "USER": os.getenv("DB_USER", "brfn_user"),
+            "PASSWORD": os.getenv("DB_PASSWORD", "123456789"),
+            "HOST": os.getenv("DB_HOST", "127.0.0.1"),
+            "PORT": os.getenv("DB_PORT", "3306"),
+            "OPTIONS": {
+                "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+            },
+        }
+    }
 
 
 # Password validation
@@ -133,6 +144,69 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
 AUTHENTICATION_BACKENDS = [
+    "axes.backends.AxesBackend",
     "apps.accounts.backends.EmailBackend",
     "django.contrib.auth.backends.ModelBackend",
 ]
+
+
+# ──────────────────────────────────────────────
+# Session management
+# ──────────────────────────────────────────────
+SESSION_COOKIE_AGE = 1209600                # 2 weeks (when "remember me" is ticked)
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True      # Default: expire on browser close
+SESSION_COOKIE_HTTPONLY = True               # JS cannot read session cookie
+SESSION_COOKIE_SAMESITE = "Lax"             # CSRF protection
+SESSION_COOKIE_SECURE = not DEBUG           # HTTPS-only in production
+
+LOGIN_URL = "accounts:login"
+
+
+# ──────────────────────────────────────────────
+# django-axes  – brute-force / rate-limiting
+# ──────────────────────────────────────────────
+AXES_FAILURE_LIMIT = 5                      # Lock after 5 bad attempts
+AXES_COOLOFF_TIME = 1                       # 1-hour cooloff
+AXES_LOCK_OUT_AT_FAILURE = True
+AXES_RESET_ON_SUCCESS = True                # Reset counter after good login
+AXES_LOCKOUT_PARAMETERS = ["username"]      # Lock per-account, not per-IP
+AXES_USERNAME_FORM_FIELD = "username"       # Field name used in the login form
+AXES_LOCKOUT_CALLABLE = "apps.accounts.views.axes_lockout_view"
+
+
+# ──────────────────────────────────────────────
+# Security logging
+# ──────────────────────────────────────────────
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{asctime} {levelname} {name} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+        "security_file": {
+            "class": "logging.FileHandler",
+            "filename": BASE_DIR / "logs" / "security.log",
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        "security": {
+            "handlers": ["console", "security_file"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "axes": {
+            "handlers": ["console", "security_file"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}

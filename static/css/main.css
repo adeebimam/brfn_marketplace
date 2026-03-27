@@ -11,16 +11,16 @@ body {
 }
 
 /* ---- Text ---- */
-.welcome-message{
+.welcome-message {
   font-weight: bold;
 }
 
-.role-label{
+.role-label {
   color: #087d73;
   font-weight: bold;
 }
 
-.login-register-link{
+.login-register-link {
   color: #1faa9f;
   text-decoration: none;
   font-weight: 600;
@@ -30,7 +30,6 @@ body {
   text-decoration: underline;
   color: #168e85;
 }
-
 
 /* ---- Layout ---- */
 .container {
@@ -85,26 +84,8 @@ body {
   background: #f3f4f6;
 }
 
-.nav a.btn-primary {
-  background: #1faa9f;
-  border-color: #1faa9f;
-  color: #111827;
-}
-.nav a.btn-primary:hover { filter: brightness(0.95);
-  color: #111827; }
-
-.nav a.btn-danger {
-  background-color: red;
-  color: white;
-}
-
-.nav a.btn-danger:hover {
-  background-color: #db1919;
-  color: white;
-}
-
 /* ---- Buttons ---- */
-
+/* ---- Buttons ---- */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -122,14 +103,18 @@ body {
 }
 
 /* Use .btn.btn-logout (no space) to increase specificity */
-
+.btn.btn-logout {
+  background: #ef4444; /* Standard red */
+  border-color: #ef4444;
+  color: #ffffff; /* Changed to white for better contrast */
+}
 
 /* Force the hover state to stay red/dark-red */
-.btn.btn-logout:hover { 
-  background: #dc2626; 
+.btn.btn-logout:hover {
+  background: #dc2626;
   border-color: #dc2626;
   color: #ffffff;
-  filter: brightness(0.9); 
+  filter: brightness(0.9);
 }
 
 .btn.btn-primary {
@@ -138,26 +123,12 @@ body {
   color: #ffffff;
 }
 
-.btn.btn-primary:hover { 
+.btn.btn-primary:hover {
   background: #168e85;
   border-color: #168e85;
-  filter: brightness(0.9); 
+  filter: brightness(0.9);
 }
 
-.btn:hover { background: #f9fafb; }
-.btn-primary {
-  background: #1faa9f;
-  border-color: #1faa9f;
-  color: #111827;
-}
-.btn-primary:hover { filter: brightness(0.95); }
-
-.btn-danger{
-  background-color: red;
-}
-.btn-danger:hover{
-  background-color: #db1919;
-}
 /* ---- Forms ---- */
 label { font-weight: 600; display: block; margin-bottom: 6px; }
 input, select, textarea {
@@ -167,15 +138,6 @@ input, select, textarea {
   border-radius: 12px;
   background: #ffffff;
   font-size: 14px;
-}
-/* Prevent global input styles from breaking checkboxes & radios */
-input[type="checkbox"],
-input[type="radio"] {
-  width: auto;
-  padding: 0;
-  border-radius: 0;
-  border: revert;
-  background: revert;
 }
 textarea { min-height: 110px; }
 input:focus, select:focus, textarea:focus {
@@ -238,7 +200,7 @@ input:focus, select:focus, textarea:focus {
   color: #1faa9f;
 }
 
-.view-profile-link{
+.view-profile-link {
   text-decoration: none;
   color: #1faa9f;
   font-weight: bold;
@@ -249,34 +211,67 @@ input:focus, select:focus, textarea:focus {
   color: #168e85;
 }
 
-.non-primary-btn {
-  font-size: 15px;
-}
-.non-primary-btn:hover {
-  text-decoration: underline;
-  background: #99999c;
-}
-
-.save-btn{
+.save-btn {
   background: #1faa9f;
   font-size: 15px;
 }
-.save-btn:hover{
-  text-decoration: underline;
-  background:  #168e85;
 
+.save-btn:hover {
+  text-decoration: underline;
+  background: #168e85;
 }
-.user-role {
-    font-size: 50px;
-    color: #666;
-    margin-left: 4px;
-}
+
 .user-info{
-  font-size: large;
   font-weight: bold;
+  color: #087d73;
 }
 
-.item-info{
-  font-size: 12px;
-  text-decoration: underline;
+/* Modern checkboxes for allergens */
+.allergen-checkboxes label {
+  display: flex;
+  align-items: center;
+  min-width: 160px;
+  gap: 0.7em;
+  margin-bottom: 0.5em;
+  font-weight: 500;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.allergen-checkboxes input[type="checkbox"] {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #1faa9f;
+  border-radius: 6px;
+  background: #fff;
+  margin: 0;
+  margin-right: 6px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  position: relative;
+}
+
+.allergen-checkboxes input[type="checkbox"]:checked {
+  background: #1faa9f;
+  border-color: #1faa9f;
+}
+
+.allergen-checkboxes input[type="checkbox"]:checked::after {
+  content: "";
+  display: block;
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 6px;
+  height: 12px;
+  border: solid #fff;
+  border-width: 0 3px 3px 0;
+  transform: rotate(45deg);
+}
+
+.allergen-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5em;
+  align-items: flex-start;
 }
