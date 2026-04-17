@@ -20,6 +20,7 @@ class ProductForm(forms.ModelForm):
             "season",
             "allergens",
             "other_allergen_info",
+           
         ]
         widgets = {
             "allergens": forms.CheckboxSelectMultiple(),
@@ -34,15 +35,15 @@ class ProductForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         allergens = cleaned_data.get("allergens")
-        other_allergen_info = cleaned_data.get("other_allergen_info")
+        other_allergen_info = (cleaned_data.get("other_allergen_info") or "").strip()
         category = cleaned_data.get("category")
+        cleaned_data["other_allergen_info"] = other_allergen_info
 
-        if category and category.name.lower() in ["bakery", "dairy", "food", "produce"]:
-            if (not allergens or len(allergens) == 0) and not other_allergen_info:
+        if category and category.is_food:
+            if (not allergens or len (allergens) == 0) and not other_allergen_info:
                 raise forms.ValidationError(
-                    "Allergen information must be provided for food products."
+                    "Allergen information cannot be omitted for food products."
                 )
-
         return cleaned_data
 
 

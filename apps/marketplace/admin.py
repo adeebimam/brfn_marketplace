@@ -13,7 +13,18 @@ class ProductAdminForm(forms.ModelForm):
         widgets = {
             "allergens": forms.CheckboxSelectMultiple(),
         }
+    def clean (self):
+        cleaned_data = super().clean()
+        category = cleaned_data.get("category")
+        allergens = cleaned_data.get("allergens")
+        other_info = cleaned_data.get("other_allergen_info")
 
+        if category and category.is_food: 
+            if not allergens and not other_info:
+                raise forms.ValidationError ( 
+                    "For food products, you must specify at least one allergen or provide other allergen information."
+                )
+        return cleaned_data 
 
 class ProductAdmin(admin.ModelAdmin):
     form = ProductAdminForm
@@ -68,6 +79,11 @@ class ProducerOrderStatusHistoryAdmin(admin.ModelAdmin):
     readonly_fields = ("producer_order", "old_status", "new_status", "note", "changed_by", "changed_at")
 
 
-admin.site.register(Category)
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ("name", "is_food")
+    list_editable = ("is_food",)
+    search_fields = ("name",)
+
 admin.site.register(Allergen)
 admin.site.register(Product, ProductAdmin)

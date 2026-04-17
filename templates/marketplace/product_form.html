@@ -3,7 +3,11 @@
   <h1>{% if mode == "create" %}Create{% else %}Edit{% endif %} Product</h1>
   <form method="post" class="producer-product-form">
     {% csrf_token %}
-    {{ form.non_field_errors }}
+    {% if form.non_field_errors %}
+      <div style = "background: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; margin-bottom: 15px;">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
     {{ form.category.label_tag }} {{ form.category }}<br><br>
     {{ form.name.label_tag }} {{ form.name }}<br><br>
     {{ form.description.label_tag }} {{ form.description }}<br><br>
@@ -26,6 +30,9 @@
       <p class="allergen-help-text">{{ form.allergens.help_text }}</p>
     {% endif %}
     <br>
+    {{ form.other_allergen_info.label_tag }}
+    {{ form.other_allergen_info }}
+    {{ form.other_allergen_info.errors }}
     <button class="save-btn btn" type="submit">Save</button>
     <button class="back-btn btn" type="button" onclick="window.history.back();">Back</button>
   </form>

@@ -6,6 +6,7 @@ from datetime import timedelta
 
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
+    is_food = models.BooleanField(default=False)
 
     class Meta:
         verbose_name_plural = "Categories"

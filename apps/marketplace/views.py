@@ -70,7 +70,7 @@ def product_list(request):
         ).filter(other_allergen_info="")
     elif allergen_filter.startswith("specific_"):
         allergen_id = allergen_filter.split("_")[1]
-        products = products.filter(allergens__id=allergen_id)
+        products = products.exclude(allergens__id=allergen_id).distinct()
 
     context = {
         "products": products,
