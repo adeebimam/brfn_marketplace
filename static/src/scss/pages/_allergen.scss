@@ -1,7 +1,7 @@
 // === Allergen Warning ===
 .allergen-warning {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
   background: #fff8e1;
   border: 1px solid #f5c518;
@@ -10,12 +10,25 @@
   color: #7a5c00;
   font-size: 0.9rem;
 
+  > i {
+    flex-shrink: 0;
+    line-height: 1;
+  }
+
+  > span {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+
   .allergen-list {
     list-style: none;
     padding: 0;
-    margin: 6px 0 0;
+    margin: 0;
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 6px;
   }
 }
@@ -126,5 +139,52 @@
   .allergen-option {
     width: 100%;
     border-radius: 14px;
+  }
+}
+
+// === Product List Filters ===
+.product-filters {
+  display: flex;
+  gap: 20px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+
+  .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1 1 160px;
+    min-width: 0;
+
+    label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 0;
+      white-space: nowrap;
+    }
+
+    input,
+    select {
+      height: 42px;
+      padding: 8px 12px;
+      font-size: 14px;
+    }
+  }
+
+  .btn {
+    height: 42px;
+    align-self: flex-end;
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .product-filters {
+    flex-direction: column;
+    align-items: stretch;
+
+    .filter-group {
+      flex: 1 1 100%;
+    }
   }
 }

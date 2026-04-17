@@ -14,7 +14,7 @@ from django.utils import timezone
 from apps.accounts.models import Profile
 from .forms import CheckoutForm, ProductForm, ProducerOrderStatusForm
 from .models import (
-    Allergen, Category, Product,
+    Allergen, Category, Product, MONTH_NAMES,
     ProducerOrder, ProducerOrderStatusHistory,
 )
 
@@ -36,7 +36,12 @@ def _require_producer(request):
 # ----------------------------
 
 def product_list(request):
-    products = Product.objects.all().select_related("category", "producer").prefetch_related("allergens")
+    # Only show products where stock > 0 AND is_active (not marked "Not available")
+    products = (
+        Product.objects.filter(is_active=True, stock_quantity__gt=0)
+        .select_related("category", "producer")
+        .prefetch_related("allergens")
+    )
     categories = Category.objects.order_by("name")
     allergens = Allergen.objects.order_by("name")
 
@@ -72,15 +77,33 @@ def product_list(request):
         allergen_id = allergen_filter.split("_")[1]
         products = products.exclude(allergens__id=allergen_id).distinct()
 
+    # Auto-hide out-of-season products (date-based filtering)
+    today = date.today()
+    current_month = today.month
+    # Keep products that are year-round (ALL or no months set) OR currently in season
+    products = [p for p in products if p.is_in_season(today)]
+
+    # Annotate each product with season status for template use
+    for p in products:
+        p.in_season_now = p.is_in_season(today)
+
+    # Build allergen choices with pre-formatted value strings for template
+    allergen_choices = [
+        {"value": f"specific_{a.id}", "name": a.name}
+        for a in allergens
+    ]
+
     context = {
         "products": products,
         "categories": categories,
         "allergens": allergens,
+        "allergen_choices": allergen_choices,
         "selected_category": selected_category,
         "selected_season": selected_season,
         "seasons": Product.SEASON_CHOICES,
         "query": query,
         "allergen_filter": allergen_filter,
+        "current_month": current_month,
     }
     return render(request, "marketplace/product_list.html", context)
 
@@ -90,11 +113,22 @@ def product_list(request):
 # ----------------------------
 
 def product_detail(request, pk):
+    # Only show products that are active (formerly `in_season`)
     product = get_object_or_404(
         Product.objects.select_related("category", "producer").prefetch_related("allergens"),
-        pk=pk
+        pk=pk,
+        is_active=True,
     )
-    return render(request, "marketplace/product_detail.html", {"product": product})
+    # If the product is not available, out of stock, or out of season — only the producer can view
+    if (not product.is_active or product.stock_quantity <= 0 or not product.is_in_season()):
+        if request.user != product.producer:
+            from django.http import Http404
+            raise Http404("This product is not currently available.")
+
+    return render(request, "marketplace/product_detail.html", {
+        "product": product,
+        "is_in_season": product.is_in_season(),
+    })
 
 
 # -----------------------------

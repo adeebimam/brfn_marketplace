@@ -5,7 +5,88 @@
 
     <form method="post" class="stack">
       {% csrf_token %}
-      {{ form.as_p }}
+
+      {# ── Email ── #}
+      <p>
+        {{ form.email.label_tag }}
+        {{ form.email }}
+        {% for error in form.email.errors %}<span class="error">{{ error }}</span>{% endfor %}
+      </p>
+
+      {# ── Account type (radio buttons) ── #}
+      <fieldset class="account-type-fieldset">
+        <legend>{{ form.account_type.label }}</legend>
+        {% for radio in form.account_type %}
+          <label class="radio-label">{{ radio.tag }} {{ radio.choice_label }}</label>
+        {% endfor %}
+        {% for error in form.account_type.errors %}<span class="error">{{ error }}</span>{% endfor %}
+      </fieldset>
+
+      {# ── Business / Organisation name (shown for Community Group & Restaurant/Café) ── #}
+      <div id="business-name-group" style="display:none;">
+        <p>
+          {{ form.business_name.label_tag }}
+          {{ form.business_name }}
+          {% if form.business_name.help_text %}<span class="helptext">{{ form.business_name.help_text }}</span>{% endif %}
+          {% for error in form.business_name.errors %}<span class="error">{{ error }}</span>{% endfor %}
+        </p>
+      </div>
+
+      {# ── Type of establishment (shown only for Restaurant / Café) ── #}
+      <div id="business-type-group" style="display:none;">
+        <p>
+          {{ form.business_type.label_tag }}
+          {{ form.business_type }}
+          {% for error in form.business_type.errors %}<span class="error">{{ error }}</span>{% endfor %}
+        </p>
+      </div>
+
+      {# ── Passwords ── #}
+      <p>
+        {{ form.password1.label_tag }}
+        {{ form.password1 }}
+        {% if form.password1.help_text %}<span class="helptext">{{ form.password1.help_text }}</span>{% endif %}
+        {% for error in form.password1.errors %}<span class="error">{{ error }}</span>{% endfor %}
+      </p>
+      <p>
+        {{ form.password2.label_tag }}
+        {{ form.password2 }}
+        {% if form.password2.help_text %}<span class="helptext">{{ form.password2.help_text }}</span>{% endif %}
+        {% for error in form.password2.errors %}<span class="error">{{ error }}</span>{% endfor %}
+      </p>
+
+      {# ── Personal details ── #}
+      <p>
+        {{ form.first_name.label_tag }}
+        {{ form.first_name }}
+        {% for error in form.first_name.errors %}<span class="error">{{ error }}</span>{% endfor %}
+      </p>
+      <p>
+        {{ form.last_name.label_tag }}
+        {{ form.last_name }}
+        {% for error in form.last_name.errors %}<span class="error">{{ error }}</span>{% endfor %}
+      </p>
+      <p>
+        {{ form.delivery_address.label_tag }}
+        {{ form.delivery_address }}
+        {% for error in form.delivery_address.errors %}<span class="error">{{ error }}</span>{% endfor %}
+      </p>
+      <p>
+        {{ form.delivery_postcode.label_tag }}
+        {{ form.delivery_postcode }}
+        {% for error in form.delivery_postcode.errors %}<span class="error">{{ error }}</span>{% endfor %}
+      </p>
+      <p>
+        {{ form.phone.label_tag }}
+        {{ form.phone }}
+        {% for error in form.phone.errors %}<span class="error">{{ error }}</span>{% endfor %}
+      </p>
+
+      {# ── Non-field errors ── #}
+      {% if form.non_field_errors %}
+        <div class="error">{{ form.non_field_errors }}</div>
+      {% endif %}
+
       <button class="btn btn-primary" type="submit" style="font-size: large;">Create account</button>
     </form>
 
@@ -13,4 +94,28 @@
     <p class="muted">Producer registration? <a href="{% url 'accounts:producer_register' %}" class="login-register-link">Register</a></p>
 
   </div>
+
+  <script>
+    // Show / hide fields based on account type selection
+    (function () {
+      const radios = document.querySelectorAll('input[name="account_type"]');
+      const businessGroup = document.getElementById('business-name-group');
+      const businessTypeGroup = document.getElementById('business-type-group');
+      const rolesNeedingBusiness = ['COMMUNITY_GROUP', 'RESTAURANT'];
+
+      function toggle() {
+        const selected = document.querySelector('input[name="account_type"]:checked');
+        const val = selected ? selected.value : '';
+
+        // Show business name for Community Group and Restaurant/Café
+        businessGroup.style.display = rolesNeedingBusiness.includes(val) ? '' : 'none';
+
+        // Show establishment type only for Restaurant/Café
+        businessTypeGroup.style.display = (val === 'RESTAURANT') ? '' : 'none';
+      }
+
+      radios.forEach(r => r.addEventListener('change', toggle));
+      toggle();  // run on page load (in case of form re-render with errors)
+    })();
+  </script>
 {% endblock %}

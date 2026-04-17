@@ -13,10 +13,14 @@
         <label>Password</label>
         <input type="password" name="password" autocomplete="current-password" />
       </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <input type="checkbox" name="remember_me" id="remember_me" style="width:auto;" />
+        <label for="remember_me" style="margin:0; font-weight:normal;">Remember me</label>
+      </div>
       <button class="btn btn-primary"  style="font-size: large;"   type="submit">Login</button>
     </form>
 
-    <p class="muted">No account? <a href="{% url 'accounts:register' %}" class="login-register-link">Register</a></p>
+    <p class="muted">No account? <a href="{% url 'accounts:register' %}" class="login-register-link">Register</a> <span style="font-style: italic; font-size: small;">(Restaurants, Community Groups, Customers)</span></p>
     <p class="muted">Producer registration? <a href="{% url 'accounts:producer_register' %}" class="login-register-link">Register</a></p>
   </div>
 {% endblock %}
