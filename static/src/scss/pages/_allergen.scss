@@ -1,55 +1,190 @@
-.product-list-page {
-  gap: 20px;
-}
-
-.products-header {
+// === Allergen Warning ===
+.allergen-warning {
   display: flex;
-  flex-direction: column;
-  gap: 20px;
+  align-items: center;
+  gap: 8px;
+  background: #fff8e1;
+  border: 1px solid #f5c518;
+  border-radius: 10px;
+  padding: 12px 16px;
+  color: #7a5c00;
+  font-size: 0.9rem;
 
-  h1 {
+  > i {
+    flex-shrink: 0;
+    line-height: 1;
+  }
+
+  > span {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .allergen-list {
+    list-style: none;
+    padding: 0;
     margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
   }
 }
 
+.allergen-warning--compact {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  margin-top: 8px;
+}
+
+// === Allergen Tags ===
+.allergen-tag {
+  display: inline-block;
+  background: #ffe08a;
+  color: #7a5c00;
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.allergen-other {
+  background: #ffd0b0;
+  color: #7a2e00;
+}
+
+// === Allergen Safe ===
+.allergen-safe {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f0faf0;
+  border: 1px solid #a8d5a2;
+  border-radius: 10px;
+  padding: 12px 16px;
+  color: #2e6b2e;
+  font-size: 0.9rem;
+}
+
+.allergen-safe--compact {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  margin-top: 8px;
+}
+
+
+
+// === Allergen Form Checkboxes ===
+.producer-product-form .allergen-section {
+  margin-top: 8px;
+}
+
+.producer-product-form .allergen-checkboxes {
+  width: min(100%, 760px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.allergen-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid #d7dee8;
+  border-radius: 999px;
+  background: #ffffff;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: 0;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.allergen-option:hover {
+  border-color: #1faa9f;
+  background: #f3fbfa;
+}
+
+.allergen-option input[type="checkbox"] {
+  width: 16px !important;
+  height: 16px;
+  margin: 0;
+  flex: 0 0 auto;
+  accent-color: #1faa9f;
+}
+
+.allergen-option:has(input[type="checkbox"]:checked) {
+  border-color: #1faa9f;
+  background: #e8f7f5;
+  box-shadow: 0 0 0 1px rgba(31, 170, 159, 0.18);
+}
+
+.allergen-option span {
+  line-height: 1.2;
+}
+
+.allergen-help-text {
+  margin: 8px 0 0;
+  color: #5f6b7a;
+  font-size: 0.92rem;
+}
+
+@media (max-width: 520px) {
+  .producer-product-form .allergen-checkboxes {
+    gap: 8px;
+  }
+
+  .allergen-option {
+    width: 100%;
+    border-radius: 14px;
+  }
+}
+
+// === Product List Filters ===
 .product-filters {
-  display: grid;
-  grid-template-columns: 2fr 1.3fr 1.2fr auto;
-  gap: 14px;
-  align-items: end;
-}
-
-.filter-group {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
+  gap: 20px;
+  align-items: flex-end;
+  flex-wrap: wrap;
 
-.filter-group input,
-.filter-group select {
-  width: 100%;
-}
+  .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1 1 160px;
+    min-width: 0;
 
-.product-results {
-  gap: 16px;
-}
+    label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 0;
+      white-space: nowrap;
+    }
 
-.product-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 18px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 14px;
-}
-
-@media (max-width: 900px) {
-  .product-filters {
-    grid-template-columns: 1fr;
+    input,
+    select {
+      height: 42px;
+      padding: 8px 12px;
+      font-size: 14px;
+    }
   }
 
-  .product-card {
+  .btn {
+    height: 42px;
+    align-self: flex-end;
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .product-filters {
     flex-direction: column;
+    align-items: stretch;
+
+    .filter-group {
+      flex: 1 1 100%;
+    }
   }
 }

@@ -59,6 +59,17 @@ def cart_add(request, product_id):
         return redirect("marketplace:product_list")
 
     product = get_object_or_404(Product, id=product_id)
+
+    # Block adding out-of-season products
+    if not product.is_in_season():
+        messages.error(request, f"'{product.name}' is currently out of season and cannot be ordered.")
+        return redirect("marketplace:product_list")
+
+    # Block adding unavailable products
+    if not product.is_active or product.stock_quantity <= 0:
+        messages.error(request, f"'{product.name}' is not currently available.")
+        return redirect("marketplace:product_list")
+
     cart, _ = Cart.objects.get_or_create(user=request.user)
 
     try:

@@ -1,0 +1,78 @@
+// ── Allergen checkboxes (product form) ──────────────
+// Pill / chip style – each allergen is a rounded bordered pill.
+.allergen-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  label,
+  .allergen-option {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border: 1.5px solid #d1d5db;
+    border-radius: 999px;          // pill shape
+    background: #fff;
+    font-weight: 500;
+    font-size: 14px;
+    cursor: pointer;
+    margin-bottom: 0;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    user-select: none;
+
+    &:hover {
+      border-color: #9ca3af;
+      background: #f9fafb;
+    }
+
+    // Highlight the whole pill when checked
+    &:has(input:checked) {
+      border-color: #1faa9f;
+      background: rgba(31, 170, 159, 0.08);
+      box-shadow: 0 0 0 1px #1faa9f;
+    }
+  }
+
+  input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px !important;
+    height: 16px;
+    min-width: 16px;
+    border: 2px solid #9ca3af !important;
+    border-radius: 4px !important;
+    background: #fff;
+    padding: 0 !important;
+    margin: 0;
+    cursor: pointer;
+    position: relative;
+    transition: border-color 0.15s, background 0.15s;
+    flex-shrink: 0;
+
+    &:checked {
+      background: #1faa9f;
+      border-color: #1faa9f !important;
+
+      &::after {
+        content: "";
+        display: block;
+        position: absolute;
+        left: 3px;
+        top: 0px;
+        width: 5px;
+        height: 9px;
+        border: solid #fff;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+      }
+    }
+  }
+}
+
+// ── Allergen fieldset container ──────────────────────
+.allergen-fieldset {
+  legend {
+    font-weight: 600;
+  }
+}
