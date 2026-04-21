@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>My Orders</h2>
+
+<form method="GET" style="margin-bottom: 20px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+
+  <label>Start:</label>
+  <input type="date" name="start">
+
+  <label>End:</label>
+  <input type="date" name="end">
+
+  <label>Sort:</label>
+  <select name="sort">
+    <option value="newest">Newest First</option>
+    <option value="oldest">Oldest First</option>
+  </select>
+
+  <label>Producer:</label>
+  <input type="text" name="producer" placeholder="Enter producer name">
+
+  <button type="submit" class="btn btn-primary">Filter</button>
+
+</form>
+
+{% for order in orders %}
+  <div style="border:1px solid #ddd; border-radius:10px; padding:16px; margin-bottom:20px; background:#fff;">
+
+    <p><strong>Order #{{ order.order_number }}</strong></p>
+    <p>Order Date: {{ order.order_date }}</p>
+    <p>Delivery Date: {{ order.delivery_date }}</p>
+    <p>Total: £{{ order.total }}</p>
+    <p>Status: Completed</p>
+
+    <p><strong>Producers:</strong></p>
+    <ul>
+      {% for producer, items in order.producers.items %}
+        <li>{{ producer }}</li>
+      {% endfor %}
+    </ul>
+
+    <div style="margin-top:10px;">
+      <a class="btn" href="{% url 'marketplace:order_detail' order.order_number %}">
+        View Details
+      </a>
+
+      <a class="btn btn-primary" href="{% url 'marketplace:reorder' order.order_number %}">
+        Reorder
+      </a>
+    </div>
+
+  </div>
+{% empty %}
+  <p>No orders found.</p>
+{% endfor %}
+
+{% endblock %}

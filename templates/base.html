@@ -27,13 +27,17 @@
       </a>
 
       {% if user.is_authenticated %}
-        {% if user.profile.role == "PRODUCER" %}
-          <a href="{% url 'marketplace:producer_product_list' %}">My Products</a>
-          <a href="{% url 'marketplace:producer_order_list' %}">Orders</a>
-          <a href="{% url 'marketplace:producer_payments' %}">Payments</a>
-        {% endif %}
-        <a class="btn" href="{% url 'accounts:logout' %}">Logout</a>
-      {% else %}
+  {% if user.profile.role == "PRODUCER" %}
+    <a href="{% url 'marketplace:producer_product_list' %}">My Products</a>
+    <a href="{% url 'marketplace:producer_order_list' %}">Orders</a>
+    <a href="{% url 'marketplace:producer_payments' %}">Payments</a>
+  {% else %}
+    <!-- ✅ ADD THIS FOR CUSTOMERS -->
+    <a href="{% url 'marketplace:order_history' %}">My Orders</a>
+  {% endif %}
+  
+  <a class="btn" href="{% url 'accounts:logout' %}">Logout</a>
+{% else %}
         <a href="{% url 'accounts:login' %}">Login</a>
         <a class="btn btn-primary" href="{% url 'accounts:register' %}">Register</a>
       {% endif %}

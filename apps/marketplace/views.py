@@ -3,6 +3,8 @@ import random
 from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
+from tracemalloc import start
+from urllib import request
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -10,6 +12,8 @@ from django.db.models import Q
 from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+
+from apps.cart.models import Cart, CartItem
 
 from apps.accounts.models import Profile
 from .forms import CheckoutForm, ProductForm, ProducerOrderStatusForm
@@ -300,6 +304,7 @@ def checkout(request):
             "qty": qty,
             "total": float(line_total),
             "lead_time": lead_time,
+            "id": product.id,
         })
 
     commission = subtotal * Decimal("0.05")
@@ -351,6 +356,7 @@ def payment(request):
 
     if request.method == "POST":
         order_number = "ORD-" + str(random.randint(10000, 99999))
+
         print("NEW ORDER RECEIVED")
         print("Order Number:", order_number)
 
@@ -359,10 +365,33 @@ def payment(request):
             for item in items:
                 print(f"- {item['name']} x{item['qty']} (£{item['total']})")
 
+        # ✅ ADD THIS BLOCK HERE
+        order_history = request.session.get("order_history", [])
+
+        order_data = {
+            "order_number": order_number,
+            "address": order["address"],
+
+            # ✅ FIX DATES
+            "order_date": timezone.now().strftime("%Y-%m-%d"),
+            "delivery_date": order["date"],
+
+            "payment": order["payment"],
+            "subtotal": order["subtotal"],
+            "commission": order["commission"],
+            "total": order["total"],
+            "producers": order["producers"],
+        }
+
+        order_history.append(order_data)
+        print("ORDER SAVED:", order_data)
+        request.session["order_history"] = order_history
+
+        #  THEN DELETE CURRENT ORDER
         if "order" in request.session:
             del request.session["order"]
 
-        return render(request, "confirmation.html", {
+        return render(request, "orders/confirmation.html", {
             "order_number": order_number,
             "address": order["address"],
             "date": order["date"],
@@ -373,7 +402,7 @@ def payment(request):
             "producers": order["producers"],
         })
 
-    return render(request, "payment.html", {
+    return render(request, "orders/payment.html", {
         "order": order,
     })
 
@@ -407,12 +436,16 @@ def producer_order_list(request):
     if status:
         orders = orders.filter(status=status)
 
-    sort = request.GET.get("sort", "delivery_asc")
-
-    if sort == "delivery_desc":
-        orders = orders.order_by("-delivery_date")
+    sort = request.GET.get("sort", "newest")
+    orders = sorted(
+    orders,
+    key=lambda x: x.get("order_date") or x.get("date"),
+    reverse=(sort == "newest")
+    )
+    if sort == "oldest":
+        orders = sorted(orders, key=lambda x: x["order_date"])
     else:
-        orders = orders.order_by("delivery_date")
+        orders = sorted(orders, key=lambda x: x["order_date"], reverse=True)
 
     return render(request, "marketplace/producer_order_list.html", {
         "orders": orders,
@@ -660,3 +693,117 @@ def producer_order_update_status(request, pk):
             "form": form,
         },
     )
+# -----------------------------
+# TC21 - Order History 
+# -----------------------------
+
+@login_required
+def order_history(request):
+    orders = request.session.get("order_history", [])
+
+    # newest first
+    orders = list(reversed(orders))
+
+    # ADD THIS PART HERE
+    start = request.GET.get("start")
+    end = request.GET.get("end")
+
+    if start and end and start <= end:
+        filtered_orders = []
+
+        for o in orders:
+            order_date = o.get("order_date") or o.get("date")  
+
+            if order_date and start <= order_date <= end:
+                filtered_orders.append(o)
+
+        orders = filtered_orders
+
+    producer = request.GET.get("producer")
+
+    if producer:
+        orders = [
+            o for o in orders
+            if producer.lower() in [p.lower() for p in o["producers"].keys()]
+        ]
+
+    return render(request, "orders/history.html", {
+        "orders": orders
+    })
+
+@login_required
+def order_detail(request, order_id):
+    orders = request.session.get("order_history", [])
+
+    order = None
+    for o in orders:
+        if o["order_number"] == order_id:
+            order = o
+            break
+
+    if not order:
+        messages.error(request, "Order not found")
+        return redirect("marketplace:order_history")
+
+    return render(request, "orders/order_detail.html", {
+        "order": order
+    })
+
+
+@login_required
+def reorder(request, order_id):
+    from apps.cart.models import Cart, CartItem
+    from apps.marketplace.models import Product
+
+    order_history = request.session.get("order_history", [])
+
+    # find order
+    order = None
+    for o in order_history:
+        if o["order_number"] == order_id:
+            order = o
+            break
+
+    if not order:
+        messages.error(request, "Order not found")
+        return redirect("marketplace:order_history")
+
+    # get cart (DB)
+    cart, _ = Cart.objects.get_or_create(user=request.user)
+
+    # add items to DB cart
+    for producer, items in order["producers"].items():
+        for item in items:
+            try:
+                product = Product.objects.get(id=item["id"])
+            except Product.DoesNotExist:
+                messages.warning(request, f"{item['name']} not available")
+                continue
+
+            cart_item, created = CartItem.objects.get_or_create(
+                cart=cart,
+                product=product
+            )
+
+            if created:
+                cart_item.quantity = item["qty"]
+            else:
+                cart_item.quantity += item["qty"]
+
+            cart_item.save()
+
+    messages.success(request, "Items added to cart successfully")
+
+    return redirect("cart:detail")
+
+
+
+def download_receipt(request, order_id):
+    orders = request.session.get("order_history", [])
+
+    for o in orders:
+        if o["order_number"] == order_id:
+            content = f"Order {o['order_number']} - Total £{o['total']}"
+            response = HttpResponse(content, content_type="text/plain")
+            response["Content-Disposition"] = f'attachment; filename="receipt.txt"'
+            return response

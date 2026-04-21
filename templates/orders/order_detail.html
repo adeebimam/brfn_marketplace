@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Order {{ order.order_number }}</h2>
+
+<!-- ORDER INFO BOX -->
+<div style="border:1px solid #ddd; border-radius:10px; padding:16px; margin-bottom:20px; background:#fff;">
+
+  <p><strong>Order Date:</strong> {{ order.order_date }}</p>
+  <p><strong>Delivery Date:</strong> {{ order.delivery_date }}</p>
+  <p><strong>Delivery Address:</strong> {{ order.address }}</p>
+  <p><strong>Card:</strong> {{ order.payment|slice:"-4:" }}</p>
+  <p><strong>Total:</strong> £{{ order.total }}</p>
+  <p><strong>Status:</strong> Completed</p>
+  <p><strong>Payment:</strong> {{ order.payment|title }}</p>
+
+</div>
+
+<!-- ITEMS -->
+<h3>Items</h3>
+
+{% for producer, items in order.producers.items %}
+  <div style="border:1px solid #ddd; border-radius:10px; padding:16px; margin-bottom:20px; background:#fff;">
+
+    <h4>{{ producer }}</h4>
+
+    <ul>
+      {% for item in items %}
+        <li>
+          <a href="{% url 'marketplace:product_detail' item.id %}">
+            {{ item.name }} - £{{ item.total }} (Qty: {{ item.qty }})
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+
+  </div>
+{% endfor %}
+
+<!-- ACTION BUTTONS -->
+<div style="margin-top:20px;">
+  <a href="{% url 'marketplace:order_history' %}" class="btn">
+    Back to Orders
+  </a>
+
+  <a href="{% url 'marketplace:reorder' order.order_number %}" class="btn btn-primary">
+    Reorder
+  </a>
+  <a href="{% url 'marketplace:download_receipt' order.order_number %}" class="btn btn-secondary">
+    Download Receipt
+  </a>
+</div>
+
+
+{% endblock %}

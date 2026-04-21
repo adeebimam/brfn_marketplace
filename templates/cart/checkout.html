@@ -4,7 +4,7 @@
 
 <h1>Checkout</h1>
 
-<form method="POST">
+<form method="POST" action="{% url 'marketplace:checkout' %}">
 {% csrf_token %}
 
 <h3>Delivery Address</h3>
