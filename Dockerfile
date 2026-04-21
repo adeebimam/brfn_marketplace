@@ -16,7 +16,7 @@ COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . /app/
-
+RUN chmod +x /app/wait-for-it.sh
 EXPOSE 8000
 
 CMD ["./wait-for-it.sh", "db:3306", "--", "python", "manage.py", "runserver", "0.0.0.0:8000"]
