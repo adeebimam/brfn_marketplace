@@ -1,242 +1,606 @@
 {% extends "base.html" %}
-
 {% block content %}
-<div class="card stack product-list-page">
-  <div class="products-header">
-    <h1>Products</h1>
+<style>
+  .tag-select { position: relative; width: 100%; }
+  .tag-select-tags {
+    display: flex;
+    align-items: center;
+    height: 42px;
+    padding: 4px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 12px;
+    background: white;
+    cursor: pointer;
+  }
+  .tag-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #e8f7f5;
+    border: 1px solid #1faa9f;
+    color: #087d73;
+    border-radius: 20px;
+    padding: 2px 8px;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .tag-item button {
+    background: none;
+    border: none;
+    color: #087d73;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 0;
+    line-height: 1;
+  }
+  .tag-item button:hover { color: #dc2626; }
+  .tag-select-input {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    width: 100% !important;
+    background: transparent;
+    font-size: 14px;
+    cursor: pointer;
+    height: auto !important;
+  }
+  .tag-select-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 0 0 12px 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    z-index: 100;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .tag-select-dropdown.open { display: block; }
+  .tag-select-option { padding: 10px 14px; font-size: 14px; cursor: pointer; font-weight: 500; }
+  .tag-select-option:hover { background: #f3f4f6; }
+  .tag-select-option.selected { background: #e8f7f5; color: #087d73; font-weight: 600; }
+  .tag-select-option.selected::after { content: " ✓"; }
 
-    <form method="get" class="product-filters">
-      <div class="filter-group">
-        <label for="q">Search</label>
-        <input
-          type="text"
-          id="q"
-          name="q"
-          placeholder="Search products or allergens"
-          value="{{ query|default:'' }}"
-        >
-      </div>
+  .search-wrapper { position: relative; }
+  .search-suggestions {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 0 0 12px 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    z-index: 100;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .search-suggestion-item {
+    padding: 10px 14px;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .search-suggestion-item:hover {
+    background: #f3f4f6;
+    color: #1faa9f;
+  }
 
-      <div class="filter-group">
-        <label for="allergen_filter">Allergen Filter</label>
-        <select id="allergen_filter" name="allergen_filter">
-          <option value="" {% if not allergen_filter %}selected{% endif %}>
-            All products
-          </option>
+  .organic-badge {
+    display: inline-block;
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #86efac;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-left: 0.4rem;
+  }
 
-          <option value="with" {% if allergen_filter == "with" %}selected{% endif %}>
-            Contains allergens
-          </option>
+  .non-organic-badge {
+    display: inline-block;
+    background: #f3f4f6;
+    color: #6b7280;
+    border: 1px solid #e5e7eb;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    margin-left: 0.4rem;
+  }
 
-          <option value="without" {% if allergen_filter == "without" %}selected{% endif %}>
-            No common allergens
-          </option>
+  .selected-allergen-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+    min-height: 0;
+  }
 
-          <optgroup label="── Filter by specific allergen ──">
-            {% for allergen in allergen_choices %}
-              <option value="{{ allergen.value }}" {% if allergen_filter == allergen.value %}selected{% endif %}>
-                {{ allergen.name }}
+  .miles-slider-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 180px;
+  }
+  .miles-slider-top {
+    display: flex;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: #087d73;
+  }
+  .miles-slider-top span {
+    background: #e8f7f5;
+    border: 1px solid #1faa9f;
+    border-radius: 20px;
+    padding: 1px 10px;
+  }
+  input[type="range"]#miles_slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 180px;
+    height: 6px;
+    border-radius: 4px;
+    background: #d1d5db;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type="range"]#miles_slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #1faa9f;
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+  input[type="range"]#miles_slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #1faa9f;
+    cursor: pointer;
+    border: 2px solid white;
+  }
+  .miles-slider-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #6b7280;
+    padding: 0 2px;
+    width: 180px;
+  }
+</style>
+
+  <div class="card stack product-list-page">
+    <div class="products-header">
+      <h1>Products</h1>
+
+      <form method="get" class="product-filters">
+        <input type="hidden" name="max_miles" id="max_miles_input" value="{{ max_miles }}">
+
+        <div class="filter-group">
+          <label for="q">Search</label>
+          <div class="search-wrapper">
+            <input
+              type="text"
+              id="q"
+              name="q"
+              placeholder="Search products or allergens"
+              value="{{ query|default:'' }}"
+              autocomplete="off"
+            >
+            <div class="search-suggestions" id="searchSuggestions"></div>
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <label>Exclude Allergens</label>
+          <div class="tag-select" id="tagSelect">
+            <div class="tag-select-tags" id="selectedTags">
+              <input type="text" class="tag-select-input" id="tagInput" placeholder="Select allergens..." readonly>
+            </div>
+            <div class="tag-select-dropdown" id="tagDropdown" style="display:none">
+              {% for allergen in allergens %}
+                <div class="tag-select-option"
+                  data-id="{{ allergen.id }}"
+                  data-name="{{ allergen.name }}"
+                  {% if allergen.id|stringformat:"s" in selected_allergens %}data-selected="true"{% endif %}>
+                  {{ allergen.name }}
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+          <div id="hiddenInputs"></div>
+        </div>
+
+        <div class="filter-group">
+          <label for="category">Category</label>
+          <select id="category" name="category">
+            <option value="">All</option>
+            {% for c in categories %}
+              <option value="{{ c.id }}" {% if selected_category == c.id|stringformat:"s" %}selected{% endif %}>
+                {{ c.name }}
               </option>
             {% endfor %}
-          </optgroup>
-        </select>
-      </div>
+          </select>
+        </div>
 
-      <div class="filter-group">
-        <label for="category">Category</label>
-        <select id="category" name="category">
-          <option value="">All</option>
+        <div class="filter-group">
+          <label>Season</label>
+          <div class="tag-select" id="seasonTagSelect">
+            <div class="tag-select-tags" id="seasonSelectedTags">
+              <input type="text" class="tag-select-input" id="seasonTagInput" placeholder="Select seasons..." readonly>
+            </div>
+            <div class="tag-select-dropdown" id="seasonTagDropdown" style="display:none">
+              {% for value, label in seasons %}
+                <div class="tag-select-option season-option"
+                  data-id="{{ value }}"
+                  data-name="{{ label }}"
+                  {% if value in selected_seasons %}data-selected="true"{% endif %}>
+                  {{ label }}
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+          <div id="seasonHiddenInputs"></div>
+        </div>
 
-          {% for c in categories %}
-            <option value="{{ c.id }}" {% if selected_category == c.id|stringformat:"s" %}selected{% endif %}>
-              {{ c.name }}
-            </option>
-          {% endfor %}
-        </select>
-      </div>
+        <div class="filter-group">
+          <label for="organic">Organic</label>
+          <select id="organic" name="organic" size="1">
+            <option value="" {% if not organic_filter %}selected{% endif %}>All products</option>
+            <option value="certified" {% if organic_filter == "certified" %}selected{% endif %}>🌱 Certified Organic only</option>
+          </select>
+        </div>
 
-      <div class="filter-group">
-        <label for="season">Season</label>
-        <select id="season" name="season">
-          <option value="">All</option>
-
-          {% for value, label in seasons %}
-            <option value="{{ value }}" {% if selected_season == value %}selected{% endif %}>
-              {{ label }}
-            </option>
-          {% endfor %}
-        </select>
-      </div>
-
-      <button class="non-primary-btn btn" type="submit">Apply</button>
-    </form>
-  </div>
-
-  <br>
-
-  <ul class="list product-results">
-    {% for p in products %}
-      <li class="product-card">
-        <div style="display:flex; gap:1.5rem; align-items:flex-start;">
-
-          {% if p.image %}
-            <img
-              src="{{ p.image.url }}"
-              alt="{{ p.name }} image"
-              style="max-width:110px; max-height:110px; border-radius:8px; border:1px solid #eee; object-fit:cover;"
+        {% if user.is_authenticated %}
+        <div class="filter-group" style="min-width:180px; max-width:200px;">
+          <label>📍 Max Food Miles</label>
+          <div class="miles-slider-wrapper">
+            <div class="miles-slider-top">
+              <span id="milesDisplay">
+                {% if max_miles == 20.0 %}All{% else %}{{ max_miles }} mi{% endif %}
+              </span>
+            </div>
+            <input
+              type="range"
+              id="miles_slider"
+              min="0"
+              max="3"
+              step="1"
+              value="{% if max_miles == 5.0 %}1{% elif max_miles == 15.0 %}2{% elif max_miles == 20.0 %}3{% else %}0{% endif %}"
             >
-          {% endif %}
-
-          <div style="flex:1;">
-            <a class="product-link" href="{% url 'marketplace:product_detail' p.pk %}">
-              <strong>{{ p.name }}</strong>
-            </a>
-
-            {% if p.is_active_surplus_deal %}
-              <span class="deal-badge" style="margin-left:0.4rem;">
-                {{ p.surplus_discount_percent }}% OFF
-              </span>
-            {% endif %}
-
-            {% if not p.is_year_round and p.in_season_now %}
-              <span style="display:inline-block; margin-left:0.4rem; font-size:0.8rem; color:#15803d; background:#dcfce7; padding:2px 8px; border-radius:4px; font-weight:600;">
-                🌿 In Season
-              </span>
-            {% endif %}
-
-            <br>
-
-            {% if p.category %}
-              <span class="item-info">{{ p.category.name }}</span>
-            {% endif %}
-
-            {% if p.category and p.season %}
-              <span class="dot-separator">&bull;</span>
-            {% endif %}
-
-            {% if p.season %}
-              <span class="item-info">{{ p.season_label }}</span>
-            {% endif %}
-
-            <div class="muted" style="margin-top:20px;">
-              Sold by: <strong>{{ p.producer.username }}</strong>
+            <div class="miles-slider-labels">
+              <span>0</span>
+              <span>5 mi</span>
+              <span>15 mi</span>
+              <span>20 mi</span>
             </div>
+          </div>
+        </div>
+        {% endif %}
 
-            <div class="muted">
-              {{ p.description|truncatechars:80 }}
-            </div>
+        <div class="selected-allergen-tags" id="selectedAllergenTags" style="width:100%; margin-bottom:8px;"></div>
 
-            <div style="margin-top:12px;">
-              {% if p.is_active_surplus_deal %}
-                <div class="deal-price-cluster">
-                  <div class="deal-price-current">
-                    <span>£{{ p.discounted_price }}</span>
-                    <span class="deal-price-unit">/ {{ p.get_unit_display }}</span>
-                  </div>
+        <button class="non-primary-btn btn" type="submit">Apply</button>
+        <a href="{% url 'marketplace:product_list' %}" class="non-primary-btn btn">Clear Filters</a>
+      </form>
 
-                  <div class="deal-price-compare">
-                    <span class="deal-price-was">Was £{{ p.price }}</span>
-                    <span class="deal-price-save">Save £{{ p.surplus_discount_amount }}</span>
-                  </div>
+    </div>
 
-                  <p class="deal-stock-note">
-                    {{ p.surplus_discount_percent }}% off on {{ p.surplus_stock_quantity }} offer item{{ p.surplus_stock_quantity|pluralize }}.
-                  </p>
+    <br>
 
-                  {% if p.surplus_expires_at %}
-                    <p class="deal-expiry">
-                      Deal ends: {{ p.surplus_expires_at|date:"F j, Y, g:i a" }}
-                    </p>
-                  {% endif %}
+    <ul class="list product-results">
+      {% for p in products %}
+        <li class="product-card">
+          <div style="display:flex; gap:1.5rem; align-items:flex-start;">
+
+            {% if p.image %}
+              <img src="{{ p.image.url }}" alt="{{ p.name }} image"
+                   style="max-width:110px; max-height:110px; border-radius:8px; border:1px solid #eee; object-fit:cover;">
+            {% endif %}
+
+            <div style="flex:1;">
+              <div style="display:flex; align-items:center; flex-wrap:wrap; gap:4px; margin-bottom:4px;">
+                <a class="product-link" href="{% url 'marketplace:product_detail' p.pk %}">
+                  <strong>{{ p.name }}</strong>
+                </a>
+
+                {% if p.is_organic %}
+                  <span class="organic-badge">🌱 Certified Organic</span>
+                {% else %}
+                  <span class="non-organic-badge">Not Certified Organic</span>
+                {% endif %}
+
+                {% if p.food_miles is not None %}
+                  <span style="display:inline-flex; align-items:center; gap:4px; background:#f0fdf4; border:1px solid #86efac; color:#166534; border-radius:20px; padding:2px 10px; font-size:0.78rem; font-weight:600; margin-left:0.4rem;">
+                    📍 {{ p.food_miles }} mi
+                  </span>
+                {% endif %}
+
+                {% if not p.is_year_round and p.in_season_now %}
+                  <span style="display:inline-block; margin-left:0.4rem; font-size:0.8rem; color:#15803d; background:#dcfce7; padding:2px 8px; border-radius:4px; font-weight:600;">
+                    🌿 In Season
+                  </span>
+                {% endif %}
+              </div>
+
+              <div class="muted">
+                Sold by: <strong>{{ p.producer.username }}</strong>
+              </div>
+
+              <div class="muted">
+                {{ p.description|truncatechars:80 }}
+              </div>
+
+              {% if p.category %}
+                <span class="item-info">{{ p.category.name }}</span>
+              {% endif %}
+
+              {% if p.category and p.season %}
+                <span class="dot-separator">&bull;</span>
+              {% endif %}
+
+              {% if p.season %}
+                <span class="item-info">{{ p.season_label }}</span>
+              {% endif %}
+
+              {% if p.real_allergens or p.other_allergen_info %}
+                <div class="allergen-warning allergen-warning--compact">
+                  <i class="fa-solid fa-triangle-exclamation"></i>
+                  <span>
+                    {% for allergen in p.real_allergens %}
+                      <span class="allergen-tag">{{ allergen.name }}</span>
+                    {% endfor %}
+                    {% if p.other_allergen_info %}
+                      <span class="allergen-tag allergen-other">{{ p.other_allergen_info }}</span>
+                    {% endif %}
+                  </span>
                 </div>
               {% else %}
-                <p style="margin:0;">
-                  <strong>£{{ p.price }}</strong>
-                  <span class="muted">/ {{ p.get_unit_display }}</span>
-                </p>
+                <div class="allergen-safe allergen-safe--compact">
+                  <i class="fa-solid fa-circle-check"></i> No common allergens declared
+                </div>
               {% endif %}
-            </div>
 
-            {% if p.allergens.exists or p.other_allergen_info %}
-              <div class="allergen-warning allergen-warning--compact">
-                <i class="fa-solid fa-triangle-exclamation"></i>
-
-                <span>
-                  {% for allergen in p.allergens.all %}
-                    <span class="allergen-tag">{{ allergen.name }}</span>
-                  {% endfor %}
-
-                  {% if p.other_allergen_info %}
-                    <span class="allergen-tag allergen-other">
-                      {{ p.other_allergen_info }}
-                    </span>
-                  {% endif %}
-                </span>
-              </div>
-            {% else %}
-              <div class="allergen-safe allergen-safe--compact">
-                <i class="fa-solid fa-circle-check"></i>
-                No common allergens declared
-              </div>
-            {% endif %}
-
-            <div style="margin-top:15px;">
               {% if p.stock_quantity > 0 %}
-                {% if user.is_authenticated %}
-                  {% if user.profile.role == "CUSTOMER" or user.profile.role == "COMMUNITY_GROUP" or user.profile.role == "RESTAURANT" %}
-                    <form
-                      method="post"
-                      action="{% url 'cart:add' p.pk %}"
+                <form method="post"
+                      action="{% url 'cart:add' p.id %}"
                       class="add-to-cart"
-                      style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:16px;"
+                      style="margin-top:16px; max-width:260px;">
+                  {% csrf_token %}
+                  <div style="display:inline-flex !important; align-items:center !important; gap:6px !important; margin-bottom:12px !important;">
+                    <label for="qty-{{ p.id }}" class="muted" style="margin:0 !important;">Quantity</label>
+                    <input
+                      type="number"
+                      id="qty-{{ p.id }}"
+                      name="qty"
+                      value="1"
+                      min="1"
+                      max="{{ p.stock_quantity }}"
+                      class="qty-input"
+                      style="width:70px !important; margin:0 !important;"
                     >
-                      {% csrf_token %}
-
-                      <label for="qty-{{ p.id }}" class="muted" style="margin:0;">
-                        Quantity
-                      </label>
-
-                      <input
-                        type="number"
-                        id="qty-{{ p.id }}"
-                        name="qty"
-                        value="1"
-                        min="1"
-                        max="{{ p.stock_quantity }}"
-                        class="qty-input"
-                        style="width:70px;"
-                      >
-
-                      <button type="submit" class="btn">
-                        Add to Cart
-                      </button>
-
-                      <span class="muted">
-                        {{ p.stock_quantity }} in stock
-                      </span>
-                    </form>
-                  {% else %}
-                    <div class="muted" style="margin-top:10px;">
-                      Customer checkout preview is hidden for producer accounts.
-                    </div>
-                  {% endif %}
-                {% else %}
-                  <a class="btn" href="{% url 'accounts:login' %}?next={{ request.path }}">
-                    Login to add to cart
-                  </a>
-                {% endif %}
+                  </div>
+                  <button type="submit" class="btn" style="font-size:14px; width:100%;">
+                    Add to Cart
+                  </button>
+                </form>
               {% else %}
                 <div class="muted" style="margin-top:10px; color:#b91c1c; font-weight:600;">
                   Out of stock
                 </div>
               {% endif %}
+
             </div>
           </div>
-        </div>
-      </li>
-    {% empty %}
-      <li>No products found.</li>
-    {% endfor %}
-  </ul>
-</div>
+        </li>
+      {% empty %}
+        <li>No products found.</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <script>
+    const milesSnap = [0, 5, 15, 20];
+    const milesSlider = document.getElementById('miles_slider');
+    const maxMilesInput = document.getElementById('max_miles_input');
+    const milesDisplay = document.getElementById('milesDisplay');
+
+    if (milesSlider) {
+      milesSlider.addEventListener('input', () => {
+        const val = milesSnap[parseInt(milesSlider.value)];
+        maxMilesInput.value = val === 0 ? 20 : val;
+        milesDisplay.textContent = val === 0 ? 'All' : val + ' mi';
+      });
+    }
+
+    const searchInput = document.getElementById('q');
+    const suggestionsBox = document.getElementById('searchSuggestions');
+    let debounceTimer;
+
+    searchInput.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      const query = searchInput.value.trim();
+      if (query.length < 2) {
+        suggestionsBox.style.display = 'none';
+        return;
+      }
+      debounceTimer = setTimeout(() => {
+        fetch(`/products/suggestions/?q=${encodeURIComponent(query)}`)
+          .then(res => res.json())
+          .then(data => {
+            suggestionsBox.innerHTML = '';
+            if (data.suggestions.length === 0) {
+              suggestionsBox.style.display = 'none';
+              return;
+            }
+            data.suggestions.forEach(name => {
+              const item = document.createElement('div');
+              item.className = 'search-suggestion-item';
+              item.textContent = name;
+              item.addEventListener('click', () => {
+                searchInput.value = name;
+                suggestionsBox.style.display = 'none';
+                searchInput.closest('form').submit();
+              });
+              suggestionsBox.appendChild(item);
+            });
+            suggestionsBox.style.display = 'block';
+          });
+      }, 300);
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!searchInput.parentElement.contains(e.target)) {
+        suggestionsBox.style.display = 'none';
+      }
+    });
+
+    const tagSelect = document.getElementById('tagSelect');
+    const tagInput = document.getElementById('tagInput');
+    const tagDropdown = document.getElementById('tagDropdown');
+    const selectedTags = document.getElementById('selectedTags');
+    const hiddenInputs = document.getElementById('hiddenInputs');
+    const selectedAllergenTags = document.getElementById('selectedAllergenTags');
+
+    tagInput.addEventListener('click', () => {
+      tagDropdown.style.display = tagDropdown.style.display === 'none' ? 'block' : 'none';
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!tagSelect.contains(e.target)) {
+        tagDropdown.style.display = 'none';
+      }
+    });
+
+    document.querySelectorAll('.tag-select-option[data-selected="true"]').forEach(opt => {
+      if (!opt.classList.contains('season-option')) {
+        addTag(opt.dataset.id, opt.dataset.name);
+        opt.classList.add('selected');
+      }
+    });
+
+    document.querySelectorAll('#tagDropdown .tag-select-option').forEach(option => {
+      option.addEventListener('click', () => {
+        const id = option.dataset.id;
+        const name = option.dataset.name;
+        if (option.classList.contains('selected')) {
+          removeTag(id);
+          option.classList.remove('selected');
+        } else {
+          addTag(id, name);
+          option.classList.add('selected');
+        }
+      });
+    });
+
+    function addTag(id, name) {
+      if (selectedAllergenTags.querySelector(`[data-id="${id}"][data-type="allergen"]`)) return;
+      const tag = document.createElement('span');
+      tag.className = 'tag-item';
+      tag.dataset.id = id;
+      tag.dataset.type = 'allergen';
+      tag.innerHTML = `${name} <button type="button" onclick="removeTag('${id}')">✕</button>`;
+      selectedAllergenTags.appendChild(tag);
+      if (!document.getElementById(`hidden_${id}`)) {
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.name = 'allergens_exclude';
+        input.value = id;
+        input.checked = true;
+        input.style.display = 'none';
+        input.id = `hidden_${id}`;
+        hiddenInputs.appendChild(input);
+      }
+    }
+
+    function removeTag(id) {
+      const tag = selectedAllergenTags.querySelector(`[data-id="${id}"][data-type="allergen"]`);
+      if (tag) tag.remove();
+      const input = document.getElementById(`hidden_${id}`);
+      if (input) input.remove();
+      const option = tagDropdown.querySelector(`[data-id="${id}"]`);
+      if (option) option.classList.remove('selected');
+    }
+
+    const seasonTagSelect = document.getElementById('seasonTagSelect');
+    const seasonTagInput = document.getElementById('seasonTagInput');
+    const seasonTagDropdown = document.getElementById('seasonTagDropdown');
+    const seasonHiddenInputs = document.getElementById('seasonHiddenInputs');
+
+    seasonTagInput.addEventListener('click', () => {
+      seasonTagDropdown.style.display = seasonTagDropdown.style.display === 'none' ? 'block' : 'none';
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!seasonTagSelect.contains(e.target)) {
+        seasonTagDropdown.style.display = 'none';
+      }
+    });
+
+    document.querySelectorAll('.season-option[data-selected="true"]').forEach(opt => {
+      addSeasonTag(opt.dataset.id, opt.dataset.name);
+      opt.classList.add('selected');
+    });
+
+    document.querySelectorAll('.season-option').forEach(option => {
+      option.addEventListener('click', () => {
+        const id = option.dataset.id;
+        const name = option.dataset.name;
+        if (option.classList.contains('selected')) {
+          removeSeasonTag(id);
+          option.classList.remove('selected');
+        } else {
+          addSeasonTag(id, name);
+          option.classList.add('selected');
+        }
+      });
+    });
+
+    function addSeasonTag(id, name) {
+      if (selectedAllergenTags.querySelector(`[data-id="${id}"][data-type="season"]`)) return;
+      const tag = document.createElement('span');
+      tag.className = 'tag-item';
+      tag.dataset.id = id;
+      tag.dataset.type = 'season';
+      tag.style.background = '#e0f2fe';
+      tag.style.borderColor = '#38bdf8';
+      tag.style.color = '#0369a1';
+      tag.innerHTML = `${name} <button type="button" onclick="removeSeasonTag('${id}')">✕</button>`;
+      selectedAllergenTags.appendChild(tag);
+      if (!document.getElementById(`season_hidden_${id}`)) {
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.name = 'season';
+        input.value = id;
+        input.checked = true;
+        input.style.display = 'none';
+        input.id = `season_hidden_${id}`;
+        seasonHiddenInputs.appendChild(input);
+      }
+    }
+
+    function removeSeasonTag(id) {
+      const tag = selectedAllergenTags.querySelector(`[data-id="${id}"][data-type="season"]`);
+      if (tag) tag.remove();
+      const input = document.getElementById(`season_hidden_${id}`);
+      if (input) input.remove();
+      const option = seasonTagDropdown.querySelector(`[data-id="${id}"]`);
+      if (option) option.classList.remove('selected');
+    }
+  </script>
+
 {% endblock %}
