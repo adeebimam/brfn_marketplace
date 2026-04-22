@@ -23,12 +23,33 @@ from .models import (
 # Producer access check
 # -----------------------------
 
-def _require_producer(request):
+def _require_producer(request, verified_only=True):
     if not request.user.is_authenticated:
         return False
 
     profile, _ = Profile.objects.get_or_create(user=request.user)
-    return profile.role == "PRODUCER"
+
+    if profile.role != Profile.Role.PRODUCER:
+        return False
+
+    if verified_only and not profile.is_verified:
+        return False
+
+    return True
+
+
+def _producer_access_denied_response(request):
+    if request.user.is_authenticated:
+        profile, _ = Profile.objects.get_or_create(user=request.user)
+
+        if profile.role == Profile.Role.PRODUCER and not profile.is_verified:
+            messages.warning(
+                request,
+                "Your producer account is under review. Producer features will be available once an admin approves your account."
+            )
+            return redirect("home")
+
+    return HttpResponseForbidden("Producer access only.")
 
 
 # ----------------------------
@@ -199,7 +220,7 @@ def _anonymise_customer(user):
 @login_required
 def producer_product_list(request):
     if not _require_producer(request):
-        return HttpResponseForbidden("Producer access only.")
+        return _producer_access_denied_response(request)
 
     products = Product.objects.filter(producer=request.user).select_related("category").order_by("-created_at")
     return render(request, "marketplace/producer_product_list.html", {"products": products})
@@ -212,10 +233,10 @@ def producer_product_list(request):
 @login_required
 def product_create(request):
     if not _require_producer(request):
-        return HttpResponseForbidden("Producer access only.")
+        return _producer_access_denied_response(request)
 
     if request.method == "POST":
-        form = ProductForm(request.POST)
+        form = ProductForm(request.POST, request.FILES)
 
         if form.is_valid():
             product = form.save(commit=False)
@@ -242,7 +263,7 @@ def product_create(request):
 @login_required
 def product_update(request, pk):
     if not _require_producer(request):
-        return HttpResponseForbidden("Producer access only.")
+        return _producer_access_denied_response(request)
 
     product = get_object_or_404(
         Product,
@@ -251,7 +272,7 @@ def product_update(request, pk):
     )
 
     if request.method == "POST":
-        form = ProductForm(request.POST, instance=product)
+        form = ProductForm(request.POST, request.FILES, instance=product)
 
         if form.is_valid():
             product = form.save(commit=False)
@@ -278,7 +299,7 @@ def product_update(request, pk):
 @login_required
 def product_delete(request, pk):
     if not _require_producer(request):
-        return HttpResponseForbidden("Producer access only.")
+        return _producer_access_denied_response(request)
 
     product = get_object_or_404(
         Product,
@@ -420,7 +441,7 @@ def allergen_test(request):
 @login_required
 def producer_order_list(request):
     if not _require_producer(request):
-        return HttpResponseForbidden("Producer access only.")
+        return _producer_access_denied_response(request)
 
     orders = (
         ProducerOrder.objects
@@ -455,7 +476,7 @@ def producer_order_list(request):
 @login_required
 def producer_order_detail(request, pk):
     if not _require_producer(request):
-        return HttpResponseForbidden("Producer access only.")
+        return _producer_access_denied_response(request)
 
     po = get_object_or_404(
         ProducerOrder.objects
@@ -479,7 +500,7 @@ def producer_order_detail(request, pk):
 @login_required
 def producer_payments(request):
     if not _require_producer(request):
-        return HttpResponseForbidden("Producer access only.")
+        return _producer_access_denied_response(request)
 
     producer = request.user
     today = timezone.localdate()
@@ -572,7 +593,7 @@ def producer_payments(request):
 @login_required
 def download_payments_csv(request):
     if not _require_producer(request):
-        return HttpResponseForbidden("Producer access only.")
+        return _producer_access_denied_response(request)
 
     producer = request.user
     today = timezone.localdate()
@@ -636,7 +657,7 @@ def download_payments_csv(request):
 @login_required
 def producer_order_update_status(request, pk):
     if not _require_producer(request):
-        return HttpResponseForbidden("Producer access only.")
+        return _producer_access_denied_response(request)
 
     po = get_object_or_404(
         ProducerOrder.objects.select_related("order", "order__customer"),

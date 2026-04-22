@@ -17,7 +17,7 @@ def producer_register_view(request):
         if form.is_valid():
             form.save()  # Form will handle user + profile creation
 
-            messages.success(request, "Producer account created. Please log in.")
+            messages.success(request, "Your Producer account is under review. You will be able to access Producer features once an admin approves your account. ")
             return redirect("accounts:login")
     else:
         form = ProducerRegisterForm()

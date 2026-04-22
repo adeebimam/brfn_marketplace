@@ -1,6 +1,10 @@
 from django import forms
+from django.forms.widgets import ClearableFileInput
 from datetime import date, timedelta
 from .models import Product, Allergen, ProducerOrder, MONTH_CHOICES
+
+class NoClearableFileInput(forms.ClearableFileInput):
+    template_name = 'widgets/no_clearable_file_input.html'
 
 class ProductForm(forms.ModelForm):
     # Virtual field: ticking "Not available" sets is_active=False
@@ -37,6 +41,7 @@ class ProductForm(forms.ModelForm):
             "allergens",
             "other_allergen_info",
             "harvest_date",
+            "image",  # Add image field to form
         ]
         widgets = {
             "allergens": forms.CheckboxSelectMultiple(),
@@ -48,6 +53,7 @@ class ProductForm(forms.ModelForm):
             ),
             "harvest_date": forms.DateInput(attrs={"type": "date"}),
             "unit": forms.Select(choices=Product.UNIT_CHOICES),
+            "image": NoClearableFileInput,
         }
 
     def clean(self):

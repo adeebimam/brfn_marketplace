@@ -79,6 +79,8 @@ class Product(models.Model):
         help_text="Last month this product is in season (leave blank for year-round).",
     )
 
+    image = models.ImageField(upload_to="product_images/", blank=True, null=True)
+
     # ── Computed helpers ──────────────────────────────────
     @property
     def is_year_round(self):
