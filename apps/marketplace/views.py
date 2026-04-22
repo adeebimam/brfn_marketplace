@@ -7,7 +7,7 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
-from django.http import HttpResponse, HttpResponseForbidden
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
@@ -36,19 +36,19 @@ def _require_producer(request):
 # ----------------------------
 
 def product_list(request):
-    # Only show products where stock > 0 AND is_active (not marked "Not available")
     products = (
         Product.objects.filter(is_active=True, stock_quantity__gt=0)
         .select_related("category", "producer")
         .prefetch_related("allergens")
     )
     categories = Category.objects.order_by("name")
-    allergens = Allergen.objects.order_by("name")
+    allergens = Allergen.objects.exclude(name="No common allergens").order_by("name")
 
     selected_category = request.GET.get("category", "").strip()
     selected_season = request.GET.get("season", "").strip()
     query = request.GET.get("q", "").strip()
-    allergen_filter = request.GET.get("allergen_filter", "").strip()
+    selected_allergens = request.GET.getlist("allergens_exclude")
+    organic_filter = request.GET.get("organic", "").strip()
 
     if selected_category:
         products = products.filter(category_id=selected_category)
@@ -56,8 +56,15 @@ def product_list(request):
     if selected_season:
         products = products.filter(season=selected_season)
 
+    if selected_allergens:
+        products = products.exclude(allergens__id__in=selected_allergens).distinct()
+
+    if organic_filter == "certified":
+        products = products.filter(is_organic=True)
+
     if query:
-        products = products.filter(
+        from thefuzz import fuzz
+        exact_matches = products.filter(
             Q(name__icontains=query) |
             Q(description__icontains=query) |
             Q(allergens__name__icontains=query) |
@@ -65,47 +72,64 @@ def product_list(request):
             Q(producer__username__icontains=query)
         ).distinct()
 
-    if allergen_filter == "with":
-        products = products.filter(
-            Q(allergens__isnull=False) | ~Q(other_allergen_info="")
-        ).distinct()
-    elif allergen_filter == "without":
-        products = products.exclude(
-            allergens__isnull=False
-        ).filter(other_allergen_info="")
-    elif allergen_filter.startswith("specific_"):
-        allergen_id = allergen_filter.split("_")[1]
-        products = products.exclude(allergens__id=allergen_id).distinct()
+        if not exact_matches:
+            all_products = list(products)
+            fuzzy_matches = [
+                p for p in all_products
+                if fuzz.partial_ratio(query.lower(), p.name.lower()) >= 70
+                or fuzz.partial_ratio(query.lower(), p.description.lower()) >= 70
+            ]
+            products = fuzzy_matches
+        else:
+            products = exact_matches
 
-    # Auto-hide out-of-season products (date-based filtering)
     today = date.today()
     current_month = today.month
-    # Keep products that are year-round (ALL or no months set) OR currently in season
     products = [p for p in products if p.is_in_season(today)]
 
-    # Annotate each product with season status for template use
     for p in products:
         p.in_season_now = p.is_in_season(today)
-
-    # Build allergen choices with pre-formatted value strings for template
-    allergen_choices = [
-        {"value": f"specific_{a.id}", "name": a.name}
-        for a in allergens
-    ]
+        p.real_allergens = [a for a in p.allergens.all() if a.name != "No common allergens"]
 
     context = {
         "products": products,
         "categories": categories,
         "allergens": allergens,
-        "allergen_choices": allergen_choices,
+        "selected_allergens": selected_allergens,
         "selected_category": selected_category,
         "selected_season": selected_season,
         "seasons": Product.SEASON_CHOICES,
         "query": query,
-        "allergen_filter": allergen_filter,
         "current_month": current_month,
+        "organic_filter": organic_filter,
     }
     return render(request, "marketplace/product_list.html", context)
+
+
+# ----------------------------
+# PRODUCT SEARCH SUGGESTIONS
+# ----------------------------
+
+def product_search_suggestions(request):
+    query = request.GET.get("q", "").strip()
+    if len(query) < 2:
+        return JsonResponse({"suggestions": []})
+
+    from thefuzz import fuzz
+    products = Product.objects.filter(is_active=True, stock_quantity__gt=0)
+
+    exact = list(products.filter(name__icontains=query).values_list("name", flat=True)[:5])
+
+    if exact:
+        return JsonResponse({"suggestions": exact})
+
+    all_products = list(products.exclude(name__icontains=query))
+    fuzzy = [
+        p.name for p in all_products
+        if fuzz.partial_ratio(query.lower(), p.name.lower()) >= 75
+    ][:5]
+
+    return JsonResponse({"suggestions": fuzzy})
 
 
 # ----------------------------
@@ -113,13 +137,11 @@ def product_list(request):
 # ----------------------------
 
 def product_detail(request, pk):
-    # Only show products that are active (formerly `in_season`)
     product = get_object_or_404(
         Product.objects.select_related("category", "producer").prefetch_related("allergens"),
         pk=pk,
         is_active=True,
     )
-    # If the product is not available, out of stock, or out of season — only the producer can view
     if (not product.is_active or product.stock_quantity <= 0 or not product.is_in_season()):
         if request.user != product.producer:
             from django.http import Http404
@@ -140,7 +162,6 @@ TWO_PLACES = Decimal("0.01")
 
 
 def _compute_financials(gross):
-    """Return (commission, net) for a given gross amount."""
     gross = gross.quantize(TWO_PLACES)
     commission = (gross * COMMISSION_RATE).quantize(TWO_PLACES)
     net = (gross - commission).quantize(TWO_PLACES)
@@ -148,7 +169,6 @@ def _compute_financials(gross):
 
 
 def _build_settlement_ref(producer_id, week_start, week_end):
-    """Return a deterministic settlement reference string."""
     return (
         f"SET-{producer_id}-"
         f"{week_start.strftime('%Y%m%d')}-"

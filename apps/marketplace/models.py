@@ -15,7 +15,7 @@ MONTH_NAMES = dict(MONTH_CHOICES)
 
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
-    is_food = models.BooleanField(default=False)
+  
 
     class Meta:
         verbose_name_plural = "Categories"
@@ -63,6 +63,7 @@ class Product(models.Model):
     other_allergen_info = models.TextField(blank=True)
     harvest_date = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
+    is_organic = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     season = models.CharField(
         max_length=10,

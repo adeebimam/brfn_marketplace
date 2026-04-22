@@ -15,15 +15,15 @@ class ProductAdminForm(forms.ModelForm):
         }
     def clean (self):
         cleaned_data = super().clean()
-        category = cleaned_data.get("category")
         allergens = cleaned_data.get("allergens")
         other_info = cleaned_data.get("other_allergen_info")
 
-        if category and category.is_food: 
-            if not allergens and not other_info:
-                raise forms.ValidationError ( 
-                    "For food products, you must specify at least one allergen or provide other allergen information."
-                )
+        if not allergens and not other_info:
+            raise forms.ValidationError ( 
+                  "All products must declare allergen information. "
+                "Select the allergens present, choose 'No common allergens' if none apply, "
+                "or provide details in the other allergen info field."
+            )
         return cleaned_data 
 
 class ProductAdmin(admin.ModelAdmin):
@@ -78,12 +78,6 @@ class ProducerOrderStatusHistoryAdmin(admin.ModelAdmin):
     list_filter = ("new_status", "changed_at")
     readonly_fields = ("producer_order", "old_status", "new_status", "note", "changed_by", "changed_at")
 
-
-@admin.register(Category)
-class CategoryAdmin(admin.ModelAdmin):
-    list_display = ("name", "is_food")
-    list_editable = ("is_food",)
-    search_fields = ("name",)
 
 admin.site.register(Allergen)
 admin.site.register(Product, ProductAdmin)

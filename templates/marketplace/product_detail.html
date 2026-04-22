@@ -35,20 +35,32 @@
     {% if product.allergens.exists or product.other_allergen_info %}
       <div class="allergen-warning">
         <i class="fa-solid fa-triangle-exclamation"></i>
-        <strong>Contains allergens:</strong>
-        <ul class="allergen-list">
-          {% for allergen in product.allergens.all %}
-            <li><span class="allergen-tag">{{ allergen.name }}</span></li>
-          {% endfor %}
-          {% if product.other_allergen_info %}
-            <li><span class="allergen-tag allergen-other">{{ product.other_allergen_info }}</span></li>
-          {% endif %}
-        </ul>
+        <div>
+          <strong>Allergen Information</strong>
+          <p style="font-size:0.85rem; margin: 4px 0 8px; color:#7a5c00;">
+            Contains the following allergens (UK Food Information Regulations 2014):
+          </p>
+          <ul class="allergen-list">
+            {% for allergen in product.allergens.all %}
+              {% if allergen.name != "No common allergens" %}
+                <li><span class="allergen-tag"><strong>{{ allergen.name }}</strong></span></li>
+              {% endif %}
+            {% endfor %}
+            {% if product.other_allergen_info %}
+              <li><span class="allergen-tag allergen-other"><strong>{{ product.other_allergen_info }}</strong></span></li>
+            {% endif %}
+          </ul>
+        </div>
       </div>
     {% else %}
       <div class="allergen-safe">
         <i class="fa-solid fa-circle-check"></i>
-        <strong>No common allergens declared</strong>
+        <div>
+          <strong>No common allergens declared</strong>
+          <p style="font-size:0.85rem; margin: 4px 0 0; color:#2e6b2e;">
+            This product has been declared free from the 14 allergens specified under UK Food Information Regulations 2014.
+          </p>
+        </div>
       </div>
     {% endif %}
 

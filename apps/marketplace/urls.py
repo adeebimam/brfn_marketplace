@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 
+
 app_name = "marketplace"
 
 urlpatterns = [
@@ -31,4 +32,7 @@ urlpatterns = [
     # TC-012 Producer payments
     path("producer/payments/", views.producer_payments, name="producer_payments"),
     path("producer/payments/download/", views.download_payments_csv, name="download_payments_csv"),
+
+    path("products/suggestions/", views.product_search_suggestions, name="product_search_suggestions"),
+
 ]

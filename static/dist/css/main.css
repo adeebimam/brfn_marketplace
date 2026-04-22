@@ -1,3 +1,4 @@
+@charset "UTF-8";
 /* static/css/main.css */
 /* ---- Reset / base ---- */
 * {
@@ -394,6 +395,101 @@ input:focus, select:focus, textarea:focus {
   border-radius: 10px;
 }
 
+/* ---- Tag-style allergen selector ---- */
+.tag-select {
+  position: relative;
+  width: 100%;
+}
+
+.tag-select-tags {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 6px;
+  align-items: center;
+  height: 42px;
+  padding: 4px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  background: white;
+  cursor: pointer;
+}
+
+.tag-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #e8f7f5;
+  border: 1px solid #1faa9f;
+  color: #087d73;
+  border-radius: 20px;
+  padding: 2px 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.tag-item button {
+  background: none;
+  border: none;
+  color: #087d73;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+  line-height: 1;
+}
+.tag-item button:hover {
+  color: #dc2626;
+}
+
+.tag-select-input {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  width: auto !important;
+  min-width: 120px;
+  background: transparent;
+  font-size: 14px;
+  cursor: pointer;
+  height: auto !important;
+}
+
+.tag-select-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.tag-select-dropdown.open {
+  display: block;
+}
+
+.tag-select-option {
+  padding: 10px 14px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.tag-select-option:hover {
+  background: #f3f4f6;
+}
+.tag-select-option.selected {
+  background: #e8f7f5;
+  color: #087d73;
+  font-weight: 600;
+}
+.tag-select-option.selected::after {
+  content: " ✓";
+}
+
 .allergen-warning {
   display: flex;
   align-items: center;
@@ -530,7 +626,7 @@ input:focus, select:focus, textarea:focus {
 .product-filters {
   display: flex;
   gap: 20px;
-  align-items: flex-end;
+  align-items: flex-start;
   flex-wrap: wrap;
 }
 .product-filters .filter-group {

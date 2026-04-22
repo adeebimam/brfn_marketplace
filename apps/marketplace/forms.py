@@ -1,5 +1,7 @@
 from django import forms
+from django.db.models import Case, When, Value, IntegerField
 from datetime import date, timedelta
+from apps.accounts import models
 from .models import Product, Allergen, ProducerOrder, MONTH_CHOICES
 
 class ProductForm(forms.ModelForm):
@@ -8,11 +10,14 @@ class ProductForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Pre-populate: if is_active is False, tick "Not available"
-        if self.instance and self.instance.pk:
-            self.fields["not_available"].initial = not self.instance.is_active
-        self.fields["allergens"].queryset = Allergen.objects.all()
-        self.fields["allergens"].help_text = "Tick all that apply. Leave all unticked if no allergens."
+        self.fields["allergens"].queryset = Allergen.objects.all().order_by(
+            Case(
+                When(name="No common allergens", then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField(),
+            ),
+            "name"
+        )
 
         # Friendly labels for seasonal fields
         self.fields["available_from_month"].label = "In season from"
@@ -36,8 +41,8 @@ class ProductForm(forms.ModelForm):
             "available_to_month",
             "allergens",
             "other_allergen_info",
-           
             "harvest_date",
+            "is_organic",
         ]
         widgets = {
             "allergens": forms.CheckboxSelectMultiple(),
@@ -58,12 +63,13 @@ class ProductForm(forms.ModelForm):
         category = cleaned_data.get("category")
         cleaned_data["other_allergen_info"] = other_allergen_info
 
-        if category and category.is_food:
-            if (not allergens or len (allergens) == 0) and not other_allergen_info:
+        
+        if (not allergens or len (allergens) == 0) and not other_allergen_info:
                 raise forms.ValidationError(
-                    "Allergen information cannot be omitted for food products."
-                )
-
+                   "All products must declare allergen information. "
+                    "Select the allergens present, choose 'No common allergens' if none apply, "
+                    "or provide details in the other allergen info field."
+        )
         season = cleaned_data.get("season")
         from_month = cleaned_data.get("available_from_month")
         to_month = cleaned_data.get("available_to_month")
