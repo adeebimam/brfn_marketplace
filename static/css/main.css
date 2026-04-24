@@ -275,3 +275,11 @@ input:focus, select:focus, textarea:focus {
   gap: 1.5em;
   align-items: flex-start;
 }
+
+/* Add to Cart button styles */
+.add-to-cart .btn {
+  /* Inherit existing .btn styles */
+}
+.add-to-cart .btn:hover {
+  color: #087d73 !important; /* Use your project's green shade */
+}

@@ -8,6 +8,12 @@
         {{ product.category.name }}
       {% endif %}
     </div>
+    
+    {% if product.image %}
+      <div style="margin: 1rem 0;">
+        <img src="{{ product.image.url }}" alt="{{ product.name }}" style="max-width:320px; max-height:320px; border-radius:8px; border:1px solid #eee;">
+      </div>
+    {% endif %}
 
     {# ── Seasonal indicator ── #}
     {% if product.is_year_round %}
@@ -70,7 +76,7 @@
           >
         </div>
 
-        <button type="submit" class="btn" style="display:block; width:100%;">
+        <button type="submit" class="btn" style="font-size: 14px;display:block; width:100%;">
           Add to Cart
         </button>
       </form>
