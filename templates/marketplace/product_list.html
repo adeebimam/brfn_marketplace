@@ -536,6 +536,7 @@
       if (option) option.classList.remove('selected');
     }
 
+    // ---- Season tag select ----
     const seasonTagSelect = document.getElementById('seasonTagSelect');
     const seasonTagInput = document.getElementById('seasonTagInput');
     const seasonTagDropdown = document.getElementById('seasonTagDropdown');
@@ -551,6 +552,7 @@
       }
     });
 
+    // Restore selected seasons on page load
     document.querySelectorAll('.season-option[data-selected="true"]').forEach(opt => {
       addSeasonTag(opt.dataset.id, opt.dataset.name);
       opt.classList.add('selected');

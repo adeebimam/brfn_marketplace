@@ -222,7 +222,7 @@ def product_search_suggestions(request):
 
     if exact:
         return JsonResponse({"suggestions": exact})
-
+ 
     all_products = list(products.exclude(name__icontains=query))
     fuzzy = [
         p.name for p in all_products
