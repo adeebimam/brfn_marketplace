@@ -141,6 +141,13 @@ class Product(models.Model):
 
 
 class Order(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        CONFIRMED = "CONFIRMED", "Confirmed"
+        READY = "READY", "Ready"
+        COMPLETED = "COMPLETED", "Completed"
+        CANCELLED = "CANCELLED", "Cancelled"
+
     customer = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -154,6 +161,12 @@ class Order(models.Model):
 
     special_instructions = models.TextField(blank=True)
 
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING
+    )
+
     def __str__(self):
         return f"Order #{self.id}"
 
@@ -165,6 +178,7 @@ class ProducerOrder(models.Model):
         CONFIRMED = "CONFIRMED", "Confirmed"
         READY = "READY", "Ready"
         DELIVERED = "DELIVERED", "Delivered"
+        CANCELLED = "CANCELLED", "Cancelled"
 
     order = models.ForeignKey(
         Order,

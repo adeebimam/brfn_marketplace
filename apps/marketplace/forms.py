@@ -96,6 +96,7 @@ class CheckoutForm(forms.Form):
     delivery_address = forms.CharField(
         widget=forms.Textarea(attrs={"rows": 2})
     )
+    delivery_postcode = forms.CharField(max_length=20)
 
     delivery_date = forms.DateField(
         widget=forms.DateInput(
@@ -130,8 +131,13 @@ class CheckoutForm(forms.Form):
 
 
 class ProducerOrderStatusForm(forms.Form):
-    status = forms.ChoiceField(choices=ProducerOrder.Status.choices)
+    status = forms.ChoiceField(choices=[])
     note = forms.CharField(
         required=False,
         widget=forms.Textarea(attrs={"rows": 3, "placeholder": "Optional note about status change"}),
     )
+
+    def __init__(self, *args, **kwargs):
+        status_choices = kwargs.pop("status_choices", ProducerOrder.Status.choices)
+        super().__init__(*args, **kwargs)
+        self.fields["status"].choices = status_choices
