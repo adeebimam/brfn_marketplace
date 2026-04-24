@@ -45,7 +45,7 @@ def product_list(request):
     allergens = Allergen.objects.exclude(name="No common allergens").order_by("name")
 
     selected_category = request.GET.get("category", "").strip()
-    selected_season = request.GET.get("season", "").strip()
+    selected_seasons = request.GET.getlist("season")
     query = request.GET.get("q", "").strip()
     selected_allergens = request.GET.getlist("allergens_exclude")
     organic_filter = request.GET.get("organic", "").strip()
@@ -53,8 +53,8 @@ def product_list(request):
     if selected_category:
         products = products.filter(category_id=selected_category)
 
-    if selected_season:
-        products = products.filter(season=selected_season)
+    if selected_seasons:
+        products = products.filter(season__in=selected_seasons)
 
     if selected_allergens:
         products = products.exclude(allergens__id__in=selected_allergens).distinct()
@@ -97,7 +97,7 @@ def product_list(request):
         "allergens": allergens,
         "selected_allergens": selected_allergens,
         "selected_category": selected_category,
-        "selected_season": selected_season,
+        "selected_seasons": selected_seasons,
         "seasons": Product.SEASON_CHOICES,
         "query": query,
         "current_month": current_month,
@@ -122,7 +122,7 @@ def product_search_suggestions(request):
 
     if exact:
         return JsonResponse({"suggestions": exact})
-
+ 
     all_products = list(products.exclude(name__icontains=query))
     fuzzy = [
         p.name for p in all_products

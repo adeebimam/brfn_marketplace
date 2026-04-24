@@ -3,6 +3,16 @@
   <div class="card stack">
     <h1>{{ product.name }}</h1>
 
+    {% if product.is_organic %}
+      <div style="display:inline-block; background:#dcfce7; color:#166534; border:1px solid #86efac; border-radius:20px; padding:4px 14px; font-size:0.9rem; font-weight:600; margin-bottom:8px;">
+        🌱 Certified Organic
+      </div>
+    {% else %}
+      <div style="display:inline-block; background:#f3f4f6; color:#6b7280; border:1px solid #e5e7eb; border-radius:20px; padding:4px 14px; font-size:0.9rem; font-weight:500; margin-bottom:8px;">
+        Not Certified Organic
+      </div>
+    {% endif %}
+
     <div class="badge">
       {% if product.category %}
         {{ product.category.name }}

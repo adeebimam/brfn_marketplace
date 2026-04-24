@@ -179,15 +179,23 @@
         </div>
 
         <div class="filter-group">
-          <label for="season">Season</label>
-          <select id="season" name="season">
-            <option value="">All</option>
-            {% for value, label in seasons %}
-              <option value="{{ value }}" {% if selected_season == value %}selected{% endif %}>
-                {{ label }}
-              </option>
-            {% endfor %}
-          </select>
+          <label>Season</label>
+          <div class="tag-select" id="seasonTagSelect">
+            <div class="tag-select-tags" id="seasonSelectedTags">
+              <input type="text" class="tag-select-input" id="seasonTagInput" placeholder="Select seasons..." readonly>
+            </div>
+            <div class="tag-select-dropdown" id="seasonTagDropdown" style="display:none">
+              {% for value, label in seasons %}
+                <div class="tag-select-option season-option"
+                  data-id="{{ value }}"
+                  data-name="{{ label }}"
+                  {% if value in selected_seasons %}data-selected="true"{% endif %}>
+                  {{ label }}
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+          <div id="seasonHiddenInputs"></div>
         </div>
 
         <div class="filter-group">
@@ -339,11 +347,13 @@
     });
 
     document.querySelectorAll('.tag-select-option[data-selected="true"]').forEach(opt => {
-      addTag(opt.dataset.id, opt.dataset.name);
-      opt.classList.add('selected');
+      if (!opt.classList.contains('season-option')) {
+        addTag(opt.dataset.id, opt.dataset.name);
+        opt.classList.add('selected');
+      }
     });
 
-    document.querySelectorAll('.tag-select-option').forEach(option => {
+    document.querySelectorAll('#tagDropdown .tag-select-option').forEach(option => {
       option.addEventListener('click', () => {
         const id = option.dataset.id;
         const name = option.dataset.name;
@@ -358,11 +368,12 @@
     });
 
     function addTag(id, name) {
-      if (selectedAllergenTags.querySelector(`[data-id="${id}"]`)) return;
+      if (selectedAllergenTags.querySelector(`[data-id="${id}"][data-type="allergen"]`)) return;
 
       const tag = document.createElement('span');
       tag.className = 'tag-item';
       tag.dataset.id = id;
+      tag.dataset.type = 'allergen';
       tag.innerHTML = `${name} <button type="button" onclick="removeTag('${id}')">✕</button>`;
       selectedAllergenTags.appendChild(tag);
 
@@ -379,7 +390,7 @@
     }
 
     function removeTag(id) {
-      const tag = selectedAllergenTags.querySelector(`[data-id="${id}"]`);
+      const tag = selectedAllergenTags.querySelector(`[data-id="${id}"][data-type="allergen"]`);
       if (tag) tag.remove();
       const input = document.getElementById(`hidden_${id}`);
       if (input) input.remove();
@@ -387,32 +398,75 @@
       if (option) option.classList.remove('selected');
     }
 
-    // ---- Season tag ----
-    const seasonSelect = document.getElementById('season');
+    // ---- Season tag select ----
+    const seasonTagSelect = document.getElementById('seasonTagSelect');
+    const seasonTagInput = document.getElementById('seasonTagInput');
+    const seasonTagDropdown = document.getElementById('seasonTagDropdown');
+    const seasonHiddenInputs = document.getElementById('seasonHiddenInputs');
 
-    function updateSeasonTag() {
-      const existingTag = selectedAllergenTags.querySelector('[data-type="season"]');
-      if (existingTag) existingTag.remove();
+    seasonTagInput.addEventListener('click', () => {
+      seasonTagDropdown.style.display = seasonTagDropdown.style.display === 'none' ? 'block' : 'none';
+    });
 
-      if (seasonSelect.value) {
-        const tag = document.createElement('span');
-        tag.className = 'tag-item';
-        tag.dataset.type = 'season';
-        tag.style.background = '#e0f2fe';
-        tag.style.borderColor = '#38bdf8';
-        tag.style.color = '#0369a1';
-        tag.innerHTML = `Season: ${seasonSelect.options[seasonSelect.selectedIndex].text} <button type="button" onclick="clearSeasonTag()">✕</button>`;
-        selectedAllergenTags.appendChild(tag);
+    document.addEventListener('click', (e) => {
+      if (!seasonTagSelect.contains(e.target)) {
+        seasonTagDropdown.style.display = 'none';
+      }
+    });
+
+    // Restore selected seasons on page load
+    document.querySelectorAll('.season-option[data-selected="true"]').forEach(opt => {
+      addSeasonTag(opt.dataset.id, opt.dataset.name);
+      opt.classList.add('selected');
+    });
+
+    document.querySelectorAll('.season-option').forEach(option => {
+      option.addEventListener('click', () => {
+        const id = option.dataset.id;
+        const name = option.dataset.name;
+        if (option.classList.contains('selected')) {
+          removeSeasonTag(id);
+          option.classList.remove('selected');
+        } else {
+          addSeasonTag(id, name);
+          option.classList.add('selected');
+        }
+      });
+    });
+
+    function addSeasonTag(id, name) {
+      if (selectedAllergenTags.querySelector(`[data-id="${id}"][data-type="season"]`)) return;
+
+      const tag = document.createElement('span');
+      tag.className = 'tag-item';
+      tag.dataset.id = id;
+      tag.dataset.type = 'season';
+      tag.style.background = '#e0f2fe';
+      tag.style.borderColor = '#38bdf8';
+      tag.style.color = '#0369a1';
+      tag.innerHTML = `${name} <button type="button" onclick="removeSeasonTag('${id}')">✕</button>`;
+      selectedAllergenTags.appendChild(tag);
+
+      if (!document.getElementById(`season_hidden_${id}`)) {
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.name = 'season';
+        input.value = id;
+        input.checked = true;
+        input.style.display = 'none';
+        input.id = `season_hidden_${id}`;
+        seasonHiddenInputs.appendChild(input);
       }
     }
 
-    function clearSeasonTag() {
-      seasonSelect.value = '';
-      updateSeasonTag();
+    function removeSeasonTag(id) {
+      const tag = selectedAllergenTags.querySelector(`[data-id="${id}"][data-type="season"]`);
+      if (tag) tag.remove();
+      const input = document.getElementById(`season_hidden_${id}`);
+      if (input) input.remove();
+      const option = seasonTagDropdown.querySelector(`[data-id="${id}"]`);
+      if (option) option.classList.remove('selected');
     }
-
-    seasonSelect.addEventListener('change', updateSeasonTag);
-    updateSeasonTag();
 
   </script>
 
