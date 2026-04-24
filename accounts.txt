@@ -1,16 +1,17 @@
-account1:
+Producers
+   jane_smith — jane.smith@bristolvalleyfarm.com
+   hillside_dairy — orders@hillsidedairy.co.uk
+   avon_bakery — contact@avonbakery.co.uk
+   severn_orchards — hello@severnorchards.co.uk
+   parson_bakery - parson@bakery.co.uk
 
-adeeb@customer.com 
-adeeb@2711
+Customers
+   robert_johnson — robert.johnson@email.com
+   sarah_williams — sarah.williams@email.com
+   clifton_school — catering@cliftonschool.org.uk
 
-account2:
-adeeb@business.com
-adeeb@2711
+ Admin / staff
+   brfn_admin — admin@brfn.local
+   Admin123!
 
-account3:
-test@password.com
-syed@2711
-
-account4:
-test@communitygroup.com
-syed@2711
+password for producers and customers: Password123! 
