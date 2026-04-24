@@ -31,4 +31,5 @@ urlpatterns = [
     # TC-012 Producer payments
     path("producer/payments/", views.producer_payments, name="producer_payments"),
     path("producer/payments/download/", views.download_payments_csv, name="download_payments_csv"),
+    path("producer/orders/", views.producer_order_management, name="producer_order_management"),
 ]

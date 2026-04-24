@@ -344,7 +344,77 @@ input:focus, select:focus, textarea:focus {
   text-decoration: underline;
 }
 
-/* Dashboard Page */
+.producer-order-management h1 {
+  margin-bottom: 20px;
+}
+.producer-order-management .producer-order-filters {
+  display: flex;
+  gap: 20px;
+  align-items: end;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.producer-order-management .producer-order-filters label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.producer-order-management .producer-order-filters select {
+  min-width: 180px;
+}
+.producer-order-management .producer-order-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+.producer-order-management .producer-order-table th,
+.producer-order-management .producer-order-table td {
+  text-align: left;
+  padding: 12px 10px;
+  vertical-align: middle;
+}
+.producer-order-management .producer-order-table th {
+  font-weight: 700;
+}
+.producer-order-management .producer-order-table tbody tr {
+  border-top: 1px solid #eee;
+}
+.producer-order-management .producer-order-table .center {
+  text-align: center;
+}
+.producer-order-management .producer-order-table .right {
+  text-align: right;
+}
+.producer-order-management .order-status {
+  display: inline-block;
+  min-width: 100px;
+  text-align: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.producer-order-management .status-pending {
+  background: #fff3cd;
+  color: #856404;
+}
+.producer-order-management .status-confirmed {
+  background: #cce5ff;
+  color: #004085;
+}
+.producer-order-management .status-ready {
+  background: #d4edda;
+  color: #155724;
+}
+.producer-order-management .status-delivered {
+  background: #e2e3e5;
+  color: #383d41;
+}
+.producer-order-management .status-cancelled {
+  background: #f8d7da;
+  color: #842029;
+}
+
 .cart-table {
   width: 100%;
   border-collapse: collapse;

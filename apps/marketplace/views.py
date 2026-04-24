@@ -3,18 +3,19 @@ import random
 from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
-
+from .services import update_producer_order_status
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.http import Http404
 
 from apps.accounts.models import Profile
 from .forms import CheckoutForm, ProductForm, ProducerOrderStatusForm
 from .models import (
-    Allergen, Category, Product, MONTH_NAMES,
+    Allergen, Category, Product, MONTH_NAMES,Order,
     ProducerOrder, ProducerOrderStatusHistory,
 )
 
@@ -122,7 +123,6 @@ def product_detail(request, pk):
     # If the product is not available, out of stock, or out of season — only the producer can view
     if (not product.is_active or product.stock_quantity <= 0 or not product.is_in_season()):
         if request.user != product.producer:
-            from django.http import Http404
             raise Http404("This product is not currently available.")
 
     return render(request, "marketplace/product_detail.html", {
@@ -375,15 +375,68 @@ def payment(request):
     if not order:
         return redirect("marketplace:product_list")
 
+    error_message = None
+    debug_info = []
+
     if request.method == "POST":
         order_number = "ORD-" + str(random.randint(10000, 99999))
         print("NEW ORDER RECEIVED")
         print("Order Number:", order_number)
-
-        for producer, items in order["producers"].items():
-            print(f"\nNotification for producer: {producer}")
-            for item in items:
-                print(f"- {item['name']} x{item['qty']} (£{item['total']})")
+        print("Session order data:", order)
+        try:
+            from .models import Order, ProducerOrder, OrderItem, Product
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            customer = request.user
+            if not customer.is_authenticated:
+                raise Exception("User is not authenticated!")
+            # Create main order
+            db_order = Order.objects.create(
+                customer=customer,
+                delivery_address=order["address"],
+                delivery_postcode="",  # You may want to collect this in your form
+                special_instructions="",  # Extend as needed
+            )
+            debug_info.append(f"Created Order: {db_order}")
+            # For each producer, create a ProducerOrder
+            for producer_username, items in order["producers"].items():
+                debug_info.append(f"Processing producer: {producer_username}")
+                producer = User.objects.get(username=producer_username)
+                delivery_date = order.get("date") or None
+                producer_order = ProducerOrder.objects.create(
+                    order=db_order,
+                    producer=producer,
+                    delivery_date=delivery_date,
+                    status=ProducerOrder.Status.PENDING,
+                    total_value=0,
+                )
+                debug_info.append(f"Created ProducerOrder: {producer_order}")
+                total_value = 0
+                for item in items:
+                    debug_info.append(f"Processing item: {item}")
+                    product = Product.objects.get(name=item["name"], producer=producer)
+                    debug_info.append(f"Found product: {product}")
+                    OrderItem.objects.create(
+                        producer_order=producer_order,
+                        product=product,
+                        quantity=item["qty"],
+                        unit_price=item["price"],
+                    )
+                    total_value += item["qty"] * float(item["price"])
+                    # Optionally, reduce stock
+                    product.stock_quantity = max(0, product.stock_quantity - item["qty"])
+                    product.save()
+                    debug_info.append(f"Updated stock for {product.name}: {product.stock_quantity}")
+                producer_order.total_value = total_value
+                producer_order.save()
+                debug_info.append(f"Saved ProducerOrder with total_value: {total_value}")
+            print("DEBUG INFO:", debug_info)
+        except Exception as e:
+            import traceback
+            error_message = f"Order creation failed: {e}"
+            print(error_message)
+            print(traceback.format_exc())
+            return render(request, "payment.html", {"order": order, "error_message": error_message, "debug_info": debug_info})
 
         if "order" in request.session:
             del request.session["order"]
@@ -632,6 +685,44 @@ def download_payments_csv(request):
 
     return response
 
+@login_required
+def producer_order_management(request):
+    if not _require_producer(request):
+        return HttpResponseForbidden("Producer access only.")
+
+    current_orders = (
+        ProducerOrder.objects
+        .filter(
+            producer=request.user,
+            status__in=[
+                ProducerOrder.Status.PENDING,
+                ProducerOrder.Status.CONFIRMED,
+                ProducerOrder.Status.READY,
+            ],
+        )
+        .select_related("order", "order__customer")
+        .prefetch_related("items", "items__product", "status_history")
+        .order_by("delivery_date", "-id")
+    )
+
+    order_history = (
+        ProducerOrder.objects
+        .filter(
+            producer=request.user,
+            status=ProducerOrder.Status.DELIVERED,
+        )
+        .select_related("order", "order__customer")
+        .prefetch_related("items", "items__product", "status_history")
+        .order_by("-delivery_date", "-id")
+    )
+
+    return render(request, "marketplace/order_management.html", {
+        "current_orders": current_orders,
+        "order_history": order_history,
+    })
+
+
+
 
 @login_required
 def producer_order_update_status(request, pk):
@@ -645,39 +736,39 @@ def producer_order_update_status(request, pk):
     )
 
     allowed_transitions = {
-        ProducerOrder.Status.PENDING: [ProducerOrder.Status.CONFIRMED],
-        ProducerOrder.Status.CONFIRMED: [ProducerOrder.Status.READY],
+        ProducerOrder.Status.PENDING: [ProducerOrder.Status.CONFIRMED, ProducerOrder.Status.CANCELLED],
+        ProducerOrder.Status.CONFIRMED: [ProducerOrder.Status.READY, ProducerOrder.Status.CANCELLED],
         ProducerOrder.Status.READY: [ProducerOrder.Status.DELIVERED],
         ProducerOrder.Status.DELIVERED: [],
+        ProducerOrder.Status.CANCELLED: [],
     }
 
     if request.method == "POST":
-        form = ProducerOrderStatusForm(request.POST)
+        next_statuses = allowed_transitions.get(po.status, [])
+        status_choices = [(status, ProducerOrder.Status(status).label) for status in next_statuses]
+        form = ProducerOrderStatusForm(request.POST, status_choices=status_choices)
 
         if form.is_valid():
             new_status = form.cleaned_data["status"]
             note = form.cleaned_data["note"]
 
-            if new_status not in allowed_transitions.get(po.status, []):
+            try:
+                update_producer_order_status(
+                    producer_order=po,
+                    new_status=new_status,
+                    changed_by=request.user,
+                    note=note,
+                )
+            except ValueError:
                 messages.error(request, "Invalid status progression.")
                 return redirect("marketplace:producer_order_detail", pk=po.pk)
-
-            old_status = po.status
-            po.status = new_status
-            po.save()
-
-            ProducerOrderStatusHistory.objects.create(
-                producer_order=po,
-                old_status=old_status,
-                new_status=new_status,
-                note=note,
-                changed_by=request.user,
-            )
-
+            
             messages.success(request, "Order status updated successfully.")
             return redirect("marketplace:producer_order_detail", pk=po.pk)
     else:
-        form = ProducerOrderStatusForm(initial={"status": po.status})
+        next_statuses = allowed_transitions.get(po.status, [])
+        status_choices = [(status, ProducerOrder.Status(status).label) for status in next_statuses]
+        form = ProducerOrderStatusForm(initial={"status": po.status}, status_choices=status_choices)
 
     return render(
         request,
