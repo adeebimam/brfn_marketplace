@@ -49,6 +49,12 @@ def product_list(request):
     query = request.GET.get("q", "").strip()
     selected_allergens = request.GET.getlist("allergens_exclude")
     organic_filter = request.GET.get("organic", "").strip()
+    max_miles = request.GET.get("max_miles", "20").strip()
+
+    try:
+        max_miles = float(max_miles)
+    except ValueError:
+        max_miles = 20.0
 
     if selected_category:
         products = products.filter(category_id=selected_category)
@@ -91,6 +97,42 @@ def product_list(request):
         p.in_season_now = p.is_in_season(today)
         p.real_allergens = [a for a in p.allergens.all() if a.name != "No common allergens"]
 
+    # ---- Food miles ----
+    if request.user.is_authenticated:
+        from .foodmiles import _get_lat_lng, _haversine_miles
+        try:
+            customer_profile = Profile.objects.get(user=request.user)
+            customer_postcode = customer_profile.delivery_postcode or customer_profile.postcode
+            customer_coords = _get_lat_lng(customer_postcode) if customer_postcode else None
+        except Profile.DoesNotExist:
+            customer_coords = None
+
+        producer_coords_cache = {}
+
+        for p in products:
+            p.food_miles = None
+            if customer_coords:
+                try:
+                    producer_profile = Profile.objects.get(user=p.producer)
+                    producer_postcode = producer_profile.postcode
+                    if producer_postcode:
+                        if producer_postcode not in producer_coords_cache:
+                            producer_coords_cache[producer_postcode] = _get_lat_lng(producer_postcode)
+                        coords = producer_coords_cache[producer_postcode]
+                        if coords:
+                            p.food_miles = _haversine_miles(*customer_coords, *coords)
+                except Profile.DoesNotExist:
+                    pass
+
+        # Apply max_miles filter only for logged-in users with food miles calculated
+        products = [
+            p for p in products
+            if p.food_miles is None or p.food_miles <= max_miles
+        ]
+    else:
+        for p in products:
+            p.food_miles = None
+
     context = {
         "products": products,
         "categories": categories,
@@ -102,6 +144,7 @@ def product_list(request):
         "query": query,
         "current_month": current_month,
         "organic_filter": organic_filter,
+        "max_miles": max_miles,
     }
     return render(request, "marketplace/product_list.html", context)
 
@@ -122,7 +165,7 @@ def product_search_suggestions(request):
 
     if exact:
         return JsonResponse({"suggestions": exact})
- 
+
     all_products = list(products.exclude(name__icontains=query))
     fuzzy = [
         p.name for p in all_products
@@ -147,9 +190,23 @@ def product_detail(request, pk):
             from django.http import Http404
             raise Http404("This product is not currently available.")
 
+    food_miles = None
+    if request.user.is_authenticated:
+        from .foodmiles import calculate_food_miles
+        try:
+            customer_profile = Profile.objects.get(user=request.user)
+            producer_profile = Profile.objects.get(user=product.producer)
+            customer_postcode = customer_profile.delivery_postcode or customer_profile.postcode
+            producer_postcode = producer_profile.postcode
+            if customer_postcode and producer_postcode:
+                food_miles = calculate_food_miles(customer_postcode, producer_postcode)
+        except Profile.DoesNotExist:
+            pass
+
     return render(request, "marketplace/product_detail.html", {
         "product": product,
         "is_in_season": product.is_in_season(),
+        "food_miles": food_miles,
     })
 
 

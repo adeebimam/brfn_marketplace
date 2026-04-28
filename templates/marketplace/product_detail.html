@@ -42,6 +42,14 @@
     <p class="price">£{{ product.price }}</p>
     <p>Stock: {{ product.stock_quantity }}</p>
 
+    {% if food_miles is not None %}
+      <div style="margin-top: 12px;">
+        <span style="display:inline-flex; align-items:center; gap:6px; background:#f0fdf4; border:1px solid #86efac; color:#166534; border-radius:20px; padding:4px 14px; font-size:0.85rem; font-weight:600;">
+         📍 {{ food_miles }} miles from farm to you
+        </span>
+      </div>
+    {% endif %}
+
     {% if product.allergens.exists or product.other_allergen_info %}
       <div class="allergen-warning">
         <i class="fa-solid fa-triangle-exclamation"></i>

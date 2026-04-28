@@ -8,6 +8,35 @@
     {% if cart_items %}
       <div class="cart-layout">
 
+        <!-- Total summary -->
+        <aside class="cart-aside">
+          <div class="card stack cart-summary">
+            <h3>Order Total</h3>
+
+            <div>
+              <div style="display:flex; justify-content:space-between;">
+                <span>Total</span>
+                <strong>£{{ cart_total }}</strong>
+              </div>
+
+              {% if total_food_miles %}
+                <div style="display:flex; justify-content:space-between; margin-top:10px; padding-top:10px; border-top:1px solid #e5e7eb;">
+                  <span>Total Food Miles</span>
+                  <strong>
+                    <span style="display:inline-flex; align-items:center; gap:4px; background:#f0fdf4; border:1px solid #86efac; color:#166534; border-radius:20px; padding:2px 10px; font-size:0.85rem; font-weight:600;">
+                     📍 {{ total_food_miles }} miles
+                    </span>
+                  </strong>
+                </div>
+              {% endif %}
+            </div>
+
+            <a class="btn btn-primary" href="{% url 'cart:checkout' %}" style="margin-top:1rem; display:inline-block;">
+              Proceed to Checkout
+            </a>
+          </div>
+        </aside>
+
         <div class="cart-main">
           <table class="cart-table">
             <thead>
@@ -17,7 +46,7 @@
                 <th>Unit</th>
                 <th style="width:160px;">Qty</th>
                 <th>Total</th>
-                
+                <th>Food Miles</th>
               </tr>
             </thead>
 
@@ -49,6 +78,16 @@
 
                   <td>£{{ item.line_total }}</td>
 
+                  <td>
+                    {% if item.food_miles is not None %}
+                      <span style="display:inline-flex; align-items:center; gap:4px; background:#f0fdf4; border:1px solid #86efac; color:#166534; border-radius:20px; padding:2px 10px; font-size:0.8rem; font-weight:600;">
+                        📍  {{ item.food_miles }} mi
+                      </span>
+                    {% else %}
+                      <span style="color:#9ca3af; font-size:0.8rem;">N/A</span>
+                    {% endif %}
+                  </td>
+
                   <!-- Remove items -->
                   <td>
                     <form method="post" action="{% url 'cart:remove' item.product.id %}">
@@ -63,23 +102,6 @@
             </tbody>
           </table>
         </div>
-           <!-- Total summary -->
-        <aside class="cart-aside">
-          <div class="card stack cart-summary">
-            <h3>Order Total</h3>
-
-            <div>
-              <div style="display:flex; justify-content:space-between;">
-                <span>Total</span>
-                <strong>£{{ cart_total }}</strong>
-              </div>
-            </div>
-
-            <a class="btn btn-primary" href="{% url 'cart:checkout' %}" style="margin-top:1rem; display:inline-block;">
-              Proceed to Checkout
-            </a>
-          </div>
-        </aside>
 
       </div>
     {% else %}
@@ -88,13 +110,12 @@
 
   </div>
 
-  <!-- Auto update quanity JavaScript -->
+  <!-- Auto update quantity JavaScript -->
   <script>
     document.querySelectorAll('.qty-form input[name="qty"]').forEach((input) => {
       let t;
       input.addEventListener('input', () => {
         clearTimeout(t);
-        // debounce: wait 400ms before submitting prevents excessive requests while typing
         t = setTimeout(() => input.closest('form').submit(), 400);
       });
       input.addEventListener('change', () => input.closest('form').submit());
