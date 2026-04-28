@@ -16,16 +16,45 @@
     {% if cart_items %}
       <div class="cart-layout">
 
+        <!-- Total summary -->
+        <aside class="cart-aside">
+          <div class="card stack cart-summary">
+            <h3>Order Total</h3>
+
+            <div>
+              <div style="display:flex; justify-content:space-between;">
+                <span>Total</span>
+                <strong>£{{ cart_total }}</strong>
+              </div>
+
+              {% if total_food_miles %}
+                <div style="display:flex; justify-content:space-between; margin-top:10px; padding-top:10px; border-top:1px solid #e5e7eb;">
+                  <span>Total Food Miles</span>
+                  <strong>
+                    <span style="display:inline-flex; align-items:center; gap:4px; background:#f0fdf4; border:1px solid #86efac; color:#166534; border-radius:20px; padding:2px 10px; font-size:0.85rem; font-weight:600;">
+                     📍 {{ total_food_miles }} miles
+                    </span>
+                  </strong>
+                </div>
+              {% endif %}
+            </div>
+
+            <a class="btn btn-primary" href="{% url 'cart:checkout' %}" style="margin-top:1rem; display:inline-block;">
+              Proceed to Checkout
+            </a>
+          </div>
+        </aside>
+
         <div class="cart-main">
           <table class="cart-table">
             <thead>
               <tr>
                 <th>Product</th>
                 <th>Producer</th>
-                <th>Pricing</th>
+                <th>Unit</th>
                 <th style="width:160px;">Qty</th>
                 <th>Total</th>
-                
+                <th>Food Miles</th>
               </tr>
             </thead>
 
@@ -45,18 +74,9 @@
                       {{ item.product.producer.username }}
                     {% endif %}
                   </td>
-                  <td>
-                    {% if item.discounted_qty > 0 %}
-                      <div>{{ item.discounted_qty }} at £{{ item.discounted_unit_price }} deal price</div>
-                    {% endif %}
-                    {% if item.normal_qty > 0 %}
-                      <div>{{ item.normal_qty }} at £{{ item.normal_unit_price }} normal price</div>
-                    {% endif %}
-                    {% if item.warning %}
-                      <div class="muted" style="margin-top:4px;">{{ item.warning }}</div>
-                    {% endif %}
-                  </td>
+                  <td>£{{ item.product.price }}</td>
 
+                  <!-- Auto-submit qty form on change -->
                   <td>
                     <form method="post" action="{% url 'cart:update' item.product.id %}" class="qty-form">
                       {% csrf_token %}
@@ -66,6 +86,17 @@
 
                   <td>£{{ item.line_total }}</td>
 
+                  <td>
+                    {% if item.food_miles is not None %}
+                      <span style="display:inline-flex; align-items:center; gap:4px; background:#f0fdf4; border:1px solid #86efac; color:#166534; border-radius:20px; padding:2px 10px; font-size:0.8rem; font-weight:600;">
+                        📍  {{ item.food_miles }} mi
+                      </span>
+                    {% else %}
+                      <span style="color:#9ca3af; font-size:0.8rem;">N/A</span>
+                    {% endif %}
+                  </td>
+
+                  <!-- Remove items -->
                   <td>
                     <form method="post" action="{% url 'cart:remove' item.product.id %}">
                       {% csrf_token %}
@@ -80,23 +111,6 @@
           </table>
         </div>
 
-        <aside class="cart-aside">
-          <div class="card stack cart-summary">
-            <h3>Order Total</h3>
-
-            <div>
-              <div style="display:flex; justify-content:space-between;">
-                <span>Total</span>
-                <strong>£{{ cart_total }}</strong>
-              </div>
-            </div>
-
-            <a class="btn btn-primary" href="{% url 'cart:checkout' %}" style="margin-top:1rem; display:inline-block;">
-              Proceed to Checkout
-            </a>
-          </div>
-        </aside>
-
       </div>
     {% else %}
       <p>Your cart is empty.</p>
@@ -104,6 +118,7 @@
 
   </div>
 
+  <!-- Auto update quantity JavaScript -->
   <script>
     document.querySelectorAll('.qty-form input[name="qty"]').forEach((input) => {
       let t;

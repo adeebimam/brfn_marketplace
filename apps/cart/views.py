@@ -7,19 +7,7 @@ from django.views.decorators.http import require_POST
 
 from apps.marketplace.models import Product
 from apps.marketplace.forms import CheckoutForm
-from apps.marketplace.services import expire_surplus_deals
 from .models import Cart, CartItem
-
-
-BUYER_ROLES = {"CUSTOMER", "COMMUNITY_GROUP", "RESTAURANT"}
-
-
-def _can_use_cart(user):
-    return (
-        hasattr(user, "profile")
-        and user.profile.role in BUYER_ROLES
-    )
-
 
 def _sync_session_cart(request, cart):
     """
@@ -35,48 +23,67 @@ def _sync_session_cart(request, cart):
     request.session.modified = True
 
 
-def _build_cart_pricing(item):
-    pricing = item.product.calculate_price_for_quantity(item.quantity)
-
-    return {
-        "product": item.product,
-        "qty": item.quantity,
-        "producer": item.product.producer,
-        "line_total": pricing["total"],
-        **pricing,
-    }
-
-
 @login_required
 def cart_detail(request):
-    expire_surplus_deals()
-
     cart, _ = Cart.objects.get_or_create(user=request.user)
 
     items = cart.items.select_related("product", "product__producer")
     cart_items = []
     total = Decimal("0.00")
+    total_food_miles = Decimal("0.00")
+    seen_producers = set()
+
+    from apps.accounts.models import Profile
+    from apps.marketplace.foodmiles import calculate_food_miles
+
+    customer_postcode = None
+    try:
+        customer_profile = Profile.objects.get(user=request.user)
+        customer_postcode = customer_profile.delivery_postcode or customer_profile.postcode
+    except Profile.DoesNotExist:
+        pass
 
     for item in items:
-        priced_item = _build_cart_pricing(item)
-        total += priced_item["line_total"]
-        cart_items.append(priced_item)
+        line_total = (item.product.price * item.quantity).quantize(Decimal("0.01"))
+        total += line_total
+
+        food_miles = None
+        if customer_postcode:
+            try:
+                producer_profile = Profile.objects.get(user=item.product.producer)
+                producer_postcode = producer_profile.postcode
+                if producer_postcode:
+                    food_miles = calculate_food_miles(customer_postcode, producer_postcode)
+                    producer_id = item.product.producer.id
+                    if food_miles is not None and producer_id not in seen_producers:
+                        total_food_miles += Decimal(str(food_miles))
+                        seen_producers.add(producer_id)
+            except Profile.DoesNotExist:
+                pass
+
+        cart_items.append({
+            "product": item.product,
+            "qty": item.quantity,
+            "unit_price": item.product.price,
+            "line_total": line_total,
+            "producer": item.product.producer,
+            "food_miles": food_miles,
+        })
 
     _sync_session_cart(request, cart)
 
     return render(request, "cart/detail.html", {
         "cart_items": cart_items,
         "cart_total": total.quantize(Decimal("0.01")),
+        "total_food_miles": round(float(total_food_miles), 1),
     })
 
 
 @require_POST
 @login_required
 def cart_add(request, product_id):
-    expire_surplus_deals()
-
-    if not _can_use_cart(request.user):
-        messages.error(request, "Only buyer accounts can add items to the cart.")
+    if request.user.profile.role != "CUSTOMER":
+        messages.error(request, "Only customers can add items to the cart.")
         return redirect("marketplace:product_list")
 
     product = get_object_or_404(Product, id=product_id)
@@ -94,7 +101,7 @@ def cart_add(request, product_id):
     cart, _ = Cart.objects.get_or_create(user=request.user)
 
     try:
-        qty = int(request.POST.get("qty") or request.POST.get("quantity") or 1)
+        qty = int(request.POST.get("qty"))
     except (TypeError, ValueError):
         qty = 1
 
@@ -116,20 +123,14 @@ def cart_add(request, product_id):
     item.save()
     _sync_session_cart(request, cart)
 
-    pricing = product.calculate_price_for_quantity(new_quantity)
-    if pricing["warning"]:
-        messages.warning(request, pricing["warning"])
-    else:
-        messages.success(request, f"Added {qty} {product.name} to your cart.")
+    messages.success(request, f"Added {qty} {product.name} to your cart.")
     return redirect("cart:detail")
 
 @require_POST
 @login_required
 def cart_update(request, product_id):
-    expire_surplus_deals()
-
-    if not _can_use_cart(request.user):
-        messages.error(request, "Only buyer accounts can update the cart.")
+    if request.user.profile.role != "CUSTOMER":
+        messages.error(request, "Only customers can update the cart.")
         return redirect("marketplace:product_list")
 
     cart, _ = Cart.objects.get_or_create(user=request.user)
@@ -151,11 +152,7 @@ def cart_update(request, product_id):
             qty = product.stock_quantity
         item.quantity = qty
         item.save()
-        pricing = product.calculate_price_for_quantity(qty)
-        if pricing["warning"]:
-            messages.warning(request, pricing["warning"])
-        else:
-            messages.success(request, f"Updated {product.name} to {qty}.")
+        messages.success(request, f"Updated {product.name} to {qty}.")
 
     _sync_session_cart(request, cart)
     return redirect("cart:detail")
@@ -164,8 +161,8 @@ def cart_update(request, product_id):
 @require_POST
 @login_required
 def cart_remove(request, product_id):
-    if not _can_use_cart(request.user):
-        messages.error(request, "Only buyer accounts can remove items from the cart.")
+    if request.user.profile.role != "CUSTOMER":
+        messages.error(request, "Only customers can remove items from the cart.")
         return redirect("marketplace:product_list")
 
     cart, _ = Cart.objects.get_or_create(user=request.user)
@@ -182,8 +179,6 @@ def cart_remove(request, product_id):
 
 @login_required
 def checkout(request):
-    expire_surplus_deals()
-
     cart, _ = Cart.objects.get_or_create(user=request.user)
 
     if not cart.items.exists():
@@ -196,8 +191,7 @@ def checkout(request):
     cart_items = []
 
     for item in items:
-        priced_item = _build_cart_pricing(item)
-        line_total = priced_item["line_total"]
+        line_total = (item.product.price * item.quantity).quantize(Decimal("0.01"))
         subtotal += line_total
         producer_name = item.product.producer.name if hasattr(item.product.producer, 'name') else str(item.product.producer)
         lead_time = getattr(item.product.producer, 'lead_time', 2)
@@ -206,18 +200,13 @@ def checkout(request):
         producers[producer_name].append({
             "name": item.product.name,
             "qty": item.quantity,
-            "unit_price": str(priced_item["normal_unit_price"]),
-            "discounted_unit_price": str(priced_item["discounted_unit_price"]),
-            "discounted_qty": priced_item["discounted_qty"],
-            "normal_qty": priced_item["normal_qty"],
+            "unit_price": str(item.product.price),
             "total": str(line_total),
-            "warning": priced_item["warning"],
             "lead_time": lead_time,
         })
         cart_items.append({
             "product": {"name": item.product.name, "id": item.product.id},
-            "qty": item.quantity,
-            "total": str(line_total),
+            "qty": item.quantity
         })
 
     commission = (subtotal * Decimal("0.05")).quantize(Decimal("0.01"))
@@ -254,7 +243,6 @@ def checkout(request):
     return render(request, "cart/checkout.html", {
         "form": form,
         "producers": producers,
-        "cart_items": cart_items,
         "subtotal": subtotal,
         "commission": commission,
         "total": total,
