@@ -135,6 +135,7 @@ class ProducerRegisterForm(UserCreationForm):
     phone = forms.CharField(max_length=20, required=True)
     address = forms.CharField(widget=forms.Textarea, required=True)
     postcode = forms.CharField(max_length=20, required=True)
+    
 
     class Meta:
         model = User
@@ -193,6 +194,8 @@ class ProducerRegisterForm(UserCreationForm):
                 phone=self.cleaned_data["phone"].strip(),
                 address=self.cleaned_data["address"].strip(),
                 postcode=self.cleaned_data["postcode"].strip(),
+                verification_status=Profile.VerificationStatus.PENDING,
+                is_verified=False,
             )
 
         return user

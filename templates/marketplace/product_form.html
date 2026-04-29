@@ -1,8 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
   <h1>{% if mode == "create" %}Create{% else %}Edit{% endif %} Product</h1>
-
-  <form method="post" class="producer-product-form">
+  <form method="post" enctype="multipart/form-data" class="producer-product-form">
     {% csrf_token %}
     {{ form.non_field_errors }}
 
@@ -14,6 +13,20 @@
     {{ form.stock_quantity.label_tag }} {{ form.stock_quantity }}<br><br>
     {{ form.harvest_date.label_tag }} {{ form.harvest_date }}<br><br>
     {{ form.not_available.label_tag }} {{ form.not_available }}<br><br>
+
+    {# Product image upload #}
+    <div style="margin-bottom:1rem;">
+      {{ form.image.label_tag }}
+      {% if form.instance.image %}
+        <div style="margin-top:0.5rem;">
+          <img src="{{ form.instance.image.url }}" alt="Product image" style="max-width:180px; max-height:180px; border-radius:8px; border:1px solid #eee;">
+          <div style="margin-top:0.5rem;">Current image</div>
+          <div style="margin-top:0.5rem;">{{ form.image }}</div>
+        </div>
+      {% else %}
+        {{ form.image }}
+      {% endif %}
+    </div>
 
     <fieldset style="border:1px solid #ddd; padding:1rem; border-radius:8px; margin-bottom:1rem;">
       <legend style="font-weight:600; padding:0 0.5rem;">Seasonal Availability</legend>
@@ -78,6 +91,10 @@
       <div id="surplus-fields" style="display:flex; flex-direction:column; gap:0.75rem;">
         <div>
           {{ form.surplus_discount_percent.label_tag }} {{ form.surplus_discount_percent }}
+        </div>
+
+        <div>
+          {{ form.surplus_stock_quantity.label_tag }} {{ form.surplus_stock_quantity }}
         </div>
 
         <div>

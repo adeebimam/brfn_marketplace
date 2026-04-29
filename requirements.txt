@@ -3,3 +3,4 @@ Django==6.0.2
 django-axes==7.0.1
 mysqlclient==2.2.8
 sqlparse==0.5.5
+Pillow>=10.0.0

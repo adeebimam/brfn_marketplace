@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django import forms
+from .services import update_producer_order_status
 from .models import (
     Allergen, Category, Product,
     Order, ProducerOrder, OrderItem, ProducerOrderStatusHistory,
@@ -40,8 +41,8 @@ class StatusHistoryInline(admin.TabularInline):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ("id", "customer", "created_at", "delivery_address")
-    list_filter = ("created_at",)
+    list_display = ("id", "customer", "status", "created_at", "delivery_address","delivery_postcode")
+    list_filter = ("status","created_at",)
     search_fields = ("customer__username", "delivery_address")
     inlines = [ProducerOrderInline]
 
@@ -51,8 +52,21 @@ class ProducerOrderAdmin(admin.ModelAdmin):
     list_display = ("id", "order", "producer", "status", "delivery_date", "total_value")
     list_filter = ("status", "delivery_date")
     search_fields = ("producer__username", "order__id")
-    list_editable = ("status",)
     inlines = [OrderItemInline, StatusHistoryInline]
+    def save_model(self, request, obj, form, change):
+        if change:
+            old_obj = ProducerOrder.objects.get(pk=obj.pk)
+            new_status = form.cleaned_data.get("status")
+            if old_obj.status != new_status:
+                update_producer_order_status(
+                        producer_order=old_obj,
+                        new_status=new_status,
+                        changed_by=request.user,
+                        note="Updated via Django admin",
+                        is_admin_override=True,
+                    )
+                return
+            super().save_model(request, obj, form, change)
 
 
 @admin.register(OrderItem)

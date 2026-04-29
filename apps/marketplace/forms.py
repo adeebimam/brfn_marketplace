@@ -1,7 +1,12 @@
-from django import forms
 from datetime import date, timedelta
-from .models import Product, Allergen, ProducerOrder
 
+from django import forms
+
+from .models import Allergen, ProducerOrder, Product
+
+
+class NoClearableFileInput(forms.ClearableFileInput):
+    template_name = "widgets/no_clearable_file_input.html"
 
 class ProductForm(forms.ModelForm):
     # Virtual field: ticking "Not available" sets is_active=False
@@ -21,8 +26,11 @@ class ProductForm(forms.ModelForm):
         self.fields["available_from_month"].label = "In season from"
         self.fields["available_to_month"].label = "In season to"
 
+        self.fields["unit"].required = False
+        self.fields["unit"].initial = Product._meta.get_field("unit").default
         self.fields["available_from_month"].required = False
         self.fields["available_to_month"].required = False
+        self.fields["surplus_stock_quantity"].required = False
 
     class Meta:
         model = Product
@@ -39,10 +47,10 @@ class ProductForm(forms.ModelForm):
             "allergens",
             "other_allergen_info",
             "harvest_date",
-
-            # ✅ TC-019 fields
+            "image",
             "is_surplus",
             "surplus_discount_percent",
+            "surplus_stock_quantity",
             "surplus_expires_at",
             "surplus_note",
             "best_before_date",
@@ -58,11 +66,10 @@ class ProductForm(forms.ModelForm):
             ),
             "harvest_date": forms.DateInput(attrs={"type": "date"}),
 
-            # ✅ better inputs for surplus fields
             "surplus_expires_at": forms.DateTimeInput(attrs={"type": "datetime-local"}),
             "best_before_date": forms.DateInput(attrs={"type": "date"}),
-
             "unit": forms.Select(choices=Product.UNIT_CHOICES),
+            "image": NoClearableFileInput,
         }
 
     def clean(self):
@@ -71,6 +78,9 @@ class ProductForm(forms.ModelForm):
         season = cleaned_data.get("season")
         from_month = cleaned_data.get("available_from_month")
         to_month = cleaned_data.get("available_to_month")
+
+        if not cleaned_data.get("unit"):
+            cleaned_data["unit"] = Product._meta.get_field("unit").default
 
         # Seasonal validation
         if season and season != "ALL":
@@ -91,7 +101,9 @@ class ProductForm(forms.ModelForm):
         # ✅ TC-019 Surplus validation
         is_surplus = cleaned_data.get("is_surplus")
         discount = cleaned_data.get("surplus_discount_percent")
+        surplus_stock_quantity = cleaned_data.get("surplus_stock_quantity")
         expiry = cleaned_data.get("surplus_expires_at")
+        stock_quantity = cleaned_data.get("stock_quantity")
 
         if is_surplus:
             if discount is None:
@@ -100,8 +112,16 @@ class ProductForm(forms.ModelForm):
             if not (10 <= discount <= 50):
                 raise forms.ValidationError("Discount must be between 10% and 50%.")
 
+            if not surplus_stock_quantity:
+                raise forms.ValidationError("Surplus stock quantity is required for surplus products.")
+
+            if stock_quantity is not None and surplus_stock_quantity > stock_quantity:
+                raise forms.ValidationError("Surplus stock quantity cannot be more than total stock quantity.")
+
             if expiry is None:
                 raise forms.ValidationError("Expiry date/time is required for surplus products.")
+        else:
+            cleaned_data["surplus_stock_quantity"] = 0
 
         return cleaned_data
 
@@ -125,6 +145,7 @@ class CheckoutForm(forms.Form):
     delivery_address = forms.CharField(
         widget=forms.Textarea(attrs={"rows": 2})
     )
+    delivery_postcode = forms.CharField(max_length=20)
 
     delivery_date = forms.DateField(
         widget=forms.DateInput(
@@ -162,10 +183,13 @@ class CheckoutForm(forms.Form):
 # Order Status Update
 # -----------------------------
 class ProducerOrderStatusForm(forms.Form):
-    status = forms.ChoiceField(choices=ProducerOrder.Status.choices)
+    status = forms.ChoiceField(choices=[])
     note = forms.CharField(
         required=False,
-        widget=forms.Textarea(
-            attrs={"rows": 3, "placeholder": "Optional note about status change"}
-        ),
+        widget=forms.Textarea(attrs={"rows": 3, "placeholder": "Optional note about status change"}),
     )
+
+    def __init__(self, *args, **kwargs):
+        status_choices = kwargs.pop("status_choices", ProducerOrder.Status.choices)
+        super().__init__(*args, **kwargs)
+        self.fields["status"].choices = status_choices

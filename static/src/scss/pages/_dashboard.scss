@@ -1,1 +1,86 @@
-/* Dashboard Page */
+.producer-order-management {
+  h1 {
+    margin-bottom: 20px;
+  }
+
+  .producer-order-filters {
+    display: flex;
+    gap: 20px;
+    align-items: end;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    select {
+      min-width: 180px;
+    }
+  }
+
+  .producer-order-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+
+    th,
+    td {
+      text-align: left;
+      padding: 12px 10px;
+      vertical-align: middle;
+    }
+
+    th {
+      font-weight: 700;
+    }
+
+    tbody tr {
+      border-top: 1px solid #eee;
+    }
+
+    .center {
+      text-align: center;
+    }
+
+    .right {
+      text-align: right;
+    }
+  }
+
+  .order-status {
+    display: inline-block;
+    min-width: 100px;
+    text-align: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .status-pending {
+    background: #fff3cd;
+    color: #856404;
+  }
+
+  .status-confirmed {
+    background: #cce5ff;
+    color: #004085;
+  }
+
+  .status-ready {
+    background: #d4edda;
+    color: #155724;
+  }
+
+  .status-delivered {
+    background: #e2e3e5;
+    color: #383d41;
+  }
+  .status-cancelled {
+  background: #f8d7da;
+  color: #842029;
+}
+}
