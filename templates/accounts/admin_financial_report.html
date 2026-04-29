@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+  <h1>Financial Report</h1>
+
+  <form method="get" class="admin-filter-form">
+    <label>From:</label>
+    <input type="date" name="start_date" value="{{ start_date }}">
+
+    <label>To:</label>
+    <input type="date" name="end_date" value="{{ end_date }}">
+
+    <button class="btn-uniform btn-admin">Filter</button>
+  </form>
+
+  <div class="admin-grid">
+    <div class="admin-card">
+      <h3>Total Order Value</h3>
+      <p>£{{ total_order_value }}</p>
+    </div>
+
+    <div class="admin-card">
+      <h3>Commission (5%)</h3>
+      <p>£{{ total_commission }}</p>
+    </div>
+
+    <div class="admin-card">
+      <h3>Producer Payments (95%)</h3>
+      <p>£{{ total_producer_payment }}</p>
+    </div>
+
+    <div class="admin-card">
+      <h3>Total Orders</h3>
+      <p>{{ orders|length }}</p>
+    </div>
+  </div>
+
+  <h2>Order Breakdown</h2>
+
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>Order</th>
+        <th>Total</th>
+        <th>Commission</th>
+        <th>Producer Payment</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for item in orders %}
+        <tr>
+          <td>#{{ item.order.id }}</td>
+          <td>£{{ item.order_total }}</td>
+          <td>£{{ item.commission }}</td>
+          <td>£{{ item.producer_payment }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <a href="{% url 'accounts:admin_dashboard' %}" class="admin-back-link">
+    Back
+  </a>
+</div>
+{% endblock %}

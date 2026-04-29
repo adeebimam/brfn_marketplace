@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+  <h1>Account Details</h1>
+
+  <form method="post" class="account-edit-form">
+    {% csrf_token %}
+
+    <label>Email</label>
+    <input type="email" name="email" value="{{ profile.user.email }}">
+
+    <label>First Name</label>
+    <input type="text" name="contact_first_name" value="{{ profile.contact_first_name }}">
+
+    <label>Last Name</label>
+    <input type="text" name="contact_last_name" value="{{ profile.contact_last_name }}">
+
+
+    {% if profile.role != "CUSTOMER" and profile.role != "ADMIN" %}
+        <label>Business Name</label>
+        <input type="text" name="business_name" value="{{ profile.business_name|default:'' }}">
+    {% endif %}
+
+    {% if profile.role != "ADMIN" %}
+        <label>Address</label>
+        <input type="text" name="address" value="{{ profile.address|default:'' }}">
+    {% endif %}
+
+    {% if profile.role != "ADMIN" %}
+        <label>Postcode</label>
+        <input type="text" name="postcode" value="{{ profile.postcode|default:'' }}">
+    {% endif %}
+
+    {% if profile.role != "ADMIN" %}
+        <label>Phone Number</label>
+        <input type="text" name="phone" value="{{ profile.phone|default:'' }}">
+    {% endif %}
+
+
+    {% if is_admin %}
+      <label>Role</label>
+      <select name="role">
+        {% for value, label in role_choices %}
+          <option value="{{ value }}" {% if profile.role == value %}selected{% endif %}>
+            {{ label }}
+          </option>
+        {% endfor %}
+      </select>
+
+      <label>
+        <input type="checkbox" name="is_verified" {% if profile.is_verified %}checked{% endif %}>
+        Verified Account
+      </label>
+
+      <label>Verification Notes</label>
+      <textarea name="verification_notes">{{ profile.verification_notes }}</textarea>
+    {% endif %}
+
+    <button type="submit" class="btn save-btn">Save Changes</button>
+
+    {% if is_admin %}
+      <a href="{% url 'accounts:delete_account' profile.id %}" class="btn btn-admin-danger">
+        Delete Account
+      </a>
+
+      <a href="{% url 'accounts:admin_accounts' %}" class="btn back-btn">
+        Back to Accounts
+      </a>
+    {% else %}
+      <a href="{% url 'accounts:profile' %}" class="btn back-btn">
+        Back to Profile
+      </a>
+    {% endif %}
+  </form>
+</div>
+{% endblock %}

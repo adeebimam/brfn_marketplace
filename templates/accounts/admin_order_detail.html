@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+  <h1>Order Details</h1>
+
+  <p><strong>Order Number:</strong> BRFN-{{ order.id }}</p>
+
+  <div class="admin-status-panel">
+    <h3>Order Status</h3>
+
+    <p>
+      Current status:
+      <span class="admin-current-status status-{{ order.status|lower }}">
+        {{ order.get_status_display }}
+      </span>
+    </p>
+
+    {% if allowed_next_statuses %}
+      <form method="post" class="admin-status-form">
+        {% csrf_token %}
+
+        <div class="admin-status-field">
+          <label for="status">Change status to</label>
+
+          <select name="status" id="status">
+            {% for status in allowed_next_statuses %}
+              <option value="{{ status }}">{{ status|title }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <br>
+        <button type="submit" class="btn-uniform btn-admin">
+          Update Status
+        </button>
+      </form>
+    {% else %}
+      <p class="admin-status-note">
+        No further status changes available.
+      </p>
+    {% endif %}
+  </div>
+
+  <p>
+    <strong>Customer:</strong>
+    {{ order.customer.profile.contact_first_name }}
+    {{ order.customer.profile.contact_last_name }}
+  </p>
+
+  <h2>Items</h2>
+
+  {% if order.producer_orders.all %}
+    {% for producer_order in order.producer_orders.all %}
+      <p>
+        <strong>Producer:</strong>
+        {% if producer_order.producer.profile.business_name %}
+          {{ producer_order.producer.profile.business_name }}
+        {% else %}
+          {{ producer_order.producer.username }}
+        {% endif %}
+      </p>
+
+      {% if producer_order.items.all %}
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Quantity</th>
+              <th>Unit Price</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {% for item in producer_order.items.all %}
+              <tr>
+                <td>{{ item.product.name }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>£{{ item.unit_price }}</td>
+                <td>£{{ item.line_total }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p>No items found for this producer.</p>
+      {% endif %}
+    {% endfor %}
+  {% else %}
+    <p>No items found for this order.</p>
+  {% endif %}
+
+  <p><strong>Total (Inc. Commission):</strong> £{{ order.total_amount }}</p>
+
+  <p>
+    <a href="{% url 'accounts:admin_total_orders' %}" class="admin-back-link">
+      Back to Orders
+    </a>
+  </p>
+</div>
+{% endblock %}

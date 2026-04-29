@@ -1,14 +1,20 @@
 from collections import defaultdict
 from decimal import Decimal
+from datetime import datetime
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.shortcuts import render, redirect
-from django.utils import timezone
-from datetime import datetime
+
 from apps.cart.models import Cart
-from apps.marketplace.models import Order, ProducerOrder, OrderItem, Product, ProducerOrderStatusHistory
+from apps.marketplace.models import (
+    Order,
+    ProducerOrder,
+    OrderItem,
+    Product,
+    ProducerOrderStatusHistory,
+)
 
 
 @login_required
@@ -23,7 +29,6 @@ def payment(request):
     address = request.session.get("delivery_address", "")
     date = request.session.get("delivery_date", "")
     payment_method = request.session.get("payment_method", "")
-    producers = request.session.get("producers", {})
     subtotal = request.session.get("subtotal", total)
     commission = request.session.get("commission", "")
 
@@ -36,7 +41,6 @@ def payment(request):
         request.session["delivery_address"] = address
         request.session["delivery_date"] = date
         request.session["payment_method"] = payment_method
-        
 
         cart, _ = Cart.objects.get_or_create(user=request.user)
         db_cart_items = list(
@@ -57,12 +61,14 @@ def payment(request):
             except ValueError:
                 messages.error(request, "Invalid delivery date.")
                 return redirect("cart:checkout")
-            
+
             with transaction.atomic():
-                # Lock product rows and validate stock again
                 locked_products = {}
+
                 for item in db_cart_items:
-                    product = Product.objects.select_for_update().get(pk=item.product_id)
+                    product = Product.objects.select_for_update().get(
+                        pk=item.product_id
+                    )
 
                     if not product.is_active:
                         raise ValueError(f"{product.name} is no longer available.")
@@ -78,24 +84,23 @@ def payment(request):
 
                     locked_products[item.product_id] = product
 
-                # Create main customer order
                 order = Order.objects.create(
                     customer=request.user,
                     delivery_address=address,
                     special_instructions="",
                     delivery_postcode=postcode,
                     status=Order.Status.PENDING,
+                    total_amount=Decimal("0.00"),
                 )
 
-                # Group cart items by producer
                 grouped_items = defaultdict(list)
+
                 for item in db_cart_items:
                     grouped_items[item.product.producer].append(item)
 
                 producer_order_summaries = []
                 computed_subtotal = Decimal("0.00")
 
-                # Create producer orders + order items + update stock
                 for producer, items in grouped_items.items():
                     producer_total = Decimal("0.00")
 
@@ -106,9 +111,10 @@ def payment(request):
                         status=ProducerOrder.Status.PENDING,
                         total_value=Decimal("0.00"),
                     )
+
                     ProducerOrderStatusHistory.objects.create(
                         producer_order=producer_order,
-                        old_status = "",
+                        old_status="",
                         new_status=ProducerOrder.Status.PENDING,
                         note="Order created",
                         changed_by=request.user,
@@ -116,7 +122,9 @@ def payment(request):
 
                     for item in items:
                         product = locked_products[item.product_id]
-                        line_total = (product.price * item.quantity).quantize(Decimal("0.01"))
+                        line_total = (
+                            product.price * item.quantity
+                        ).quantize(Decimal("0.01"))
 
                         OrderItem.objects.create(
                             producer_order=producer_order,
@@ -131,7 +139,9 @@ def payment(request):
                         producer_total += line_total
                         computed_subtotal += line_total
 
-                    producer_order.total_value = producer_total.quantize(Decimal("0.01"))
+                    producer_order.total_value = producer_total.quantize(
+                        Decimal("0.01")
+                    )
                     producer_order.save(update_fields=["total_value"])
 
                     producer_order_summaries.append({
@@ -141,14 +151,21 @@ def payment(request):
                         "total": producer_order.total_value,
                     })
 
-                computed_commission = (computed_subtotal * Decimal("0.05")).quantize(Decimal("0.01"))
-                computed_total = (computed_subtotal + computed_commission).quantize(Decimal("0.01"))
+                computed_commission = (
+                    computed_subtotal * Decimal("0.05")
+                ).quantize(Decimal("0.01"))
 
-                # Clear cart
+                computed_total = (
+                    computed_subtotal + computed_commission
+                ).quantize(Decimal("0.01"))
+
+                order.total_amount = computed_total
+                order.save(update_fields=["total_amount"])
+
                 cart.items.all().delete()
 
-                # Clear session checkout/cart data
                 request.session["cart"] = {}
+
                 for key in [
                     "cart_items",
                     "order_total",
@@ -179,9 +196,12 @@ def payment(request):
             "commission": computed_commission,
             "total": computed_total,
         }
+
         return render(request, "orders/confirmation.html", context)
 
     return render(request, "orders/payment.html", {
         "total": total,
         "cart_items": cart_items,
+        "subtotal": subtotal,
+        "commission": commission,
     })

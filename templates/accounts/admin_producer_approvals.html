@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+  <h1>Pending Producer Approvals</h1>
+
+  {% if producers %}
+    <div class="approval-list">
+
+      {% for producer in producers %}
+        <div class="approval-card">
+
+          <div class="approval-info">
+            <p><strong>Producer Username:</strong> {{ producer.user.username }}</p>
+
+            {% if producer.business_name %}
+              <p><strong>Business Name:</strong> {{ producer.business_name }}</p>
+            {% endif %}
+
+            {% if producer.contact_first_name or producer.contact_last_name %}
+              <p>
+                <strong>Contact Name:</strong>
+                {{ producer.contact_first_name }} {{ producer.contact_last_name }}
+              </p>
+            {% endif %}
+
+            <div class="producer-details" style="display: none;">
+              <p><strong>Email:</strong> {{ producer.user.email|default:"-" }}</p>
+              <p><strong>Business Type:</strong> {{ producer.business_type|default:"-" }}</p>
+              <p><strong>Address:</strong> {{ producer.address|default:"-" }}</p>
+              <p><strong>Postcode:</strong> {{ producer.postcode|default:"-" }}</p>
+              <p><strong>Phone:</strong> {{ producer.phone_number|default:"-" }}</p>
+              <p><strong>Notes:</strong> {{ producer.verification_notes|default:"-" }}</p>
+            </div>
+          </div>
+
+          <div class="approval-actions">
+            <button type="button" class="btn btn-admin btn-uniform show-details-btn">
+              Show Details
+            </button>
+
+            <form method="post" style="display:inline;">
+              {% csrf_token %}
+              <input type="hidden" name="profile_id" value="{{ producer.id }}">
+              <input type="hidden" name="action" value="approve">
+              <button type="submit" class="btn btn-admin-success btn-uniform">
+                Approve
+              </button>
+            </form>
+
+            <form method="post" style="display:inline;">
+              {% csrf_token %}
+              <input type="hidden" name="profile_id" value="{{ producer.id }}">
+              <input type="hidden" name="action" value="reject">
+              <button type="submit" class="btn btn-admin-danger btn-uniform">
+                Reject
+              </button>
+            </form>
+          </div>
+
+        </div>
+      {% endfor %}
+
+    </div>
+  {% else %}
+    <p>No pending producer approvals.</p>
+  {% endif %}
+
+  <p>
+    <a class="a-text" href="{% url 'accounts:admin_dashboard' %}">Back to Admin Dashboard</a>
+  </p>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const buttons = document.querySelectorAll(".show-details-btn");
+
+    buttons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        const card = button.closest(".approval-card");
+        const details = card.querySelector(".producer-details");
+
+        if (details.style.display === "none" || details.style.display === "") {
+          details.style.display = "block";
+          button.textContent = "Hide Details";
+        } else {
+          details.style.display = "none";
+          button.textContent = "Show Details";
+        }
+      });
+    });
+  });
+</script>
+{% endblock %}

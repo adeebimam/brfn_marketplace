@@ -19,6 +19,10 @@
 
     <nav class="nav-links">
       <a href="{% url 'marketplace:product_list' %}" {% if request.resolver_match.url_name == 'product_list' %}class="active"{% endif %}>Products</a>
+      
+      {% if user.is_authenticated and user.profile.role == "ADMIN" %}
+        <a href="{% url 'accounts:admin_dashboard' %}">Admin Dashboard</a>
+      {% endif %}
 
       {% if user.is_authenticated %}
         {% if user.profile.role == "PRODUCER" and user.profile.is_verified %}
@@ -94,6 +98,8 @@
       {% elif request.user.profile.role == "COMMUNITY_GROUP" %}
         Welcome back, {{ request.user.profile.business_name|title }}!
         <span style="color: #087d73;">({{ request.user.profile.display_role }})</span>
+      {% elif request.user.profile.role == "ADMIN" %}
+        <div class = "admin-center">Admin Portal</div>
       {% else %}
         Welcome back, {{ request.user.profile.contact_first_name|title }} {{ request.user.profile.contact_last_name|title }}!
         <span style="color: #087d73;">({{ request.user.profile.display_role }})</span>
