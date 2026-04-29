@@ -9,6 +9,12 @@
       {% endif %}
     </div>
 
+    {% if product.is_surplus %}
+      <span style="display:inline-block; color:#b91c1c; background:#fee2e2; padding:4px 10px; border-radius:6px; font-weight:600;">
+        Last Minute Deal — {{ product.surplus_discount_percent }}% OFF
+      </span>
+    {% endif %}
+
     {# ── Seasonal indicator ── #}
     {% if product.is_year_round %}
       <p style="color:#6b7280; font-size:0.9rem;">Available Year-Round</p>
@@ -29,7 +35,35 @@
 
     <p>{{ product.description }}</p>
 
-    <p class="price">£{{ product.price }}</p>
+    {% if product.is_surplus %}
+      <p class="price">
+        <span style="color:red; text-decoration:line-through; font-weight:600;">
+          £{{ product.price }}
+        </span>
+        <strong style="color:green; margin-left:8px;">
+          £{{ product.discounted_price }}
+        </strong>
+        <span class="muted">/ {{ product.get_unit_display }}</span>
+      </p>
+
+      {% if product.surplus_expires_at %}
+        <p><strong>Deal ends:</strong> {{ product.surplus_expires_at }}</p>
+      {% endif %}
+
+      {% if product.best_before_date %}
+        <p><strong>Best before:</strong> {{ product.best_before_date }}</p>
+      {% endif %}
+
+      {% if product.surplus_note %}
+        <p><strong>Producer note:</strong> {{ product.surplus_note }}</p>
+      {% endif %}
+    {% else %}
+      <p class="price">
+        £{{ product.price }}
+        <span class="muted">/ {{ product.get_unit_display }}</span>
+      </p>
+    {% endif %}
+
     <p>Stock: {{ product.stock_quantity }}</p>
 
     {% if product.allergens.exists or product.other_allergen_info %}

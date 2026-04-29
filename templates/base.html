@@ -19,18 +19,20 @@
     <nav class="nav-links">
       <a href="{% url 'marketplace:product_list' %}" {% if request.resolver_match.url_name == 'product_list' %}class="active"{% endif %}>Products</a>
 
+      <a href="{% url 'marketplace:surplus_deals' %}" {% if request.resolver_match.url_name == 'surplus_deals' %}class="active"{% endif %}>Surplus Deals</a>
+
       {% if user.is_authenticated %}
         {% if user.profile.role == "PRODUCER" %}
           <a href="{% url 'marketplace:producer_product_list' %}" {% if request.resolver_match.url_name == 'producer_product_list' or request.resolver_match.url_name == 'product_create' or request.resolver_match.url_name == 'product_update' %}class="active"{% endif %}>My Products</a>
           <a href="{% url 'marketplace:producer_order_list' %}" {% if request.resolver_match.url_name == 'producer_order_list' or request.resolver_match.url_name == 'producer_order_detail' %}class="active"{% endif %}>Orders</a>
           <a href="{% url 'marketplace:producer_payments' %}" {% if request.resolver_match.url_name == 'producer_payments' %}class="active"{% endif %}>Payments</a>
         {% elif user.profile.role == "CUSTOMER" or user.profile.role == "COMMUNITY_GROUP" or user.profile.role == "RESTAURANT" %}
-                <a href="{% url 'cart:detail' %}">
-                  <i class="fa-solid fa-cart-shopping" style="font-size:22px;"></i>
-                  {% if cart_item_count > 0 %}
-                    ({{ cart_item_count }})
-                  {% endif %}
-                </a>
+          <a href="{% url 'cart:detail' %}">
+            <i class="fa-solid fa-cart-shopping" style="font-size:22px;"></i>
+            {% if cart_item_count > 0 %}
+              ({{ cart_item_count }})
+            {% endif %}
+          </a>
         {% endif %}
 
         <a class="btn" href="{% url 'accounts:logout' %}">Logout</a>
@@ -61,7 +63,124 @@
     </div>
     <br>
   {% endif %}
+{% if user.is_authenticated %}
+  {% if request.user.profile.role == "CUSTOMER" or request.user.profile.role == "COMMUNITY_GROUP" or request.user.profile.role == "RESTAURANT" %}
+    {% if request.resolver_match.url_name != "surplus_deals" %}
+      <div id="surplus-popup" class="surplus-popup">
+        <button
+          class="surplus-popup-close"
+          type="button"
+          onclick="closeSurplusPopup()"
+        >
+          ×
+        </button>
 
+        <a href="{% url 'marketplace:surplus_deals' %}" class="surplus-popup-link">
+          <strong>Hurry up! Limited surplus deals available</strong>
+          <span>Save money and help reduce food waste.</span>
+        </a>
+      </div>
+
+      <style>
+        .surplus-popup {
+          position: fixed;
+          bottom: 24px;
+          right: 24px;
+          background: #fee2e2;
+          border: 1px solid #ef4444;
+          color: #7f1d1d;
+          padding: 16px 18px;
+          border-radius: 14px;
+          box-shadow: 0 10px 28px rgba(0,0,0,0.18);
+          z-index: 9999;
+          max-width: 340px;
+          display: none;
+          opacity: 0;
+          transform: translateY(18px);
+          transition: opacity 0.35s ease, transform 0.35s ease;
+        }
+
+        .surplus-popup.show {
+          display: block;
+          opacity: 1;
+          transform: translateY(0);
+        }
+
+        .surplus-popup-link {
+          display: block;
+          text-decoration: none;
+          color: inherit;
+          padding-right: 24px;
+        }
+
+        .surplus-popup-link span {
+          display: block;
+          margin-top: 8px;
+          font-size: 0.95rem;
+        }
+
+        .surplus-popup-close {
+          position: absolute;
+          top: 8px;
+          right: 10px;
+          border: none;
+          background: transparent;
+          color: #7f1d1d;
+          font-size: 20px;
+          font-weight: bold;
+          cursor: pointer;
+        }
+      </style>
+
+      <script>
+        const surplusPopup = document.getElementById("surplus-popup");
+
+        let surplusPopupShowTimer;
+        let surplusPopupHideTimer;
+        let surplusPopupLoopTimer;
+
+        function showSurplusPopup() {
+          if (!surplusPopup) return;
+
+          surplusPopup.classList.add("show");
+
+          surplusPopupHideTimer = setTimeout(() => {
+            hideSurplusPopup();
+          }, 30000); // disappears after 30 seconds
+        }
+
+        function hideSurplusPopup() {
+          if (!surplusPopup) return;
+
+          surplusPopup.classList.remove("show");
+
+          surplusPopupLoopTimer = setTimeout(() => {
+            showSurplusPopup();
+          }, 120000); // appears again after 2 minutes
+        }
+
+        function closeSurplusPopup() {
+          if (!surplusPopup) return;
+
+          clearTimeout(surplusPopupShowTimer);
+          clearTimeout(surplusPopupHideTimer);
+          clearTimeout(surplusPopupLoopTimer);
+
+          surplusPopup.classList.remove("show");
+          surplusPopup.style.display = "none";
+
+          sessionStorage.setItem("surplusPopupClosed", "true");
+        }
+
+        if (surplusPopup && sessionStorage.getItem("surplusPopupClosed") !== "true") {
+          surplusPopupShowTimer = setTimeout(() => {
+            showSurplusPopup();
+          }, 2000); // first appears after 2 seconds
+        }
+      </script>
+    {% endif %}
+  {% endif %}
+{% endif %}
   {% if messages %}
     <div class="stack">
       {% for message in messages %}

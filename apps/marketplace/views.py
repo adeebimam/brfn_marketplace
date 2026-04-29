@@ -7,15 +7,18 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
-from django.http import HttpResponse, HttpResponseForbidden
+from django.http import Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from apps.accounts.models import Profile
 from .forms import CheckoutForm, ProductForm, ProducerOrderStatusForm
 from .models import (
-    Allergen, Category, Product, MONTH_NAMES,
-    ProducerOrder, ProducerOrderStatusHistory,
+    Allergen,
+    Category,
+    Product,
+    ProducerOrder,
+    ProducerOrderStatusHistory,
 )
 
 
@@ -31,17 +34,35 @@ def _require_producer(request):
     return profile.role == "PRODUCER"
 
 
+# -----------------------------
+# TC-019 helper: surplus price
+# -----------------------------
+
+def _get_product_unit_price(product):
+    now = timezone.now()
+
+    if (
+        product.is_surplus
+        and product.surplus_expires_at
+        and product.surplus_expires_at > now
+        and product.stock_quantity > 0
+    ):
+        return product.discounted_price
+
+    return product.price
+
+
 # ----------------------------
 # PRODUCT LIST
 # ----------------------------
 
 def product_list(request):
-    # Only show products where stock > 0 AND is_active (not marked "Not available")
     products = (
         Product.objects.filter(is_active=True, stock_quantity__gt=0)
         .select_related("category", "producer")
         .prefetch_related("allergens")
     )
+
     categories = Category.objects.order_by("name")
     allergens = Allergen.objects.order_by("name")
 
@@ -58,36 +79,35 @@ def product_list(request):
 
     if query:
         products = products.filter(
-            Q(name__icontains=query) |
-            Q(description__icontains=query) |
-            Q(allergens__name__icontains=query) |
-            Q(other_allergen_info__icontains=query) |
-            Q(producer__username__icontains=query)
+            Q(name__icontains=query)
+            | Q(description__icontains=query)
+            | Q(allergens__name__icontains=query)
+            | Q(other_allergen_info__icontains=query)
+            | Q(producer__username__icontains=query)
         ).distinct()
 
     if allergen_filter == "with":
         products = products.filter(
             Q(allergens__isnull=False) | ~Q(other_allergen_info="")
         ).distinct()
+
     elif allergen_filter == "without":
         products = products.exclude(
             allergens__isnull=False
         ).filter(other_allergen_info="")
+
     elif allergen_filter.startswith("specific_"):
         allergen_id = allergen_filter.split("_")[1]
         products = products.filter(allergens__id=allergen_id)
 
-    # Auto-hide out-of-season products (date-based filtering)
     today = date.today()
     current_month = today.month
-    # Keep products that are year-round (ALL or no months set) OR currently in season
+
     products = [p for p in products if p.is_in_season(today)]
 
-    # Annotate each product with season status for template use
     for p in products:
         p.in_season_now = p.is_in_season(today)
 
-    # Build allergen choices with pre-formatted value strings for template
     allergen_choices = [
         {"value": f"specific_{a.id}", "name": a.name}
         for a in allergens
@@ -105,6 +125,7 @@ def product_list(request):
         "allergen_filter": allergen_filter,
         "current_month": current_month,
     }
+
     return render(request, "marketplace/product_list.html", context)
 
 
@@ -113,21 +134,49 @@ def product_list(request):
 # ----------------------------
 
 def product_detail(request, pk):
-    # Only show products that are active (formerly `in_season`)
     product = get_object_or_404(
         Product.objects.select_related("category", "producer").prefetch_related("allergens"),
         pk=pk,
         is_active=True,
     )
-    # If the product is not available, out of stock, or out of season — only the producer can view
-    if (not product.is_active or product.stock_quantity <= 0 or not product.is_in_season()):
+
+    if product.stock_quantity <= 0 or not product.is_in_season():
         if request.user != product.producer:
-            from django.http import Http404
             raise Http404("This product is not currently available.")
 
     return render(request, "marketplace/product_detail.html", {
         "product": product,
         "is_in_season": product.is_in_season(),
+    })
+
+
+# ----------------------------
+# TC-019 SURPLUS DEALS PAGE
+# ----------------------------
+
+def surplus_deals(request):
+    now = timezone.now()
+
+    products = (
+        Product.objects.filter(
+            is_active=True,
+            is_surplus=True,
+            surplus_expires_at__gt=now,
+            stock_quantity__gt=0,
+        )
+        .select_related("category", "producer")
+        .prefetch_related("allergens")
+        .order_by("surplus_expires_at")
+    )
+
+    today = date.today()
+    products = [p for p in products if p.is_in_season(today)]
+
+    for p in products:
+        p.in_season_now = p.is_in_season(today)
+
+    return render(request, "marketplace/surplus_deals.html", {
+        "products": products,
     })
 
 
@@ -140,7 +189,6 @@ TWO_PLACES = Decimal("0.01")
 
 
 def _compute_financials(gross):
-    """Return (commission, net) for a given gross amount."""
     gross = gross.quantize(TWO_PLACES)
     commission = (gross * COMMISSION_RATE).quantize(TWO_PLACES)
     net = (gross - commission).quantize(TWO_PLACES)
@@ -148,7 +196,6 @@ def _compute_financials(gross):
 
 
 def _build_settlement_ref(producer_id, week_start, week_end):
-    """Return a deterministic settlement reference string."""
     return (
         f"SET-{producer_id}-"
         f"{week_start.strftime('%Y%m%d')}-"
@@ -201,8 +248,18 @@ def producer_product_list(request):
     if not _require_producer(request):
         return HttpResponseForbidden("Producer access only.")
 
-    products = Product.objects.filter(producer=request.user).select_related("category").order_by("-created_at")
-    return render(request, "marketplace/producer_product_list.html", {"products": products})
+    products = (
+        Product.objects
+        .filter(producer=request.user)
+        .select_related("category")
+        .order_by("-created_at")
+    )
+
+    return render(
+        request,
+        "marketplace/producer_product_list.html",
+        {"products": products},
+    )
 
 
 # ----------------------------
@@ -300,7 +357,7 @@ def product_delete(request, pk):
 
 
 # ----------------------------
-# CHECKOUT (MULTI PRODUCER)
+# CHECKOUT
 # ----------------------------
 
 def checkout(request):
@@ -315,14 +372,15 @@ def checkout(request):
             continue
 
         qty = int(qty)
-        line_total = product.price * qty
+        unit_price = _get_product_unit_price(product)
+        line_total = unit_price * qty
         subtotal += line_total
 
         lead_time = getattr(product.producer, "lead_time", 2)
 
         producers[product.producer.username].append({
             "name": product.name,
-            "price": float(product.price),
+            "price": float(unit_price),
             "qty": qty,
             "total": float(line_total),
             "lead_time": lead_time,
@@ -333,6 +391,7 @@ def checkout(request):
 
     if request.method == "POST":
         form = CheckoutForm(request.POST)
+
         if form.is_valid():
             delivery_address = form.cleaned_data["delivery_address"]
             delivery_date = form.cleaned_data["delivery_date"]
@@ -351,6 +410,7 @@ def checkout(request):
             return redirect("marketplace:payment")
     else:
         initial = {}
+
         if request.user.is_authenticated:
             initial["delivery_address"] = request.user.email or request.user.username
 
@@ -377,6 +437,7 @@ def payment(request):
 
     if request.method == "POST":
         order_number = "ORD-" + str(random.randint(10000, 99999))
+
         print("NEW ORDER RECEIVED")
         print("Order Number:", order_number)
 
@@ -430,6 +491,7 @@ def producer_order_list(request):
     )
 
     status = request.GET.get("status", "")
+
     if status:
         orders = orders.filter(status=status)
 
@@ -632,6 +694,10 @@ def download_payments_csv(request):
 
     return response
 
+
+# -----------------------------
+# TC-010 Producer Order Status Update
+# -----------------------------
 
 @login_required
 def producer_order_update_status(request, pk):
