@@ -344,10 +344,16 @@ class Order(models.Model):
         default=Status.PENDING
     )
 
+    total_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00
+    )
+
     def __str__(self):
         return f"Order #{self.id}"
-
-
+    
+    
 class ProducerOrder(models.Model):
 
     class Status(models.TextChoices):

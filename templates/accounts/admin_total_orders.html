@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+  <h1>Total Orders</h1>
+
+  <form method="get" class="admin-filter-form">
+    <label for="status">Filter by status:</label>
+
+    <select name="status" id="status" onchange="this.form.submit()">
+      <option value="">All Orders</option>
+
+      {% for value, label in status_choices %}
+        <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>
+          {{ label }}
+        </option>
+      {% endfor %}
+    </select>
+  </form>
+
+  {% if orders %}
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Order Number</th>
+          <th>Customer</th>
+          <th>Producers</th>
+          <th>Status</th>
+          <th>Total</th>
+          <th>Order Details</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for order in orders %}
+          <tr>
+            <td>#{{ order.id }}</td>
+
+            <td>
+              {{ order.customer.profile.contact_first_name }}
+              {{ order.customer.profile.contact_last_name }}
+            </td>
+
+            <td>
+              {% for producer_order in order.producer_orders.all %}
+                {% if producer_order.producer.profile.business_name %}
+                  {{ producer_order.producer.profile.business_name }}
+                {% else %}
+                  {{ producer_order.producer.username }}
+                {% endif %}
+
+                {% if not forloop.last %}, {% endif %}
+              {% endfor %}
+            </td>
+
+            <td>
+              <span class="status-{{ order.status|lower }}">
+                {{ order.get_status_display }}
+              </span>
+            </td>
+
+            <td>£{{ order.admin_total }}</td>
+
+            <td>
+              <a class="a-text" href="{% url 'accounts:admin_order_detail' order.id %}">
+                View Details
+              </a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No orders found.</p>
+  {% endif %}
+
+  <p>
+    <a href="{% url 'accounts:admin_dashboard' %}" class="admin-back-link">
+      Back to Admin Dashboard
+    </a>
+  </p>
+</div>
+{% endblock %}
