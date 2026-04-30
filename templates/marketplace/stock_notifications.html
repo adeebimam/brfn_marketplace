@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card stack">
+  <h1>📦 Stock Alerts</h1>
+
+  {% if active_notifications %}
+    <div style="margin-bottom: 1.5rem;">
+      <h3 style="color:#dc2626; margin-bottom:0.75rem;">⚠️ Active Alerts ({{ active_notifications.count }})</h3>
+      {% for n in active_notifications %}
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#fef2f2; border:1px solid #fca5a5; border-radius:10px; padding:12px 16px; margin-bottom:8px;">
+          <div>
+            <strong style="color:#dc2626;">{{ n.message }}</strong>
+            <div style="font-size:0.82rem; color:#6b7280; margin-top:2px;">
+              {{ n.created_at|date:"d M Y, H:i" }}
+            </div>
+          </div>
+          <a href="{% url 'marketplace:product_update' n.product.pk %}" class="btn non-primary-btn" style="font-size:0.85rem;">
+            Update Stock
+          </a>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:10px; padding:16px; margin-bottom:1.5rem;">
+      <strong style="color:#166534;">✅ All stock levels are healthy — no active alerts.</strong>
+    </div>
+  {% endif %}
+
+  {% if resolved_notifications %}
+    <div>
+      <h3 style="color:#6b7280; margin-bottom:0.75rem;">✅ Resolved Alerts</h3>
+      {% for n in resolved_notifications %}
+        <div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; padding:12px 16px; margin-bottom:8px;">
+          <span style="color:#6b7280; text-decoration:line-through;">{{ n.message }}</span>
+          <div style="font-size:0.82rem; color:#9ca3af; margin-top:2px;">
+            Resolved — {{ n.resolved_at|date:"d M Y, H:i"|default:"—" }}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}
