@@ -1,40 +1,116 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="payment-container">
-    <h1 class="page-title">Payment</h1>
-
-    <div class="payment-summary">
-        <p class="payment-total">Total Amount: <span>£{{ total }}</span></p>
-        {% if cart_items %}
-        <ul class="payment-items">
-            {% for item in cart_items %}
-            <li>{{ item.product.name }} (x{{ item.qty }})</li>
-            {% endfor %}
-        </ul>
-        {% endif %}
+<div class="payment-shell">
+    <div class="payment-hero card">
+        <div>
+            <p class="eyebrow">Payment</p>
+            <h1>Confirm your order</h1>
+            <p class="muted">This test screen keeps the order summary visible while you complete payment.</p>
+        </div>
+        <div class="summary-pill">Total £{{ total }}</div>
     </div>
 
-    <form method="POST" class="payment-form">
-        {% csrf_token %}
+    <div class="payment-layout">
+        <form method="POST" class="card payment-form-card">
+            {% csrf_token %}
 
-        <div class="form-group" style="margin-bottom: 20px;">
-            <label for="card-number">Card Number</label>
-            <input type="text" id="card-number" name="card_number" placeholder="4242 4242 4242 4242" required pattern="\d{16}" maxlength="16" title="Card number must be 16 digits">
-        </div>
+            <div class="section-heading">
+                <h2>Card details</h2>
+                <p class="muted">Use the Stripe test card shown below.</p>
+            </div>
 
-        <div class="form-group" style="margin-bottom: 20px;">
-            <label for="expiry">Expiry</label>
-            <input type="text" id="expiry" name="expiry" placeholder="MM/YY" required pattern="(0[1-9]|1[0-2])\/\d{2}" maxlength="5" title="Expiry must be in MM/YY format">
-        </div>
+            <div class="payment-card-demo">
+                <div>
+                    <span>Test card</span>
+                    <strong>4242 4242 4242 4242</strong>
+                </div>
+                <div>
+                    <span>Expiry</span>
+                    <strong>12/34</strong>
+                </div>
+                <div>
+                    <span>CVC</span>
+                    <strong>123</strong>
+                </div>
+            </div>
 
-        <div class="form-group" style="margin-bottom: 20px;">
-            <label for="cvc">CVC</label>
-            <input type="text" id="cvc" name="cvc" placeholder="123" required pattern="\d{3}" maxlength="3" title="CVC must be a 3-digit number">
-        </div>
+            <div class="stack">
+                <div>
+                    <label for="card-number">Card number</label>
+                    <input type="text" id="card-number" name="card_number" placeholder="4242424242424242" required pattern="\d{16}" maxlength="16" title="Card number must be 16 digits">
+                </div>
 
-        <br>
+                <div class="form-row two">
+                    <div>
+                        <label for="expiry">Expiry</label>
+                        <input type="text" id="expiry" name="expiry" placeholder="MM/YY" required pattern="(0[1-9]|1[0-2])\/\d{2}" maxlength="5" title="Expiry must be in MM/YY format">
+                    </div>
 
-        <button class="save-btn btn" type="submit">Confirm Payment</button>
-    </form>
+                    <div>
+                        <label for="cvc">CVC</label>
+                        <input type="text" id="cvc" name="cvc" placeholder="123" required pattern="\d{3}" maxlength="3" title="CVC must be a 3-digit number">
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn btn-primary checkout-submit" type="submit">Confirm payment</button>
+        </form>
+
+        <aside class="card payment-summary-card">
+            <div class="section-heading">
+                <h2>Final summary</h2>
+                <p class="muted">Delivery and totals from your checkout step.</p>
+            </div>
+
+            <div class="detail-pairs">
+                <div>
+                    <span>Delivery date</span>
+                    <strong>{{ date }}</strong>
+                </div>
+                <div>
+                    <span>Postcode</span>
+                    <strong>{{ request.session.delivery_postcode }}</strong>
+                </div>
+                <div>
+                    <span>Payment method</span>
+                    <strong>{{ payment_method|default:"Stripe Test" }}</strong>
+                </div>
+            </div>
+
+            <div class="delivery-panel">
+                <span class="muted">Delivery address</span>
+                <p>{{ address }}</p>
+            </div>
+
+            {% if cart_items %}
+                <div class="payment-item-list">
+                    {% for item in cart_items %}
+                        <div class="payment-item-row">
+                            <div>
+                                <strong>{{ item.product.name }}</strong>
+                                <div class="muted">Quantity {{ item.qty }}</div>
+                            </div>
+                            <div>£{{ item.total }}</div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="checkout-totals">
+                <div>
+                    <span>Subtotal</span>
+                    <strong>£{{ subtotal }}</strong>
+                </div>
+                <div>
+                    <span>Network commission (5%)</span>
+                    <strong>£{{ commission }}</strong>
+                </div>
+                <div class="checkout-grand-total">
+                    <span>Total to pay</span>
+                    <strong>£{{ total }}</strong>
+                </div>
+            </div>
+        </aside>
+    </div>
 </div>
 {% endblock %}

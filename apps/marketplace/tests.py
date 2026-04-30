@@ -17,12 +17,17 @@ Covers:
   • Wrap-around ranges work (e.g. November – February)
 """
 from datetime import date
+from datetime import timedelta
+from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.test import Client, TestCase
+from django.urls import reverse
+from django.utils import timezone
 
 from apps.accounts.models import Profile
+from apps.marketplace.forms import ProductForm
 from apps.marketplace.models import Category, Product, MONTH_NAMES
 
 
@@ -390,3 +395,74 @@ class TC16_ProducerDashboardTests(TestCase):
         content = resp.content.decode()
         self.assertIn("June", content)
         self.assertIn("August", content)
+
+
+class TC19SurplusDealTests(TestCase):
+    def setUp(self):
+        self.producer = _create_user(
+            "producer", "producer@example.com", "Str0ng!Pass99", Profile.Role.PRODUCER,
+            business_name="Surplus Farm",
+            is_verified=True,
+        )
+        self.customer = _create_user(
+            "customer", "customer@example.com", "Str0ng!Pass99", Profile.Role.CUSTOMER,
+            contact_first_name="Casey",
+            contact_last_name="Customer",
+        )
+        self.category = Category.objects.create(name="Dairy")
+
+    def test_product_stores_discount_amount_for_surplus_deal(self):
+        product = Product.objects.create(
+            producer=self.producer,
+            category=self.category,
+            name="Eggs",
+            description="Fresh eggs",
+            price=Decimal("10.00"),
+            stock_quantity=8,
+            is_surplus=True,
+            surplus_discount_percent=30,
+            surplus_stock_quantity=3,
+            surplus_expires_at=timezone.now() + timedelta(days=1),
+        )
+
+        self.assertEqual(product.surplus_discount_amount, Decimal("3.00"))
+        self.assertEqual(product.surplus_discounted_price, Decimal("7.00"))
+
+    def test_surplus_form_rejects_past_expiry_datetime(self):
+        form = ProductForm(data={
+            "category": self.category.pk,
+            "name": "Eggs",
+            "description": "Fresh eggs",
+            "price": "10.00",
+            "unit": "pack",
+            "stock_quantity": 8,
+            "season": "ALL",
+            "is_surplus": "on",
+            "surplus_discount_percent": 30,
+            "surplus_stock_quantity": 3,
+            "surplus_expires_at": (timezone.localtime() - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M"),
+            "surplus_note": "Move quickly",
+        })
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("future", str(form.errors))
+
+    def test_expired_surplus_deal_falls_back_to_normal_price_on_product_detail(self):
+        product = Product.objects.create(
+            producer=self.producer,
+            category=self.category,
+            name="Eggs",
+            description="Fresh eggs",
+            price=Decimal("10.00"),
+            stock_quantity=8,
+            is_surplus=True,
+            surplus_discount_percent=30,
+            surplus_stock_quantity=3,
+            surplus_expires_at=timezone.now() - timedelta(hours=1),
+        )
+
+        response = self.client.get(reverse("marketplace:product_detail", args=[product.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Last Minute Deal")
+        self.assertContains(response, "£10.00")

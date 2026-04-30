@@ -60,14 +60,7 @@ def _producer_access_denied_response(request):
 # -----------------------------
 
 def _get_product_unit_price(product):
-    now = timezone.now()
-
-    if (
-        product.is_surplus
-        and product.surplus_expires_at
-        and product.surplus_expires_at > now
-        and product.stock_quantity > 0
-    ):
+    if product.is_active_surplus_deal:
         return product.discounted_price
 
     return product.price
@@ -182,6 +175,7 @@ def surplus_deals(request):
         Product.objects.filter(
             is_active=True,
             is_surplus=True,
+            surplus_stock_quantity__gt=0,
             surplus_expires_at__gt=now,
             stock_quantity__gt=0,
         )

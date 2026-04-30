@@ -1,47 +1,124 @@
 {% extends "base.html" %}
 
 {% block content %}
+<div class="confirmation-shell">
+    <section class="card confirmation-hero">
+        <div>
+            <p class="eyebrow">Order placed</p>
+            <h1>Thanks, your order is confirmed</h1>
+            <p class="muted">We created the main order and split it across the right producers so each one can update their own delivery status.</p>
+        </div>
+        <div class="confirmation-badge">
+            <span>Order number</span>
+            <strong>{{ order_number }}</strong>
+        </div>
+    </section>
 
-<h2>Order Confirmation</h2>
+    <div class="confirmation-layout">
+        <section class="card confirmation-main">
+            <div class="section-heading">
+                <h2>Delivery and payment</h2>
+                <p class="muted">Saved from your checkout and payment steps.</p>
+            </div>
 
-<p><strong>Order Number:</strong> {{ order_number }}</p>
-<p><strong>Delivery Address:</strong> {{ address }}</p>
-<p><strong>Delivery Date:</strong> {{ date }}</p>
-<p><strong>Payment Method:</strong> {{ payment }}</p>
+            <div class="detail-pairs">
+                <div>
+                    <span>Delivery date</span>
+                    <strong>{{ date }}</strong>
+                </div>
+                <div>
+                    <span>Payment</span>
+                    <strong>{{ payment }}</strong>
+                </div>
+                <div class="detail-pairs--full">
+                    <span>Delivery address</span>
+                    <strong>{{ address }}</strong>
+                </div>
+            </div>
 
-<hr>
+            <div class="section-heading" style="margin-top: 28px;">
+                <h2>Producer breakdown</h2>
+                <p class="muted">Each producer receives a linked order and can update the status the customer sees in order history.</p>
+            </div>
 
-<h3>Order Breakdown by Producer</h3>
+            <div class="producer-summary-list">
+                {% for summary in producer_order_summaries %}
+                    <section class="producer-summary-card">
+                        <div class="producer-summary-head">
+                            <div>
+                                <h3>{{ summary.producer }}</h3>
+                                <p class="muted">Producer order #{{ summary.producer_order.id }}</p>
+                            </div>
+                            <span class="status-badge status-badge--{{ summary.producer_order.status|lower }}">
+                                {{ summary.producer_order.get_status_display }}
+                            </span>
+                        </div>
 
-{% for summary in producer_order_summaries %}
-    <h4>{{ summary.producer }}</h4>
-    <p><strong>Producer Order ID:</strong> {{ summary.producer_order.id }}</p>
-    <p><strong>Status:</strong> {{ summary.producer_order.get_status_display }}</p>
+                        <div class="producer-summary-items">
+                            {% for item in summary.items %}
+                                <article class="summary-line-item">
+                                    <div class="summary-line-main">
+                                        <strong>{{ item.product.name }}</strong>
+                                        <span>x{{ item.qty }}</span>
+                                    </div>
 
-    <ul>
-        {% for item in summary.items %}
-            <li>
-                {{ item.product.name }} (x{{ item.quantity }}) - £{{ item.product.price }}
-            </li>
-        {% endfor %}
-    </ul>
+                                    <div class="summary-line-breakdown">
+                                        {% if item.discounted_qty > 0 %}
+                                            <div class="price-row price-row--offer">
+                                                <span>{{ item.discounted_qty }} offer item{{ item.discounted_qty|pluralize }}</span>
+                                                <span>£{{ item.discounted_unit_price }} each</span>
+                                            </div>
+                                        {% endif %}
 
-    <p><strong>Producer Total:</strong> £{{ summary.total }}</p>
-{% endfor %}
+                                        {% if item.normal_qty > 0 %}
+                                            <div class="price-row">
+                                                <span>{{ item.normal_qty }} normal-price item{{ item.normal_qty|pluralize }}</span>
+                                                <span>£{{ item.normal_unit_price }} each</span>
+                                            </div>
+                                        {% endif %}
+                                    </div>
 
-<hr>
+                                    <div class="summary-line-total">£{{ item.line_total }}</div>
+                                </article>
+                            {% endfor %}
+                        </div>
 
-<h3>Order Summary</h3>
-<p>Subtotal: £{{ subtotal }}</p>
-<p>Network Commission (5%): £{{ commission }}</p>
-<p><strong>Total Paid: £{{ total }}</strong></p>
+                        <div class="producer-total-row">
+                            <span>Producer total</span>
+                            <strong>£{{ summary.total }}</strong>
+                        </div>
+                    </section>
+                {% endfor %}
+            </div>
+        </section>
 
-<p style="color:green;">
-✔ Your order has been created and split across the relevant producers.
-</p>
+        <aside class="card confirmation-side">
+            <div class="section-heading">
+                <h2>Payment summary</h2>
+            </div>
 
-<h2>Thank you. Your order has been placed successfully.</h2>
-<button class="save-btn btn" onclick="window.print()">Print Order</button>
-<button class="back-btn btn" onclick="window.location.href='/'">Continue Shopping</button>
+            <div class="checkout-totals">
+                <div>
+                    <span>Subtotal</span>
+                    <strong>£{{ subtotal }}</strong>
+                </div>
+                <div>
+                    <span>Network commission (5%)</span>
+                    <strong>£{{ commission }}</strong>
+                </div>
+                <div class="checkout-grand-total">
+                    <span>Total paid</span>
+                    <strong>£{{ total }}</strong>
+                </div>
+            </div>
+
+            <div class="confirmation-actions">
+                <a class="btn btn-primary" href="{% url 'orders:history' %}">Track this order</a>
+                <a class="btn" href="{% url 'marketplace:product_list' %}">Continue shopping</a>
+                <button class="btn" type="button" onclick="window.print()">Print receipt</button>
+            </div>
+        </aside>
+    </div>
+</div>
 
 {% endblock %}

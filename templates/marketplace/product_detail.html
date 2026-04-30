@@ -15,10 +15,14 @@
       </div>
     {% endif %}
 
-    {% if product.is_surplus %}
-      <span style="display:inline-block; color:#b91c1c; background:#fee2e2; padding:4px 10px; border-radius:6px; font-weight:600;">
-        Last Minute Deal — {{ product.surplus_discount_percent }}% OFF
-      </span>
+    {% if product.is_active_surplus_deal %}
+      <a href="{% url 'marketplace:surplus_deals' %}" class="deal-callout">
+        <div>
+          <strong>Offer live now</strong>
+          <div>{{ product.surplus_stock_quantity }} discounted item(s) left until {{ product.surplus_expires_at|date:"F j, Y, g:i a" }}</div>
+        </div>
+        <span class="deal-callout-link">See offers</span>
+      </a>
     {% endif %}
 
     {# ── Seasonal indicator ── #}
@@ -41,28 +45,31 @@
 
     <p>{{ product.description }}</p>
 
-    {% if product.is_surplus %}
-      <p class="price">
-        <span style="color:red; text-decoration:line-through; font-weight:600;">
-          £{{ product.price }}
-        </span>
-        <strong style="color:green; margin-left:8px;">
-          £{{ product.discounted_price }}
-        </strong>
-        <span class="muted">/ {{ product.get_unit_display }}</span>
-      </p>
+    {% if product.is_active_surplus_deal %}
+      <div class="deal-price-block">
+        <div class="deal-badge">Limited-time offer — {{ product.surplus_discount_percent }}% OFF</div>
+        <p class="price" style="margin:10px 0 0;">
+          <span style="color:#b45309; text-decoration:line-through; font-weight:600;">
+            £{{ product.price }}
+          </span>
+          <strong style="color:#166534; margin-left:8px;">
+            £{{ product.discounted_price }}
+          </strong>
+          <span class="muted">/ {{ product.get_unit_display }}</span>
+        </p>
 
-      {% if product.surplus_expires_at %}
-        <p><strong>Deal ends:</strong> {{ product.surplus_expires_at }}</p>
-      {% endif %}
+        {% if product.surplus_expires_at %}
+          <p><strong>Offer ends:</strong> {{ product.surplus_expires_at|date:"F j, Y, g:i a" }}</p>
+        {% endif %}
 
-      {% if product.best_before_date %}
-        <p><strong>Best before:</strong> {{ product.best_before_date }}</p>
-      {% endif %}
+        {% if product.best_before_date %}
+          <p><strong>Best before:</strong> {{ product.best_before_date }}</p>
+        {% endif %}
 
-      {% if product.surplus_note %}
-        <p><strong>Producer note:</strong> {{ product.surplus_note }}</p>
-      {% endif %}
+        {% if product.surplus_note %}
+          <p><strong>Producer note:</strong> {{ product.surplus_note }}</p>
+        {% endif %}
+      </div>
     {% else %}
       <p class="price">
         £{{ product.price }}
@@ -93,27 +100,31 @@
     {% endif %}
 
     {% if user.is_authenticated %}
-      <form method="post" action="{% url 'cart:add' product.id %}" class="add-to-cart">
-        {% csrf_token %}
+      {% if user.profile.role == "CUSTOMER" or user.profile.role == "COMMUNITY_GROUP" or user.profile.role == "RESTAURANT" %}
+        <form method="post" action="{% url 'cart:add' product.id %}" class="add-to-cart">
+          {% csrf_token %}
 
-        <div class="qty-row">
-          <label for="qty" class="muted">Quantity</label>
-          <input
-            type="number"
-            id="qty"
-            name="qty"
-            value="1"
-            min="1"
-            max="{{ product.stock_quantity }}"
-            class="qty-input"
-            style="width:70px; margin-right:10px;"
-          >
-        </div>
+          <div class="qty-row">
+            <label for="qty" class="muted">Quantity</label>
+            <input
+              type="number"
+              id="qty"
+              name="qty"
+              value="1"
+              min="1"
+              max="{{ product.stock_quantity }}"
+              class="qty-input"
+              style="width:70px; margin-right:10px;"
+            >
+          </div>
 
-        <button type="submit" class="btn" style="font-size: 14px;display:block; width:100%;">
-          Add to Cart
-        </button>
-      </form>
+          <button type="submit" class="btn" style="font-size: 14px;display:block; width:100%;">
+            Add to Cart
+          </button>
+        </form>
+      {% else %}
+        <div class="muted">Customer checkout preview is hidden for producer accounts.</div>
+      {% endif %}
     {% else %}
       <a class="btn btn-primary" href="{% url 'accounts:login' %}?next={{ request.path }}">
         Login to add to cart

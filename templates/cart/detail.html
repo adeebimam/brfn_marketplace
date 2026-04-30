@@ -14,7 +14,7 @@
               <tr>
                 <th>Product</th>
                 <th>Producer</th>
-                <th>Unit</th>
+                <th>Pricing</th>
                 <th style="width:160px;">Qty</th>
                 <th>Total</th>
                 
@@ -37,7 +37,17 @@
                       {{ item.product.producer.username }}
                     {% endif %}
                   </td>
-                  <td>£{{ item.product.price }}</td>
+                  <td>
+                    {% if item.discounted_qty > 0 %}
+                      <div>{{ item.discounted_qty }} at £{{ item.discounted_unit_price }} deal price</div>
+                    {% endif %}
+                    {% if item.normal_qty > 0 %}
+                      <div>{{ item.normal_qty }} at £{{ item.normal_unit_price }} normal price</div>
+                    {% endif %}
+                    {% if item.warning %}
+                      <div class="muted" style="margin-top:4px;">{{ item.warning }}</div>
+                    {% endif %}
+                  </td>
 
                   <!-- Auto-submit qty form on change -->
                   <td>

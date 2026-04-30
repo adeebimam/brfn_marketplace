@@ -2,112 +2,165 @@
 
 {% block content %}
 
-<h1>Checkout</h1>
+<div class="checkout-shell">
+  <div class="checkout-hero card">
+    <div>
+      <p class="eyebrow">Checkout</p>
+      <h1>Review your order</h1>
+      <p class="muted">Offer-priced items are separated from full-price items so the total is easy to follow before payment.</p>
+    </div>
+    <div class="checkout-hero-meta">
+      <div>
+        <span class="muted">Producers</span>
+        <strong>{{ producers|length }}</strong>
+      </div>
+      <div>
+        <span class="muted">Items</span>
+        <strong>{{ cart_items|length }}</strong>
+      </div>
+    </div>
+  </div>
 
-<form method="POST">
-{% csrf_token %}
+  <div class="checkout-layout">
+    <form method="POST" class="card checkout-form-card">
+      {% csrf_token %}
 
-<h3>Delivery Address</h3>
-{{ form.delivery_address }}
+      <div class="section-heading">
+        <h2>Delivery details</h2>
+        <p class="muted">Delivery must be at least 48 hours from now.</p>
+      </div>
 
-<h3>Delivery Date</h3>
-<input type="date" name="delivery_date" id="id_delivery_date" required>
+      <div class="stack">
+        <div>
+          <label for="{{ form.delivery_address.id_for_label }}">Delivery address</label>
+          {{ form.delivery_address }}
+          {% if form.delivery_address.errors %}
+            <div class="form-error">{{ form.delivery_address.errors|join:", " }}</div>
+          {% endif %}
+        </div>
 
-<h3>Delivery Postcode</h3>
-{{ form.delivery_postcode }}
+        <div class="form-row two">
+          <div>
+            <label for="{{ form.delivery_date.id_for_label }}">Delivery date</label>
+            {{ form.delivery_date }}
+            {% if form.delivery_date.errors %}
+              <div class="form-error">{{ form.delivery_date.errors|join:", " }}</div>
+            {% endif %}
+          </div>
 
-<p id="date-warning" style="color:red; display:none;">
-Delivery must be at least 48 hours from now.
-</p>
+          <div>
+            <label for="{{ form.delivery_postcode.id_for_label }}">Delivery postcode</label>
+            {{ form.delivery_postcode }}
+            {% if form.delivery_postcode.errors %}
+              <div class="form-error">{{ form.delivery_postcode.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+        </div>
 
-{% if form.delivery_date.errors %}
-<p style="color:red;">
-{{ form.delivery_date.errors }}
-</p>
-{% endif %}
+        <div>
+          <label for="{{ form.payment_method.id_for_label }}">Payment method</label>
+          {{ form.payment_method }}
+          {% if form.payment_method.errors %}
+            <div class="form-error">{{ form.payment_method.errors|join:", " }}</div>
+          {% endif %}
+        </div>
+      </div>
 
-<h3>Payment Method</h3>
-{{ form.payment_method }}
+      <div class="checkout-note">
+        <strong>How offer stock works</strong>
+        <p>If discounted stock runs out, the remaining quantity stays in your order at the normal price instead of blocking checkout.</p>
+      </div>
 
-<h3>Order Summary</h3>
+      <button class="btn btn-primary checkout-submit" type="submit">
+        Proceed to payment
+      </button>
+    </form>
 
-{% if producers %}
-<p><strong>Sold by:</strong>
-    {% for producer in producers.keys %}
-        {{ producer }}{% if not forloop.last %}, {% endif %}
-    {% endfor %}
-</p>
+    <aside class="card checkout-summary-card">
+      <div class="section-heading">
+        <h2>Order summary</h2>
+        <p class="muted">Grouped by producer for easier delivery tracking.</p>
+      </div>
 
-{% for producer, items in producers.items %}
+      {% if producers %}
+        <div class="producer-summary-list">
+          {% for producer, items in producers.items %}
+            <section class="producer-summary-card">
+              <div class="producer-summary-head">
+                <div>
+                  <h3>{{ producer }}</h3>
+                  <p class="muted">Lead time: {{ items.0.lead_time }} days</p>
+                </div>
+                <span class="summary-chip">{{ items|length }} line{{ items|length|pluralize }}</span>
+              </div>
 
+              <div class="producer-summary-items">
+                {% for item in items %}
+                  <article class="summary-line-item">
+                    <div class="summary-line-main">
+                      <strong>{{ item.name }}</strong>
+                      <span>x{{ item.qty }}</span>
+                    </div>
 
-<p><strong>Lead Time:</strong> {{ items.0.lead_time }} days</p>
+                    <div class="summary-line-breakdown">
+                      {% if item.discounted_qty > 0 %}
+                        <div class="price-row price-row--offer">
+                          <span>{{ item.discounted_qty }} offer item{{ item.discounted_qty|pluralize }}</span>
+                          <span>£{{ item.discounted_unit_price }} each</span>
+                        </div>
+                      {% endif %}
 
-<label>Delivery Date for {{ producer }}</label>
-<input type="date" class="delivery-date" data-lead="{{ items.0.lead_time }}"
-       name="delivery_{{ forloop.counter }}"
-       required>
+                      {% if item.normal_qty > 0 %}
+                        <div class="price-row">
+                          <span>{{ item.normal_qty }} normal-price item{{ item.normal_qty|pluralize }}</span>
+                          <span>£{{ item.unit_price }} each</span>
+                        </div>
+                      {% endif %}
 
-<p class="lead-warning" style="color:red; display:none;">
-Delivery must be at least {{ items.0.lead_time }} days from now.
-</p>
+                      {% if item.warning %}
+                        <p class="summary-warning">{{ item.warning }}</p>
+                      {% endif %}
+                    </div>
 
-<ul>
-{% for item in items %}
-<li>
-{{ item.name }} (x{{ item.qty }}) - £{{ item.total }}
-</li>
-{% endfor %}
-</ul>
+                    <div class="summary-line-total">£{{ item.total }}</div>
+                  </article>
+                {% endfor %}
+              </div>
+            </section>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="muted">No items in cart.</p>
+      {% endif %}
 
-{% endfor %}
-
-{% else %}
-
-<p>No items in cart.</p>
-
-{% endif %}
-
-<p>Subtotal: £{{ subtotal }}</p>
-<p>Network Commission (5%): £{{ commission }}</p>
-<p><strong>Total: £{{ total }}</strong></p>
-
-<br>
-
-<button class="save-btn btn" type="submit">
-Proceed to Payment
-</button>
-
-</form>
+      <div class="checkout-totals">
+        <div>
+          <span>Subtotal</span>
+          <strong>£{{ subtotal }}</strong>
+        </div>
+        <div>
+          <span>Network commission (5%)</span>
+          <strong>£{{ commission }}</strong>
+        </div>
+        <div class="checkout-grand-total">
+          <span>Total</span>
+          <strong>£{{ total }}</strong>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    // Set default delivery date to 2 days from today for the main delivery date input
-    var input = document.getElementById("id_delivery_date");
+    const input = document.getElementById("id_delivery_date");
     if (input && !input.value) {
-        var today = new Date();
+        const today = new Date();
         today.setDate(today.getDate() + 2);
-        var minDate = today.toISOString().split("T")[0];
+        const minDate = today.toISOString().split("T")[0];
         input.value = minDate;
         input.min = minDate;
     }
-    // Set default and min for each producer delivery date input
-    document.querySelectorAll(".delivery-date").forEach(function(input){
-        const lead = parseInt(input.dataset.lead) || 2;
-        const warning = input.nextElementSibling;
-        var today = new Date();
-        today.setDate(today.getDate() + lead);
-        var minDate = today.toISOString().split("T")[0];
-        input.min = minDate;
-        if (!input.value) input.value = minDate;
-        input.addEventListener("change", function(){
-            if(input.value < minDate){
-                warning.style.display = "block"
-            } else {
-                warning.style.display = "none"
-            }
-        })
-    });
 });
 </script>
 

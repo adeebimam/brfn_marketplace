@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 
 from django import forms
+from django.utils import timezone
 
 from .models import Allergen, ProducerOrder, Product
 
@@ -31,6 +32,19 @@ class ProductForm(forms.ModelForm):
         self.fields["available_from_month"].required = False
         self.fields["available_to_month"].required = False
         self.fields["surplus_stock_quantity"].required = False
+
+        current_local_dt = timezone.localtime()
+        self.fields["surplus_expires_at"].input_formats = ["%Y-%m-%dT%H:%M"]
+        self.fields["surplus_expires_at"].widget.attrs["min"] = current_local_dt.strftime(
+            "%Y-%m-%dT%H:%M"
+        )
+        self.fields["best_before_date"].widget.attrs["min"] = timezone.localdate().isoformat()
+
+        if self.instance.pk and self.instance.surplus_expires_at:
+            self.initial["surplus_expires_at"] = (
+                timezone.localtime(self.instance.surplus_expires_at)
+                .strftime("%Y-%m-%dT%H:%M")
+            )
 
     class Meta:
         model = Product
@@ -120,6 +134,9 @@ class ProductForm(forms.ModelForm):
 
             if expiry is None:
                 raise forms.ValidationError("Expiry date/time is required for surplus products.")
+
+            if expiry <= timezone.now():
+                raise forms.ValidationError("Expiry date/time must be today or in the future.")
         else:
             cleaned_data["surplus_stock_quantity"] = 0
 
@@ -149,10 +166,7 @@ class CheckoutForm(forms.Form):
 
     delivery_date = forms.DateField(
         widget=forms.DateInput(
-            attrs={
-                "type": "date",
-                "min": (date.today() + timedelta(days=2)).isoformat()
-            }
+            attrs={"type": "date"}
         )
     )
 
@@ -166,6 +180,12 @@ class CheckoutForm(forms.Form):
     card_number = forms.CharField(required=False)
     expiry = forms.CharField(required=False)
     cvc = forms.CharField(required=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["delivery_date"].widget.attrs["min"] = (
+            timezone.localdate() + timedelta(days=2)
+        ).isoformat()
 
     def clean_delivery_date(self):
         selected_date = self.cleaned_data["delivery_date"]

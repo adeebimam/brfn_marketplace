@@ -16,6 +16,71 @@ def checkout(request):
     return render(request, "orders/checkout.html")
 
 
+def _build_priced_cart_item(cart_item):
+    pricing = cart_item.product.calculate_price_for_quantity(cart_item.quantity)
+
+    return {
+        "cart_item": cart_item,
+        "product": cart_item.product,
+        "qty": cart_item.quantity,
+        "line_total": pricing["total"],
+        **pricing,
+    }
+
+
+def _order_total(order):
+    return sum(
+        (producer_order.total_value for producer_order in order.producer_orders.all()),
+        Decimal("0.00"),
+    ).quantize(Decimal("0.01"))
+
+
+def _as_money(value):
+    if value in (None, ""):
+        return Decimal("0.00")
+
+    return Decimal(str(value)).quantize(Decimal("0.01"))
+
+
+def _order_status_steps(order):
+    producer_orders = list(order.producer_orders.all())
+    producer_statuses = {producer_order.status for producer_order in producer_orders}
+
+    confirmed = any(
+        status in {
+            ProducerOrder.Status.CONFIRMED,
+            ProducerOrder.Status.READY,
+            ProducerOrder.Status.DELIVERED,
+        }
+        for status in producer_statuses
+    )
+    ready = any(
+        status in {
+            ProducerOrder.Status.READY,
+            ProducerOrder.Status.DELIVERED,
+        }
+        for status in producer_statuses
+    )
+    delivered = order.status == Order.Status.COMPLETED
+
+    steps = [
+        {"label": "Order placed", "complete": True},
+        {"label": "Producer confirmed", "complete": confirmed},
+        {"label": "Ready for delivery", "complete": ready},
+        {"label": "Delivered", "complete": delivered},
+    ]
+
+    if order.status == Order.Status.CANCELLED:
+        return steps, "cancelled"
+
+    current_index = next(
+        (index for index, step in enumerate(steps) if not step["complete"]),
+        len(steps) - 1,
+    )
+
+    return steps, current_index
+
+
 @login_required
 def payment(request):
     total = request.session.get("order_total")
@@ -116,20 +181,38 @@ def payment(request):
 
                     for item in items:
                         product = locked_products[item.product_id]
-                        line_total = (product.price * item.quantity).quantize(Decimal("0.01"))
+                        priced_item = _build_priced_cart_item(item)
 
-                        OrderItem.objects.create(
-                            producer_order=producer_order,
-                            product=product,
-                            quantity=item.quantity,
-                            unit_price=product.price,
-                        )
+                        if priced_item["discounted_qty"] > 0:
+                            OrderItem.objects.create(
+                                producer_order=producer_order,
+                                product=product,
+                                quantity=priced_item["discounted_qty"],
+                                unit_price=priced_item["discounted_unit_price"],
+                            )
+
+                        if priced_item["normal_qty"] > 0:
+                            OrderItem.objects.create(
+                                producer_order=producer_order,
+                                product=product,
+                                quantity=priced_item["normal_qty"],
+                                unit_price=priced_item["normal_unit_price"],
+                            )
 
                         product.stock_quantity -= item.quantity
-                        product.save(update_fields=["stock_quantity"])
+                        if priced_item["discounted_qty"] > 0:
+                            product.surplus_stock_quantity = max(
+                                0,
+                                product.surplus_stock_quantity - priced_item["discounted_qty"],
+                            )
+                        product.surplus_stock_quantity = min(
+                            product.surplus_stock_quantity,
+                            product.stock_quantity,
+                        )
+                        product.save(update_fields=["stock_quantity", "surplus_stock_quantity"])
 
-                        producer_total += line_total
-                        computed_subtotal += line_total
+                        producer_total += priced_item["line_total"]
+                        computed_subtotal += priced_item["line_total"]
 
                     producer_order.total_value = producer_total.quantize(Decimal("0.01"))
                     producer_order.save(update_fields=["total_value"])
@@ -137,7 +220,7 @@ def payment(request):
                     producer_order_summaries.append({
                         "producer": producer,
                         "producer_order": producer_order,
-                        "items": items,
+                        "items": [_build_priced_cart_item(item) for item in items],
                         "total": producer_order.total_value,
                     })
 
@@ -182,6 +265,79 @@ def payment(request):
         return render(request, "orders/confirmation.html", context)
 
     return render(request, "orders/payment.html", {
-        "total": total,
+        "total": _as_money(total),
+        "subtotal": _as_money(subtotal),
+        "commission": _as_money(commission),
         "cart_items": cart_items,
+        "address": address,
+        "date": date,
+        "payment_method": payment_method,
+        "producers": producers,
+    })
+
+
+@login_required
+def order_history(request):
+    orders = list(
+        Order.objects
+        .filter(customer=request.user)
+        .prefetch_related(
+            "producer_orders",
+            "producer_orders__items",
+            "producer_orders__items__product",
+            "producer_orders__status_history",
+        )
+        .order_by("-created_at")
+    )
+
+    for order in orders:
+        order.total_value = _order_total(order)
+        order.status_steps, order.status_current = _order_status_steps(order)
+        order.item_count = sum(
+            item.quantity
+            for producer_order in order.producer_orders.all()
+            for item in producer_order.items.all()
+        )
+
+    return render(request, "orders/history.html", {
+        "orders": orders,
+    })
+
+
+@login_required
+def order_detail(request, pk):
+    order = (
+        Order.objects
+        .filter(customer=request.user, pk=pk)
+        .prefetch_related(
+            "producer_orders",
+            "producer_orders__items",
+            "producer_orders__items__product",
+            "producer_orders__status_history",
+            "producer_orders__status_history__changed_by",
+        )
+        .first()
+    )
+
+    if not order:
+        messages.error(request, "Order not found.")
+        return redirect("orders:history")
+
+    order.total_value = _order_total(order)
+    order.status_steps, order.status_current = _order_status_steps(order)
+
+    producer_orders = list(order.producer_orders.all())
+    for producer_order in producer_orders:
+        producer_order.latest_update = producer_order.status_history.first()
+        for entry in producer_order.status_history.all():
+            entry.display_new_status = ProducerOrder.Status(entry.new_status).label
+            entry.display_old_status = (
+                ProducerOrder.Status(entry.old_status).label
+                if entry.old_status in ProducerOrder.Status.values
+                else "Created"
+            )
+
+    return render(request, "orders/detail.html", {
+        "order": order,
+        "producer_orders": producer_orders,
     })

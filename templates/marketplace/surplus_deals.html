@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="card stack product-list-page">
+  <div class="card stack product-list-page">
   <div class="products-header">
-    <h1>Surplus Deals</h1>
-    <p class="muted">Last-minute offers from local producers to help reduce food waste.</p>
+    <h1>Offers</h1>
+    <p class="muted">Limited-time savings from local producers to help reduce food waste.</p>
   </div>
 
   <ul class="list product-results">
@@ -15,7 +15,7 @@
             <strong>{{ p.name }}</strong>
           </a>
 
-          <span style="display:inline-block; margin-left:0.4rem; font-size:0.8rem; color:#b91c1c; background:#fee2e2; padding:2px 8px; border-radius:4px; font-weight:600;">
+          <span class="deal-badge" style="margin-left:0.4rem;">
             {{ p.surplus_discount_percent }}% OFF
           </span>
 
@@ -52,13 +52,13 @@
               <span class="muted">/ {{ p.get_unit_display }}</span>
             </p>
 
-            <p style="color:#b91c1c; font-weight:600; margin: 4px 0;">
-              Last Minute Deal — {{ p.surplus_discount_percent }}% off
+            <p style="color:#a16207; font-weight:700; margin: 4px 0;">
+              Limited-time offer — {{ p.surplus_discount_percent }}% off
             </p>
 
             {% if p.surplus_expires_at %}
               <p class="muted" style="margin: 4px 0;">
-                Deal ends: {{ p.surplus_expires_at }}
+                Offer ends: {{ p.surplus_expires_at }}
               </p>
             {% endif %}
           </div>
@@ -83,7 +83,7 @@
         </div>
       </li>
     {% empty %}
-      <li>No surplus deals available right now.</li>
+      <li>No offers available right now.</li>
     {% endfor %}
   </ul>
 </div>

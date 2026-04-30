@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="order-history-shell">
+  <section class="card order-history-hero">
+    <div>
+      <p class="eyebrow">Order history</p>
+      <h1>Track your orders</h1>
+      <p class="muted">When a producer confirms, prepares, or delivers an order, the latest status will appear here automatically.</p>
+    </div>
+    <div class="summary-pill">{{ orders|length }} order{{ orders|length|pluralize }}</div>
+  </section>
+
+  {% if orders %}
+    <div class="order-history-list">
+      {% for order in orders %}
+        <article class="card order-card">
+          <div class="order-card-top">
+            <div>
+              <p class="order-number">Order #{{ order.id }}</p>
+              <h2>{{ order.created_at|date:"F j, Y" }}</h2>
+              <p class="muted">{{ order.item_count }} item{{ order.item_count|pluralize }} across {{ order.producer_orders.count }} producer order{{ order.producer_orders.count|pluralize }}</p>
+            </div>
+            <div class="order-card-meta">
+              <span class="status-badge status-badge--{{ order.status|lower }}">{{ order.get_status_display }}</span>
+              <strong>£{{ order.total_value }}</strong>
+            </div>
+          </div>
+
+          <div class="status-tracker">
+            {% for step in order.status_steps %}
+              <div class="status-step {% if step.complete %}is-complete{% endif %} {% if forloop.counter0 == order.status_current %}is-current{% endif %}">
+                <span class="status-step-dot"></span>
+                <span>{{ step.label }}</span>
+              </div>
+            {% endfor %}
+          </div>
+
+          <div class="order-card-grid">
+            <div>
+              <span class="muted">Delivery address</span>
+              <p>{{ order.delivery_address }}</p>
+            </div>
+            <div>
+              <span class="muted">Postcode</span>
+              <p>{{ order.delivery_postcode }}</p>
+            </div>
+            <div class="detail-pairs--full">
+              <span class="muted">Items</span>
+              <p>
+                {% for producer_order in order.producer_orders.all %}
+                  {% for item in producer_order.items.all %}
+                    {{ item.product.name }}{% if not forloop.last or not forloop.parentloop.last %}, {% endif %}
+                  {% endfor %}
+                {% endfor %}
+              </p>
+            </div>
+          </div>
+
+          <div class="order-card-footer">
+            <div class="order-mini-list">
+              {% for producer_order in order.producer_orders.all %}
+                <span>{{ producer_order.producer.username }}: {{ producer_order.get_status_display }}</span>
+              {% endfor %}
+            </div>
+            <a class="btn" href="{% url 'orders:detail' order.id %}">View order details</a>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card empty-state">
+      <h2>No orders yet</h2>
+      <p class="muted">Once you place an order, your status tracker and producer updates will appear here.</p>
+      <a class="btn btn-primary" href="{% url 'marketplace:product_list' %}">Browse products</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

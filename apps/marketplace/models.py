@@ -120,6 +120,13 @@ class Product(models.Model):
         help_text="Automatically calculated discounted price."
     )
 
+    surplus_discount_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Amount reduced from the normal price. Stored as 0 when no deal is active."
+    )
+
     surplus_stock_quantity = models.PositiveIntegerField(
         default=0,
         help_text="Number of items available at discounted surplus price."
@@ -284,6 +291,7 @@ class Product(models.Model):
         else:
             self.surplus_discount_percent = None
             self.surplus_discounted_price = Decimal("0.00")
+            self.surplus_discount_amount = Decimal("0.00")
             self.surplus_stock_quantity = 0
             self.surplus_expires_at = None
             self.surplus_note = ""
@@ -293,11 +301,13 @@ class Product(models.Model):
         if self.is_surplus and self.surplus_discount_percent:
             discount_amount = (
                 self.price * Decimal(self.surplus_discount_percent) / Decimal("100")
-            )
+            ).quantize(Decimal("0.01"))
+            self.surplus_discount_amount = discount_amount
             self.surplus_discounted_price = (
                 self.price - discount_amount
             ).quantize(Decimal("0.01"))
         else:
+            self.surplus_discount_amount = Decimal("0.00")
             self.surplus_discounted_price = Decimal("0.00")
 
         self.full_clean()

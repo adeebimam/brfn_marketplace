@@ -18,6 +18,19 @@ class ProductAdminForm(forms.ModelForm):
 
 class ProductAdmin(admin.ModelAdmin):
     form = ProductAdminForm
+    list_display = (
+        "name",
+        "producer",
+        "price",
+        "surplus_discount_percent",
+        "surplus_discount_amount",
+        "surplus_discounted_price",
+        "surplus_stock_quantity",
+        "surplus_expires_at",
+        "is_surplus",
+        "is_active",
+    )
+    list_filter = ("is_surplus", "is_active", "category")
 
 
 class OrderItemInline(admin.TabularInline):
