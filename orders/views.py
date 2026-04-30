@@ -4,6 +4,7 @@ from datetime import datetime
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.shortcuts import render, redirect
 
@@ -34,6 +35,53 @@ def _build_priced_cart_item(cart_item):
     }
 
 
+def _build_order_item_entries(product, quantity):
+    pricing = product.calculate_price_for_quantity(quantity)
+    entries = []
+
+    if pricing["discounted_qty"] > 0:
+        entries.append({
+            "product_name": product.name,
+            "quantity": pricing["discounted_qty"],
+            "unit_price": pricing["discounted_unit_price"],
+            "line_total": pricing["discounted_total"],
+        })
+
+    if pricing["normal_qty"] > 0:
+        entries.append({
+            "product_name": product.name,
+            "quantity": pricing["normal_qty"],
+            "unit_price": pricing["normal_unit_price"],
+            "line_total": pricing["normal_total"],
+        })
+
+    return pricing, entries
+
+
+def _update_product_inventory(product, quantity, discounted_qty):
+    product.stock_quantity = max(product.stock_quantity - quantity, 0)
+
+    if product.is_surplus:
+        product.surplus_stock_quantity = max(
+            0,
+            product.surplus_stock_quantity - discounted_qty,
+        )
+
+        if product.surplus_stock_quantity == 0 or product.stock_quantity == 0:
+            product.is_surplus = False
+            product.surplus_discount_percent = None
+            product.surplus_discounted_price = Decimal("0.00")
+            product.surplus_discount_amount = Decimal("0.00")
+            product.surplus_stock_quantity = 0
+            product.surplus_expires_at = None
+            product.surplus_note = ""
+            product.best_before_date = None
+        elif product.surplus_stock_quantity > product.stock_quantity:
+            product.surplus_stock_quantity = product.stock_quantity
+
+    product.save()
+
+
 def _order_total(order):
     return sum(
         (producer_order.total_value for producer_order in order.producer_orders.all()),
@@ -60,6 +108,7 @@ def _order_status_steps(order):
         }
         for status in producer_statuses
     )
+
     ready = any(
         status in {
             ProducerOrder.Status.READY,
@@ -67,6 +116,7 @@ def _order_status_steps(order):
         }
         for status in producer_statuses
     )
+
     delivered = order.status == Order.Status.COMPLETED
 
     steps = [
@@ -96,6 +146,7 @@ def payment(request):
     payment_method = request.session.get("payment_method", "")
     subtotal = request.session.get("subtotal", total)
     commission = request.session.get("commission", "")
+    producers = request.session.get("producers", [])
 
     if request.method == "POST":
         address = request.POST.get("delivery_address", address)
@@ -168,6 +219,7 @@ def payment(request):
 
                 for producer, items in grouped_items.items():
                     producer_total = Decimal("0.00")
+                    producer_order_items = []
 
                     producer_order = ProducerOrder.objects.create(
                         order=order,
@@ -187,42 +239,26 @@ def payment(request):
 
                     for item in items:
                         product = locked_products[item.product_id]
-<<<<<<< HEAD
-                        priced_item = _build_priced_cart_item(item)
-=======
-                        line_total = (
-                            product.price * item.quantity
-                        ).quantize(Decimal("0.01"))
->>>>>>> origin/dev
-
-                        if priced_item["discounted_qty"] > 0:
-                            OrderItem.objects.create(
-                                producer_order=producer_order,
-                                product=product,
-                                quantity=priced_item["discounted_qty"],
-                                unit_price=priced_item["discounted_unit_price"],
-                            )
-
-                        if priced_item["normal_qty"] > 0:
-                            OrderItem.objects.create(
-                                producer_order=producer_order,
-                                product=product,
-                                quantity=priced_item["normal_qty"],
-                                unit_price=priced_item["normal_unit_price"],
-                            )
-
-                        product.stock_quantity -= item.quantity
-                        if priced_item["discounted_qty"] > 0:
-                            product.surplus_stock_quantity = max(
-                                0,
-                                product.surplus_stock_quantity - priced_item["discounted_qty"],
-                            )
-                        product.surplus_stock_quantity = min(
-                            product.surplus_stock_quantity,
-                            product.stock_quantity,
+                        priced_item, order_item_entries = _build_order_item_entries(
+                            product,
+                            item.quantity,
                         )
-                        product.save(update_fields=["stock_quantity", "surplus_stock_quantity"])
 
+                        for entry in order_item_entries:
+                            OrderItem.objects.create(
+                                producer_order=producer_order,
+                                product=product,
+                                quantity=entry["quantity"],
+                                unit_price=entry["unit_price"],
+                            )
+
+                        _update_product_inventory(
+                            product,
+                            item.quantity,
+                            priced_item["discounted_qty"],
+                        )
+
+                        producer_order_items.append(priced_item)
                         producer_total += priced_item["line_total"]
                         computed_subtotal += priced_item["line_total"]
 
@@ -231,12 +267,14 @@ def payment(request):
                     )
                     producer_order.save(update_fields=["total_value"])
 
-                    producer_order_summaries.append({
-                        "producer": producer,
-                        "producer_order": producer_order,
-                        "items": [_build_priced_cart_item(item) for item in items],
-                        "total": producer_order.total_value,
-                    })
+                    producer_order_summaries.append(
+                        {
+                            "producer": producer,
+                            "producer_order": producer_order,
+                            "items": producer_order_items,
+                            "total": producer_order.total_value,
+                        }
+                    )
 
                 computed_commission = (
                     computed_subtotal * Decimal("0.05")
@@ -250,7 +288,6 @@ def payment(request):
                 order.save(update_fields=["total_amount"])
 
                 cart.items.all().delete()
-
                 request.session["cart"] = {}
 
                 for key in [
@@ -271,6 +308,9 @@ def payment(request):
         except ValueError as e:
             messages.error(request, str(e))
             return redirect("cart:checkout")
+        except ValidationError as e:
+            messages.error(request, "; ".join(e.messages) if hasattr(e, "messages") else str(e))
+            return redirect("cart:checkout")
 
         context = {
             "order": order,
@@ -286,17 +326,20 @@ def payment(request):
 
         return render(request, "orders/confirmation.html", context)
 
-    return render(request, "orders/payment.html", {
-        "total": _as_money(total),
-        "subtotal": _as_money(subtotal),
-        "commission": _as_money(commission),
-        "cart_items": cart_items,
-<<<<<<< HEAD
-        "address": address,
-        "date": date,
-        "payment_method": payment_method,
-        "producers": producers,
-    })
+    return render(
+        request,
+        "orders/payment.html",
+        {
+            "total": _as_money(total),
+            "subtotal": _as_money(subtotal),
+            "commission": _as_money(commission),
+            "cart_items": cart_items,
+            "address": address,
+            "date": date,
+            "payment_method": payment_method,
+            "producers": producers,
+        },
+    )
 
 
 @login_required
@@ -322,9 +365,13 @@ def order_history(request):
             for item in producer_order.items.all()
         )
 
-    return render(request, "orders/history.html", {
-        "orders": orders,
-    })
+    return render(
+        request,
+        "orders/history.html",
+        {
+            "orders": orders,
+        },
+    )
 
 
 @login_required
@@ -350,8 +397,10 @@ def order_detail(request, pk):
     order.status_steps, order.status_current = _order_status_steps(order)
 
     producer_orders = list(order.producer_orders.all())
+
     for producer_order in producer_orders:
         producer_order.latest_update = producer_order.status_history.first()
+
         for entry in producer_order.status_history.all():
             entry.display_new_status = ProducerOrder.Status(entry.new_status).label
             entry.display_old_status = (
@@ -360,12 +409,11 @@ def order_detail(request, pk):
                 else "Created"
             )
 
-    return render(request, "orders/detail.html", {
-        "order": order,
-        "producer_orders": producer_orders,
-    })
-=======
-        "subtotal": subtotal,
-        "commission": commission,
-    })
->>>>>>> origin/dev
+    return render(
+        request,
+        "orders/detail.html",
+        {
+            "order": order,
+            "producer_orders": producer_orders,
+        },
+    )

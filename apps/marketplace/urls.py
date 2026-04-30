@@ -31,12 +31,10 @@ urlpatterns = [
     # TC-012 Producer payments
     path("producer/payments/", views.producer_payments, name="producer_payments"),
     path("producer/payments/download/", views.download_payments_csv, name="download_payments_csv"),
-<<<<<<< HEAD
 
     # TC-019 Surplus deals
     path("surplus-deals/", views.surplus_deals, name="surplus_deals"),
-=======
-    path("producer/orders/", views.producer_order_management, name="producer_order_management"),
 
->>>>>>> origin/dev
+    # Producer order management
+    path("producer/order-management/", views.producer_order_management, name="producer_order_management"),
 ]
