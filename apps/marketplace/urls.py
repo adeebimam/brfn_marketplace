@@ -31,4 +31,13 @@ urlpatterns = [
     # TC-012 Producer payments
     path("producer/payments/", views.producer_payments, name="producer_payments"),
     path("producer/payments/download/", views.download_payments_csv, name="download_payments_csv"),
+<<<<<<< Updated upstream
 ]
+=======
+
+    path("products/suggestions/", views.product_search_suggestions, name="product_search_suggestions"),
+
+    # Stock notifications
+    path("producer/stock-alerts/", views.stock_notifications, name="stock_notifications"),
+]
+>>>>>>> Stashed changes

@@ -60,6 +60,7 @@ def product_list(request):
             Q(producer__username__icontains=query)
         ).distinct()
 
+<<<<<<< Updated upstream
     if allergen_filter == "with":
         products = products.filter(
             Q(allergens__isnull=False) | ~Q(other_allergen_info="")
@@ -71,6 +72,61 @@ def product_list(request):
     elif allergen_filter.startswith("specific_"):
         allergen_id = allergen_filter.split("_")[1]
         products = products.filter(allergens__id=allergen_id)
+=======
+        if not exact_matches:
+            all_products = list(products)
+            fuzzy_matches = [
+                p for p in all_products
+                if fuzz.partial_ratio(query.lower(), p.name.lower()) >= 70
+                or fuzz.partial_ratio(query.lower(), p.description.lower()) >= 70
+            ]
+            products = fuzzy_matches
+        else:
+            products = exact_matches
+
+    today = date.today()
+    current_month = today.month
+    products = [p for p in products if p.is_in_season(today)]
+
+    for p in products:
+        p.in_season_now = p.is_in_season(today)
+        p.real_allergens = [a for a in p.allergens.all() if a.name != "No common allergens"]
+
+    # ---- Food miles ----
+    if request.user.is_authenticated:
+        from .foodmiles import _get_lat_lng, _haversine_miles
+        try:
+            customer_profile = Profile.objects.get(user=request.user)
+            customer_postcode = customer_profile.delivery_postcode or customer_profile.postcode
+            customer_coords = _get_lat_lng(customer_postcode) if customer_postcode else None
+        except Profile.DoesNotExist:
+            customer_coords = None
+
+        producer_coords_cache = {}
+
+        for p in products:
+            p.food_miles = None
+            if customer_coords:
+                try:
+                    producer_profile = Profile.objects.get(user=p.producer)
+                    producer_postcode = producer_profile.postcode
+                    if producer_postcode:
+                        if producer_postcode not in producer_coords_cache:
+                            producer_coords_cache[producer_postcode] = _get_lat_lng(producer_postcode)
+                        coords = producer_coords_cache[producer_postcode]
+                        if coords:
+                            p.food_miles = _haversine_miles(*customer_coords, *coords)
+                except Profile.DoesNotExist:
+                    pass
+
+        products = [
+            p for p in products
+            if p.food_miles is None or p.food_miles <= max_miles
+        ]
+    else:
+        for p in products:
+            p.food_miles = None
+>>>>>>> Stashed changes
 
     context = {
         "products": products,
@@ -168,7 +224,17 @@ def producer_product_list(request):
         return HttpResponseForbidden("Producer access only.")
 
     products = Product.objects.filter(producer=request.user).select_related("category").order_by("-created_at")
-    return render(request, "marketplace/producer_product_list.html", {"products": products})
+
+    from .models import StockNotification
+    active_alerts_count = StockNotification.objects.filter(
+        producer=request.user,
+        is_resolved=False
+    ).count()
+
+    return render(request, "marketplace/producer_product_list.html", {
+        "products": products,
+        "active_alerts_count": active_alerts_count,
+    })
 
 
 # ----------------------------
@@ -224,6 +290,7 @@ def product_update(request, pk):
             product.producer = request.user
             product.save()
             form.save_m2m()
+            product.check_low_stock()
 
             messages.success(request, "Product updated.")
             return redirect("marketplace:producer_product_list")
@@ -653,3 +720,30 @@ def producer_order_update_status(request, pk):
             "form": form,
         },
     )
+
+
+# -----------------------------
+# Stock Notifications
+# -----------------------------
+
+@login_required
+def stock_notifications(request):
+    if not _require_producer(request):
+        return HttpResponseForbidden("Producer access only.")
+
+    from .models import StockNotification
+
+    active_notifications = StockNotification.objects.filter(
+        producer=request.user,
+        is_resolved=False
+    )
+
+    resolved_notifications = StockNotification.objects.filter(
+        producer=request.user,
+        is_resolved=True
+    )[:10]
+
+    return render(request, "marketplace/stock_notifications.html", {
+        "active_notifications": active_notifications,
+        "resolved_notifications": resolved_notifications,
+    })

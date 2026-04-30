@@ -9,10 +9,76 @@
     {{ form.description.label_tag }} {{ form.description }}<br><br>
     {{ form.price.label_tag }} {{ form.price }}<br><br>
     {{ form.stock_quantity.label_tag }} {{ form.stock_quantity }}<br><br>
+<<<<<<< Updated upstream
     {{ form.is_active.label_tag }} {{ form.is_active }}<br><br>
     {{ form.season.label_tag }} {{ form.season }}<br><br>
     {{ form.allergens.label_tag }} {{ form.allergens }}<br><br>
     {{ form.other_allergen_info.label_tag }} {{ form.other_allergen_info }}<br><br>
+=======
+    {{ form.harvest_date.label_tag }} {{ form.harvest_date }}<br><br>
+    {{ form.not_available.label_tag }} {{ form.not_available }}<br><br>
+
+    <fieldset style="border:1px solid #ddd; padding:1rem; border-radius:8px; margin-bottom:1rem;">
+      <legend style="font-weight:600; padding:0 0.5rem;">📦 Stock Alert</legend>
+      <div style="margin-bottom:0.5rem;">
+        {{ form.low_stock_threshold.label_tag }} {{ form.low_stock_threshold }}
+      </div>
+      <p class="muted" style="font-size:0.85rem; margin-top:0.25rem;">
+        {{ form.low_stock_threshold.help_text }}
+      </p>
+    </fieldset>
+
+    <fieldset style="border:1px solid #ddd; padding:1rem; border-radius:8px; margin-bottom:1rem;">
+      <legend style="font-weight:600; padding:0 0.5rem;">Seasonal Availability</legend>
+      <div style="margin-bottom:0.75rem;">
+        {{ form.season.label_tag }} {{ form.season }}
+      </div>
+      <div id="seasonal-months" style="display:flex; gap:1rem; flex-wrap:wrap;">
+        <div>
+          {{ form.available_from_month.label_tag }} {{ form.available_from_month }}
+        </div>
+        <div>
+          {{ form.available_to_month.label_tag }} {{ form.available_to_month }}
+        </div>
+      </div>
+      <p class="muted" style="font-size:0.85rem; margin-top:0.5rem;">
+        Select "All Season" for year-round products. For seasonal products, choose a season and set the month range.
+      </p>
+    </fieldset>
+
+    <fieldset class="allergen-fieldset" style="border:1px solid #ddd; padding:1rem; border-radius:8px; margin-bottom:1rem;">
+      <legend style="font-weight:600; padding:0 0.5rem;">Allergen Information <span style="color: red;">*</span></legend>
+      {{ form.allergens.label_tag }}
+      <div class="allergen-checkboxes" role="group" aria-label="Allergens">
+        {% for checkbox in form.allergens %}
+          <label class="allergen-option" for="{{ checkbox.id_for_label }}">
+            {{ checkbox.tag }}
+            <span>{{ checkbox.choice_label }}</span>
+          </label>
+        {% endfor %}
+      </div>
+      {% if form.allergens.help_text %}
+        <p class="allergen-help-text muted" style="font-size:0.85rem; margin-top:0.5rem;">{{ form.allergens.help_text }}</p>
+      {% endif %}
+      <div style="margin-top:0.75rem;">
+        <label for="id_other_allergen_info">Additional allergen details</label>
+        {{ form.other_allergen_info }}
+        {{ form.other_allergen_info.errors }}
+      </div>
+    </fieldset>
+
+    <fieldset style="border:1px solid #ddd; padding:1rem; border-radius:8px; margin-bottom:1rem;">
+      <legend style="font-weight:600; padding:0 0.5rem;">Certification</legend>
+      <label class="allergen-option" style="display:inline-flex; align-items:center; gap:8px;">
+        {{ form.is_organic }}
+        <span>This product is <strong> 🌱 Certified Organic</strong></span>
+      </label>
+      <p class="muted" style="font-size:0.85rem; margin-top:0.5rem;">
+        Only tick this if your product holds a valid organic certification.
+      </p>
+    </fieldset>
+
+>>>>>>> Stashed changes
     <button class="save-btn btn" type="submit">Save</button>
     <button class="back-btn btn" type="button" onclick="window.history.back();">Back</button>
   </form>
