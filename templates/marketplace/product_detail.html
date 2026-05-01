@@ -3,12 +3,22 @@
   <div class="card stack">
     <h1>{{ product.name }}</h1>
 
+    {% if product.is_organic %}
+      <div style="display:inline-block; background:#dcfce7; color:#166534; border:1px solid #86efac; border-radius:20px; padding:4px 14px; font-size:0.9rem; font-weight:600; margin-bottom:8px;">
+        🌱 Certified Organic
+      </div>
+    {% else %}
+      <div style="display:inline-block; background:#f3f4f6; color:#6b7280; border:1px solid #e5e7eb; border-radius:20px; padding:4px 14px; font-size:0.9rem; font-weight:500; margin-bottom:8px;">
+        Not Certified Organic
+      </div>
+    {% endif %}
+
     <div class="badge">
       {% if product.category %}
         {{ product.category.name }}
       {% endif %}
     </div>
-    
+
     {% if product.image %}
       <div style="margin: 1rem 0;">
         <img src="{{ product.image.url }}" alt="{{ product.name }}" style="max-width:320px; max-height:320px; border-radius:8px; border:1px solid #eee;">
@@ -43,30 +53,49 @@
       <p><strong>Average Rating:</strong> No reviews yet</p>
     {% endif %}
 
+    {% if food_miles is not None %}
+      <div style="margin-top: 12px;">
+        <span style="display:inline-flex; align-items:center; gap:6px; background:#f0fdf4; border:1px solid #86efac; color:#166534; border-radius:20px; padding:4px 14px; font-size:0.85rem; font-weight:600;">
+         📍 {{ food_miles }} miles from farm to you
+        </span>
+      </div>
+    {% endif %}
+
     {% if product.allergens.exists or product.other_allergen_info %}
       <div class="allergen-warning">
         <i class="fa-solid fa-triangle-exclamation"></i>
-        <strong>Contains allergens:</strong>
-        <ul class="allergen-list">
-          {% for allergen in product.allergens.all %}
-            <li><span class="allergen-tag">{{ allergen.name }}</span></li>
-          {% endfor %}
-          {% if product.other_allergen_info %}
-            <li><span class="allergen-tag allergen-other">{{ product.other_allergen_info }}</span></li>
-          {% endif %}
-        </ul>
+        <div>
+          <strong>Allergen Information</strong>
+          <p style="font-size:0.85rem; margin: 4px 0 8px; color:#7a5c00;">
+            Contains the following allergens (UK Food Information Regulations 2014):
+          </p>
+          <ul class="allergen-list">
+            {% for allergen in product.allergens.all %}
+              {% if allergen.name != "No common allergens" %}
+                <li><span class="allergen-tag"><strong>{{ allergen.name }}</strong></span></li>
+              {% endif %}
+            {% endfor %}
+            {% if product.other_allergen_info %}
+              <li><span class="allergen-tag allergen-other"><strong>{{ product.other_allergen_info }}</strong></span></li>
+            {% endif %}
+          </ul>
+        </div>
       </div>
     {% else %}
       <div class="allergen-safe">
         <i class="fa-solid fa-circle-check"></i>
-        <strong>No common allergens declared</strong>
+        <div>
+          <strong>No common allergens declared</strong>
+          <p style="font-size:0.85rem; margin: 4px 0 0; color:#2e6b2e;">
+            This product has been declared free from the 14 allergens specified under UK Food Information Regulations 2014.
+          </p>
+        </div>
       </div>
     {% endif %}
 
     {% if user.is_authenticated %}
       <form method="post" action="{% url 'cart:add' product.id %}" class="add-to-cart">
         {% csrf_token %}
-
         <div class="qty-row">
           <label for="qty" class="muted">Quantity</label>
           <input
@@ -80,7 +109,6 @@
             style="width:70px; margin-right:10px;"
           >
         </div>
-
         <button type="submit" class="btn" style="font-size: 14px;display:block; width:100%;">
           Add to Cart
         </button>
@@ -105,13 +133,11 @@
         {% endif %}
         <p><strong>{{ review.title }}</strong></p>
         <p>{{ review.comment }}</p>
-
         {% if review.anonymous %}
           <p><em>By Anonymous</em></p>
         {% else %}
           <p><em>By {{ review.customer.username }}</em></p>
         {% endif %}
-
         <p><small>{{ review.created_at }}</small></p>
       </div>
     {% empty %}

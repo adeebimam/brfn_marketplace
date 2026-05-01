@@ -14,6 +14,7 @@ urlpatterns = [
     path("producer/products/<int:pk>/edit/", views.product_update, name="product_update"),
     path("producer/products/<int:pk>/delete/", views.product_delete, name="product_delete"),
     path("products/<int:product_id>/reviews/create/", views.create_review, name="create_review"),
+
     # Checkout flow
     path("checkout/", views.checkout, name="checkout"),
     path("payment/", views.payment, name="payment"),
@@ -32,9 +33,7 @@ urlpatterns = [
     path("producer/payments/", views.producer_payments, name="producer_payments"),
     path("producer/payments/download/", views.download_payments_csv, name="download_payments_csv"),
 
-
-     # TC21 - CUSTOMER ORDER HISTORY
-    # -----------------------------
+    # TC21 - CUSTOMER ORDER HISTORY
     path("orders/", views.order_history, name="order_history"),
     path("orders/<str:order_id>/", views.order_detail, name="order_detail"),
     path("orders/<str:order_id>/reorder/", views.reorder, name="reorder"),
@@ -42,5 +41,8 @@ urlpatterns = [
 
     path("producer/orders/", views.producer_order_management, name="producer_order_management"),
 
+    path("products/suggestions/", views.product_search_suggestions, name="product_search_suggestions"),
 
+    # Stock notifications
+    path("producer/stock-alerts/", views.stock_notifications, name="stock_notifications"),
 ]

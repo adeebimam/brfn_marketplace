@@ -3,7 +3,11 @@
   <h1>{% if mode == "create" %}Create{% else %}Edit{% endif %} Product</h1>
   <form method="post" enctype="multipart/form-data" class="producer-product-form">
     {% csrf_token %}
-    {{ form.non_field_errors }}
+    {% if form.non_field_errors %}
+      <div style="background: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; margin-bottom: 15px;">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
     {{ form.category.label_tag }} {{ form.category }}<br><br>
     {{ form.name.label_tag }} {{ form.name }}<br><br>
     {{ form.description.label_tag }} {{ form.description }}<br><br>
@@ -28,6 +32,16 @@
     </div>
 
     <fieldset style="border:1px solid #ddd; padding:1rem; border-radius:8px; margin-bottom:1rem;">
+      <legend style="font-weight:600; padding:0 0.5rem;">📦 Stock Alert</legend>
+      <div style="margin-bottom:0.5rem;">
+        {{ form.low_stock_threshold.label_tag }} {{ form.low_stock_threshold }}
+      </div>
+      <p class="muted" style="font-size:0.85rem; margin-top:0.25rem;">
+        {{ form.low_stock_threshold.help_text }}
+      </p>
+    </fieldset>
+
+    <fieldset style="border:1px solid #ddd; padding:1rem; border-radius:8px; margin-bottom:1rem;">
       <legend style="font-weight:600; padding:0 0.5rem;">Seasonal Availability</legend>
       <div style="margin-bottom:0.75rem;">
         {{ form.season.label_tag }} {{ form.season }}
@@ -46,32 +60,42 @@
     </fieldset>
 
     <fieldset class="allergen-fieldset" style="border:1px solid #ddd; padding:1rem; border-radius:8px; margin-bottom:1rem;">
-      <legend style="font-weight:600; padding:0 0.5rem;">Allergen Information <span class="muted" style="font-weight:400; font-size:0.85rem;">(optional)</span></legend>
-      <div class="allergen-section">
-        {{ form.allergens.label_tag }}
-        <div class="allergen-checkboxes" role="group" aria-label="Allergens">
-          {% for checkbox in form.allergens %}
-            <label class="allergen-option" for="{{ checkbox.id_for_label }}">
-              {{ checkbox.tag }}
-              <span>{{ checkbox.choice_label }}</span>
-            </label>
-          {% endfor %}
-        </div>
-        {% if form.allergens.help_text %}
-          <p class="allergen-help-text muted" style="font-size:0.85rem; margin-top:0.5rem;">{{ form.allergens.help_text }}</p>
-        {% endif %}
+      <legend style="font-weight:600; padding:0 0.5rem;">Allergen Information <span style="color: red;">*</span></legend>
+      {{ form.allergens.label_tag }}
+      <div class="allergen-checkboxes" role="group" aria-label="Allergens">
+        {% for checkbox in form.allergens %}
+          <label class="allergen-option" for="{{ checkbox.id_for_label }}">
+            {{ checkbox.tag }}
+            <span>{{ checkbox.choice_label }}</span>
+          </label>
+        {% endfor %}
       </div>
+      {% if form.allergens.help_text %}
+        <p class="allergen-help-text muted" style="font-size:0.85rem; margin-top:0.5rem;">{{ form.allergens.help_text }}</p>
+      {% endif %}
       <div style="margin-top:0.75rem;">
         <label for="id_other_allergen_info">Additional allergen details</label>
         {{ form.other_allergen_info }}
+        {{ form.other_allergen_info.errors }}
       </div>
     </fieldset>
+
+    <fieldset style="border:1px solid #ddd; padding:1rem; border-radius:8px; margin-bottom:1rem;">
+      <legend style="font-weight:600; padding:0 0.5rem;">Certification</legend>
+      <label class="allergen-option" style="display:inline-flex; align-items:center; gap:8px;">
+        {{ form.is_organic }}
+        <span>This product is <strong> 🌱 Certified Organic</strong></span>
+      </label>
+      <p class="muted" style="font-size:0.85rem; margin-top:0.5rem;">
+        Only tick this if your product holds a valid organic certification.
+      </p>
+    </fieldset>
+
     <button class="save-btn btn" type="submit">Save</button>
     <button class="back-btn btn" type="button" onclick="window.history.back();">Back</button>
   </form>
 
   <script>
-    // Show/hide month fields based on season selection
     const seasonField = document.getElementById('id_season');
     const monthsDiv = document.getElementById('seasonal-months');
 
@@ -84,6 +108,6 @@
     }
 
     seasonField.addEventListener('change', toggleMonths);
-    toggleMonths(); // run on page load
+    toggleMonths();
   </script>
 {% endblock %}
