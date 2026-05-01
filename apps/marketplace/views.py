@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from tracemalloc import start
 from urllib import request
+from .forms import CheckoutForm, ProductForm, ProducerOrderStatusForm, ReviewForm
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -12,14 +13,15 @@ from django.db.models import Q
 from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from datetime import date, timedelta, datetime
 
 from apps.cart.models import Cart, CartItem
 
 from apps.accounts.models import Profile
-from .forms import CheckoutForm, ProductForm, ProducerOrderStatusForm
+
 from .models import (
-    Allergen, Category, Product, MONTH_NAMES,
-    ProducerOrder, ProducerOrderStatusHistory,
+    Allergen, Category, CustomerOrderHistory, Product, MONTH_NAMES,
+    ProducerOrder, ProducerOrderStatusHistory, Review,
 )
 
 
@@ -115,85 +117,82 @@ def product_list(request):
 # ----------------------------
 # PRODUCT DETAIL
 # ----------------------------
-
 def product_detail(request, pk):
-    # Only show products that are active (formerly `in_season`)
     product = get_object_or_404(
         Product.objects.select_related("category", "producer").prefetch_related("allergens"),
         pk=pk,
         is_active=True,
     )
-    # If the product is not available, out of stock, or out of season — only the producer can view
+
     if (not product.is_active or product.stock_quantity <= 0 or not product.is_in_season()):
         if request.user != product.producer:
             from django.http import Http404
             raise Http404("This product is not currently available.")
 
+    reviews = Review.objects.filter(product=product)
+
+    average_rating = None
+    if reviews.exists():
+        average_rating = round(sum(r.rating for r in reviews) / reviews.count(), 1)
+
     return render(request, "marketplace/product_detail.html", {
         "product": product,
         "is_in_season": product.is_in_season(),
+        "reviews": reviews,
+        "average_rating": average_rating,
     })
 
 
-# -----------------------------
-# TC-012 helper functions
-# -----------------------------
+@login_required
+def create_review(request, product_id):
+    product = get_object_or_404(Product, id=product_id)
 
-COMMISSION_RATE = Decimal("0.05")
-TWO_PLACES = Decimal("0.01")
+    order_history = [
+    record.order_data
+    for record in CustomerOrderHistory.objects.filter(customer=request.user)
+]
 
+    has_purchased = False
 
-def _compute_financials(gross):
-    """Return (commission, net) for a given gross amount."""
-    gross = gross.quantize(TWO_PLACES)
-    commission = (gross * COMMISSION_RATE).quantize(TWO_PLACES)
-    net = (gross - commission).quantize(TWO_PLACES)
-    return commission, net
+    for order in order_history:
+        for producer, items in order.get("producers", {}).items():
+            for item in items:
+                if str(item.get("id")) == str(product_id):
+                    has_purchased = True
+                    break
 
+    if not has_purchased:
+        messages.error(request, "You can only review products you have purchased.")
+        return redirect("marketplace:product_detail", pk=product_id)
 
-def _build_settlement_ref(producer_id, week_start, week_end):
-    """Return a deterministic settlement reference string."""
-    return (
-        f"SET-{producer_id}-"
-        f"{week_start.strftime('%Y%m%d')}-"
-        f"{week_end.strftime('%Y%m%d')}"
-    )
+    existing_review = Review.objects.filter(
+        product=product,
+        customer=request.user
+    ).first()
 
+    if existing_review:
+        messages.error(request, "You have already reviewed this product.")
+        return redirect("marketplace:product_detail", pk=product_id)
 
-def _last_completed_week_range(today=None):
-    if today is None:
-        today = timezone.localdate()
+    if request.method == "POST":
+        form = ReviewForm(request.POST)
 
-    this_monday = today - timedelta(days=today.weekday())
-    last_monday = this_monday - timedelta(days=7)
-    last_sunday = this_monday - timedelta(days=1)
+        if form.is_valid():
+            review = form.save(commit=False)
+            review.product = product
+            review.customer = request.user
+            review.verified_purchase = True
+            review.save()
 
-    return last_monday, last_sunday
+            messages.success(request, "Review submitted successfully.")
+            return redirect("marketplace:product_detail", pk=product_id)
+    else:
+        form = ReviewForm()
 
-
-def _uk_tax_year_start(today=None):
-    if today is None:
-        today = timezone.localdate()
-
-    current_year_start = date(today.year, 4, 6)
-
-    if today >= current_year_start:
-        return current_year_start
-
-    return date(today.year - 1, 4, 6)
-
-
-def _anonymise_customer(user):
-    first = (user.first_name or "").strip()
-    last = (user.last_name or "").strip()
-
-    first_initial = first[0].upper() if first else ""
-    last_initial = last[0].upper() if last else ""
-
-    if first_initial or last_initial:
-        return f"{first_initial}. {last_initial}.".strip()
-
-    return "Customer"
+    return render(request, "marketplace/review_form.html", {
+        "form": form,
+        "product": product,
+    })
 
 
 # -----------------------------
@@ -308,17 +307,22 @@ def product_delete(request, pk):
 # ----------------------------
 
 def checkout(request):
-    cart = request.session.get("cart", {})
+    if not request.user.is_authenticated:
+        return redirect("accounts:login")
+
+    cart, _ = Cart.objects.get_or_create(user=request.user)
+    cart_items = CartItem.objects.select_related("product", "product__producer").filter(cart=cart)
+
     producers = defaultdict(list)
     subtotal = Decimal("0.00")
 
-    for product_id, qty in cart.items():
-        try:
-            product = Product.objects.select_related("producer").get(id=int(product_id))
-        except Product.DoesNotExist:
+    for cart_item in cart_items:
+        product = cart_item.product
+
+        if not product.is_active or product.stock_quantity <= 0:
             continue
 
-        qty = int(qty)
+        qty = int(cart_item.quantity)
         line_total = product.price * qty
         subtotal += line_total
 
@@ -338,22 +342,50 @@ def checkout(request):
 
     if request.method == "POST":
         form = CheckoutForm(request.POST)
+
         if form.is_valid():
             delivery_address = form.cleaned_data["delivery_address"]
-            delivery_date = form.cleaned_data["delivery_date"]
-            payment_method = form.cleaned_data["payment_method"]
+            delivery_date = request.POST.get("delivery_1")
+            payment_method = request.POST.get("payment_method")
+
+            if not delivery_date:
+                messages.error(request, "Please select a delivery date.")
+                return render(request, "cart/checkout.html", {
+                    "form": form,
+                    "producers": dict(producers),
+                    "subtotal": subtotal,
+                    "commission": commission,
+                    "total": total,
+                    "cart_items": cart_items,
+                })
+
+            if not payment_method:
+                messages.error(request, "Please select a payment method.")
+                return render(request, "cart/checkout.html", {
+                    "form": form,
+                    "producers": dict(producers),
+                    "subtotal": subtotal,
+                    "commission": commission,
+                    "total": total,
+                    "cart_items": cart_items,
+                })
 
             request.session["order"] = {
                 "address": delivery_address,
                 "date": str(delivery_date),
                 "payment": payment_method,
-                "subtotal": float(subtotal),
-                "commission": float(commission),
-                "total": float(total),
+                "subtotal": round(float(subtotal), 2),
+                "commission": round(float(commission), 2),
+                "total": round(float(total), 2),
                 "producers": dict(producers),
             }
 
+            request.session.modified = True
+
             return redirect("marketplace:payment")
+
+        messages.error(request, "Please check the checkout form and try again.")
+
     else:
         initial = {}
         if request.user.is_authenticated:
@@ -361,12 +393,13 @@ def checkout(request):
 
         form = CheckoutForm(initial=initial)
 
-    return render(request, "checkout.html", {
+    return render(request, "cart/checkout.html", {
         "form": form,
         "producers": dict(producers),
-        "subtotal": subtotal,
-        "commission": commission,
-        "total": total,
+        "subtotal": float(subtotal),
+        "commission": float(commission),
+        "total": float(total),
+        "cart_items": cart_items,
     })
 
 
@@ -381,6 +414,35 @@ def payment(request):
         return redirect("marketplace:product_list")
 
     if request.method == "POST":
+        card_number = request.POST.get("card_number", "").strip()
+        expiry = request.POST.get("expiry", "").strip()
+        cvc = request.POST.get("cvc", "").strip()
+
+        if len(expiry) != 5 or expiry[2] != "/":
+            messages.error(request, "Enter expiry date in MM/YY format.")
+            return render(request, "orders/payment.html", {"order": order})
+
+        month_part, year_part = expiry.split("/")
+
+        if not (month_part.isdigit() and year_part.isdigit()):
+            messages.error(request, "Enter expiry date in MM/YY format.")
+            return render(request, "orders/payment.html", {"order": order})
+
+        month = int(month_part)
+        year = int(year_part)
+
+        if month < 1 or month > 12:
+            messages.error(request, "Enter a valid expiry month.")
+            return render(request, "orders/payment.html", {"order": order})
+
+        today = timezone.localdate()
+        current_month = today.month
+        current_year = today.year % 100
+
+        if year < current_year or (year == current_year and month < current_month):
+            messages.error(request, "Card expiry date cannot be in the past.")
+            return render(request, "orders/payment.html", {"order": order})
+
         order_number = "ORD-" + str(random.randint(10000, 99999))
 
         print("NEW ORDER RECEIVED")
@@ -391,17 +453,13 @@ def payment(request):
             for item in items:
                 print(f"- {item['name']} x{item['qty']} (£{item['total']})")
 
-        # ✅ ADD THIS BLOCK HERE
         order_history = request.session.get("order_history", [])
 
         order_data = {
             "order_number": order_number,
             "address": order["address"],
-
-            # ✅ FIX DATES
             "order_date": timezone.now().strftime("%Y-%m-%d"),
             "delivery_date": order["date"],
-
             "payment": order["payment"],
             "subtotal": order["subtotal"],
             "commission": order["commission"],
@@ -410,12 +468,24 @@ def payment(request):
         }
 
         order_history.append(order_data)
-        print("ORDER SAVED:", order_data)
         request.session["order_history"] = order_history
+        request.session.modified = True
 
-        #  THEN DELETE CURRENT ORDER
+        CustomerOrderHistory.objects.create(
+            customer=request.user,
+            order_number=order_number,
+            order_data=order_data
+        )
+
+        if request.user.is_authenticated:
+            cart, _ = Cart.objects.get_or_create(user=request.user)
+            CartItem.objects.filter(cart=cart).delete()
+
         if "order" in request.session:
             del request.session["order"]
+
+        if "cart" in request.session:
+            del request.session["cart"]
 
         return render(request, "orders/confirmation.html", {
             "order_number": order_number,
@@ -721,52 +791,102 @@ def producer_order_update_status(request, pk):
         },
     )
 # -----------------------------
-# TC21 - Order History 
+# TC21 - Order History
 # -----------------------------
 
 @login_required
 def order_history(request):
-    orders = request.session.get("order_history", [])
+    orders = [
+    record.order_data
+    for record in CustomerOrderHistory.objects.filter(customer=request.user)
+]
 
     # newest first
-    orders = list(reversed(orders))
+    #orders = list(reversed(orders))
 
-    # ADD THIS PART HERE
-    start = request.GET.get("start")
-    end = request.GET.get("end")
+    start = request.GET.get("start", "").strip()
+    end = request.GET.get("end", "").strip()
+    producer = request.GET.get("producer", "").strip()
 
-    if start and end and start <= end:
+    start_date = None
+    end_date = None
+
+    if start:
+        try:
+            start_date = datetime.strptime(start, "%Y-%m-%d").date()
+        except ValueError:
+            messages.error(request, "Invalid start date.")
+
+    if end:
+        try:
+            end_date = datetime.strptime(end, "%Y-%m-%d").date()
+        except ValueError:
+            messages.error(request, "Invalid end date.")
+
+    if start_date and end_date:
+        if end_date < start_date:
+            messages.error(request, "End date cannot be before start date.")
+        else:
+            filtered_orders = []
+            for o in orders:
+                raw_order_date = o.get("order_date") or o.get("date")
+                if not raw_order_date:
+                    continue
+
+                try:
+                    order_date = datetime.strptime(raw_order_date, "%Y-%m-%d").date()
+                except ValueError:
+                    continue
+
+                if start_date <= order_date <= end_date:
+                    filtered_orders.append(o)
+
+            orders = filtered_orders
+
+    elif start_date or end_date:
         filtered_orders = []
 
         for o in orders:
-            order_date = o.get("order_date") or o.get("date")  
+            raw_order_date = o.get("order_date") or o.get("date")
+            if not raw_order_date:
+                continue
 
-            if order_date and start <= order_date <= end:
-                filtered_orders.append(o)
+            try:
+                order_date = datetime.strptime(raw_order_date, "%Y-%m-%d").date()
+            except ValueError:
+                continue
+
+            if start_date and order_date < start_date:
+                continue
+            if end_date and order_date > end_date:
+                continue
+
+            filtered_orders.append(o)
 
         orders = filtered_orders
-
-    producer = request.GET.get("producer")
 
     if producer:
         orders = [
             o for o in orders
-            if producer.lower() in [p.lower() for p in o["producers"].keys()]
+            if producer.lower() in [p.lower() for p in o.get("producers", {}).keys()]
         ]
 
     return render(request, "orders/history.html", {
-        "orders": orders
+        "orders": orders,
+        "start": start,
+        "end": end,
+        "producer": producer,
     })
+
 
 @login_required
 def order_detail(request, order_id):
-    orders = request.session.get("order_history", [])
+    orders = [
+    record.order_data
+    for record in CustomerOrderHistory.objects.filter(customer=request.user)
+]
 
-    order = None
-    for o in orders:
-        if o["order_number"] == order_id:
-            order = o
-            break
+    order = next((o for o in orders if str(o.get("order_number")) == str(order_id)), None)
 
     if not order:
         messages.error(request, "Order not found")
@@ -779,58 +899,95 @@ def order_detail(request, order_id):
 
 @login_required
 def reorder(request, order_id):
+    from decimal import Decimal
     from apps.cart.models import Cart, CartItem
     from apps.marketplace.models import Product
 
-    order_history = request.session.get("order_history", [])
+    # ✅ FIX: get orders from DATABASE (not session)
+    orders = [
+        record.order_data
+        for record in CustomerOrderHistory.objects.filter(customer=request.user)
+    ]
 
-    # find order
-    order = None
-    for o in order_history:
-        if o["order_number"] == order_id:
-            order = o
-            break
+    order = next((o for o in orders if str(o.get("order_number")) == str(order_id)), None)
 
     if not order:
         messages.error(request, "Order not found")
         return redirect("marketplace:order_history")
 
-    # get cart (DB)
     cart, _ = Cart.objects.get_or_create(user=request.user)
 
-    # add items to DB cart
-    for producer, items in order["producers"].items():
+    unavailable_items = []
+    price_changed_items = []
+    suggested_items = []
+
+    for producer, items in order.get("producers", {}).items():
         for item in items:
             try:
-                product = Product.objects.get(id=item["id"])
+                product = Product.objects.get(id=item["id"], is_active=True)
             except Product.DoesNotExist:
-                messages.warning(request, f"{item['name']} not available")
+                product = None
+
+            if not product or product.stock_quantity <= 0:
+                unavailable_items.append(item["name"])
                 continue
+
+            old_price = Decimal(str(item.get("price", product.price)))
+            new_price = product.price
+
+            # ✅ PRICE CHANGE DETECT
+            if old_price != new_price:
+                price_changed_items.append(
+                    f"{product.name}: was £{old_price}, now £{new_price}"
+                )
 
             cart_item, created = CartItem.objects.get_or_create(
                 cart=cart,
                 product=product
             )
 
+            qty = int(item.get("qty", 1))
+
             if created:
-                cart_item.quantity = item["qty"]
+                cart_item.quantity = qty
             else:
-                cart_item.quantity += item["qty"]
+                cart_item.quantity += qty
 
             cart_item.save()
 
-    messages.success(request, "Items added to cart successfully")
+    # ✅ SHOW POPUPS (this is what you want)
+
+    if price_changed_items:
+        messages.warning(
+            request,
+            "⚠ Price changes detected:\n" + "\n".join(price_changed_items)
+        )
+
+    if unavailable_items:
+        messages.error(
+            request,
+            "❌ Some items unavailable: " + ", ".join(unavailable_items)
+        )
+
+    messages.success(request, "✅ Items added to cart with latest prices.")
 
     return redirect("cart:detail")
 
 
-
+@login_required
 def download_receipt(request, order_id):
-    orders = request.session.get("order_history", [])
+    orders = [
+    record.order_data
+    for record in CustomerOrderHistory.objects.filter(customer=request.user)
+]
 
-    for o in orders:
-        if o["order_number"] == order_id:
-            content = f"Order {o['order_number']} - Total £{o['total']}"
-            response = HttpResponse(content, content_type="text/plain")
-            response["Content-Disposition"] = f'attachment; filename="receipt.txt"'
-            return response
+    order = next((o for o in orders if str(o.get("order_number")) == str(order_id)), None)
+
+    if not order:
+        messages.error(request, "Receipt not found")
+        return redirect("marketplace:order_history")
+
+    content = f"Order {order['order_number']} - Total £{order['total']}"
+    response = HttpResponse(content, content_type="text/plain")
+    response["Content-Disposition"] = f'attachment; filename="receipt_{order_id}.txt"'
+    return response

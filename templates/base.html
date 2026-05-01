@@ -8,8 +8,70 @@
 
   <link rel="stylesheet" href="{% static 'dist/css/main.css' %}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-</head>
 
+<style>
+.message-container {
+    max-width: 520px;
+    margin: 10px 0 20px 0;
+}
+
+.alert {
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    border-radius: 10px;
+    color: #374151;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    font-size: 13px;
+    line-height: 1.3;
+}
+
+.alert-success {
+    background: #fde2e4;
+    border: 1px solid #f8b4bd;
+}
+
+.alert-warning {
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+}
+
+.alert-error {
+    background: #fde2e4;
+    border: 1px solid #f8b4bd;
+}
+
+.alert-info {
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+</style>
+</head>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    setTimeout(function () {
+        document.querySelectorAll(".message-container .alert").forEach(function (alert) {
+            alert.style.opacity = "0";
+            alert.style.transform = "translateY(-10px)";
+            alert.style.transition = "0.4s ease";
+
+            setTimeout(function () {
+                alert.remove();
+            }, 400);
+        });
+    }, 4000);
+});
+</script>
 <body>
 
 <header class="nav">
@@ -24,13 +86,16 @@
           <a href="{% url 'marketplace:producer_product_list' %}" {% if request.resolver_match.url_name == 'producer_product_list' or request.resolver_match.url_name == 'product_create' or request.resolver_match.url_name == 'product_update' %}class="active"{% endif %}>My Products</a>
           <a href="{% url 'marketplace:producer_order_list' %}" {% if request.resolver_match.url_name == 'producer_order_list' or request.resolver_match.url_name == 'producer_order_detail' %}class="active"{% endif %}>Orders</a>
           <a href="{% url 'marketplace:producer_payments' %}" {% if request.resolver_match.url_name == 'producer_payments' %}class="active"{% endif %}>Payments</a>
+
         {% elif user.profile.role == "CUSTOMER" or user.profile.role == "COMMUNITY_GROUP" or user.profile.role == "RESTAURANT" %}
-                <a href="{% url 'cart:detail' %}">
-                  <i class="fa-solid fa-cart-shopping" style="font-size:22px;"></i>
-                  {% if cart_item_count > 0 %}
-                    ({{ cart_item_count }})
-                  {% endif %}
-                </a>
+          <a href="{% url 'marketplace:order_history' %}" {% if request.resolver_match.url_name == 'order_history' or request.resolver_match.url_name == 'order_detail' %}class="active"{% endif %}>My Orders</a>
+
+          <a href="{% url 'cart:detail' %}">
+            <i class="fa-solid fa-cart-shopping" style="font-size:22px;"></i>
+            {% if cart_item_count > 0 %}
+              ({{ cart_item_count }})
+            {% endif %}
+          </a>
         {% endif %}
 
         <a class="btn" href="{% url 'accounts:logout' %}">Logout</a>
@@ -62,16 +127,7 @@
     <br>
   {% endif %}
 
-  {% if messages %}
-    <div class="stack">
-      {% for message in messages %}
-        <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
-          {{ message }}
-        </div>
-      {% endfor %}
-    </div>
-    <div style="height: 12px;"></div>
-  {% endif %}
+  
 
   {% block content %}{% endblock %}
 </main>

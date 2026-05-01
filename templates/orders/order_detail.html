@@ -10,7 +10,7 @@
   <p><strong>Delivery Date:</strong> {{ order.delivery_date }}</p>
   <p><strong>Delivery Address:</strong> {{ order.address }}</p>
   <p><strong>Card:</strong> {{ order.payment|slice:"-4:" }}</p>
-  <p><strong>Total:</strong> £{{ order.total }}</p>
+  <p><strong>Total:</strong> £{{ order.total|floatformat:2 }}</p>
   <p><strong>Status:</strong> Completed</p>
   <p><strong>Payment:</strong> {{ order.payment|title }}</p>
 
@@ -20,19 +20,28 @@
 <h3>Items</h3>
 
 {% for producer, items in order.producers.items %}
-  <div style="border:1px solid #ddd; border-radius:10px; padding:16px; margin-bottom:20px; background:#fff;">
+  <div style="border:1px solid #ddd; border-radius:10px; padding:20px; margin-bottom:20px; background:#fff;">
 
-    <h4>{{ producer }}</h4>
+    <h4 style="margin-bottom:15px;">{{ producer }}</h4>
 
-    <ul>
-      {% for item in items %}
-        <li>
-          <a href="{% url 'marketplace:product_detail' item.id %}">
-            {{ item.name }} - £{{ item.total }} (Qty: {{ item.qty }})
+    {% for item in items %}
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:15px; padding:12px 0; border-bottom:1px solid #eee;">
+
+        <div>
+          <a href="{% url 'marketplace:product_detail' item.id %}" style="font-weight:600;">
+            {{ item.name }}
           </a>
-        </li>
-      {% endfor %}
-    </ul>
+          <p style="margin:5px 0 0 0; color:#555;">
+            Quantity: {{ item.qty }} | Total: £{{ item.total|floatformat:2 }}
+          </p>
+        </div>
+
+        <a class="btn btn-primary" href="{% url 'marketplace:create_review' item.id %}">
+          Write Review
+        </a>
+
+      </div>
+    {% endfor %}
 
   </div>
 {% endfor %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card stack">
+  <h2>Write Review</h2>
+
+  <p>
+    Product:
+    <strong>{{ product.name }}</strong>
+  </p>
+
+  <form method="POST">
+    {% csrf_token %}
+
+    <div style="margin-bottom:15px;">
+      <label for="id_rating"><strong>Rating</strong></label>
+      {{ form.rating }}
+      <small>Choose 1 to 5 stars.</small>
+    </div>
+
+    <div style="margin-bottom:15px;">
+      <label for="id_title"><strong>Review Title</strong></label>
+      {{ form.title }}
+    </div>
+
+    <div style="margin-bottom:15px;">
+      <label for="id_comment"><strong>Your Review</strong></label>
+      {{ form.comment }}
+    </div>
+
+    <div style="margin-bottom:15px;">
+      <label>
+        {{ form.anonymous }}
+        Submit anonymously
+      </label>
+    </div>
+
+    <button type="submit" class="btn btn-primary">
+      Submit Review
+    </button>
+
+    <a href="{% url 'marketplace:product_detail' product.id %}" class="btn">
+      Cancel
+    </a>
+  </form>
+</div>
+
+{% endblock %}

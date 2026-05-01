@@ -1,6 +1,7 @@
 from django import forms
 from datetime import date, timedelta
 from .models import Product, Allergen, ProducerOrder, MONTH_CHOICES
+from .models import Product, Allergen, ProducerOrder, MONTH_CHOICES, Review
 
 class ProductForm(forms.ModelForm):
     # Virtual field: ticking "Not available" sets is_active=False
@@ -29,7 +30,7 @@ class ProductForm(forms.ModelForm):
             "name",
             "description",
             "price",
-            "unit", 
+            "unit",
             "stock_quantity",
             "season",
             "available_from_month",
@@ -63,6 +64,7 @@ class ProductForm(forms.ModelForm):
                 raise forms.ValidationError(
                     "Please select both 'In season from' and 'In season to' months for seasonal products."
                 )
+
         # If ALL, clear month fields
         if season == "ALL":
             cleaned_data["available_from_month"] = None
@@ -92,13 +94,15 @@ class CheckoutForm(forms.Form):
     )
 
     delivery_date = forms.DateField(
+        required=False,
         widget=forms.DateInput(
             attrs={
                 "type": "date",
-                "min": (date.today() + timedelta(days=2)).isoformat()
+                "min": (date.today() + timedelta(days=2)).isoformat(),
             }
         )
     )
+
 
     PAYMENT_CHOICES = [
         ("stripe", "Stripe Test"),
@@ -108,11 +112,21 @@ class CheckoutForm(forms.Form):
     payment_method = forms.ChoiceField(choices=PAYMENT_CHOICES)
 
     card_number = forms.CharField(required=False)
-    expiry = forms.CharField(required=False)
+    expiry = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            "placeholder": "MM/YY",
+            "pattern": r"^(0[1-9]|1[0-2])\/\d{2}$"
+        })
+    )
     cvc = forms.CharField(required=False)
 
     def clean_delivery_date(self):
-        selected_date = self.cleaned_data["delivery_date"]
+        selected_date = self.cleaned_data.get("delivery_date")
+
+        if not selected_date:
+            return selected_date
+
         minimum_date = date.today() + timedelta(days=2)
 
         if selected_date < minimum_date:
@@ -122,6 +136,35 @@ class CheckoutForm(forms.Form):
 
         return selected_date
 
+    def clean_expiry(self):
+        expiry = self.cleaned_data.get("expiry", "").strip()
+
+        if not expiry:
+            return expiry
+
+        if len(expiry) != 5 or expiry[2] != "/":
+            raise forms.ValidationError("Enter expiry date in MM/YY format.")
+
+        month_part, year_part = expiry.split("/")
+
+        if not (month_part.isdigit() and year_part.isdigit()):
+            raise forms.ValidationError("Enter expiry date in MM/YY format.")
+
+        month = int(month_part)
+        year = int(year_part)
+
+        if month < 1 or month > 12:
+            raise forms.ValidationError("Enter a valid month.")
+
+        today = date.today()
+        current_month = today.month
+        current_year = today.year % 100
+
+        if year < current_year or (year == current_year and month < current_month):
+            raise forms.ValidationError("Card expiry date cannot be in the past.")
+
+        return expiry
+
 
 class ProducerOrderStatusForm(forms.Form):
     status = forms.ChoiceField(choices=ProducerOrder.Status.choices)
@@ -129,3 +172,38 @@ class ProducerOrderStatusForm(forms.Form):
         required=False,
         widget=forms.Textarea(attrs={"rows": 3, "placeholder": "Optional note about status change"}),
     )
+class ReviewForm(forms.ModelForm):
+    rating = forms.IntegerField(
+        min_value=1,
+        max_value=5,
+        required=True,
+        widget=forms.NumberInput(attrs={
+            "min": 1,
+            "max": 5,
+            "placeholder": "1-5"
+        })
+    )
+
+    class Meta:
+        model = Review
+        fields = ["rating", "title", "comment", "anonymous"]
+        widgets = {
+            "title": forms.TextInput(attrs={
+                "placeholder": "Review title"
+            }),
+            "comment": forms.Textarea(attrs={
+                "rows": 4,
+                "placeholder": "Write your review here..."
+            }),
+        }
+
+    def clean_rating(self):
+        rating = self.cleaned_data.get("rating")
+
+        if rating is None:
+            raise forms.ValidationError("Rating is required.")
+
+        if rating < 1 or rating > 5:
+            raise forms.ValidationError("Rating must be between 1 and 5.")
+
+        return rating
