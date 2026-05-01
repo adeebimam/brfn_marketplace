@@ -66,9 +66,12 @@
       {% for p in products %}
         <li class="product-card">
           <div style="display:flex; gap:1.5rem; align-items:flex-start;">
+
             {% if p.image %}
-              <img src="{{ p.image.url }}" alt="{{ p.name }} image" style="max-width:110px; max-height:110px; border-radius:8px; border:1px solid #eee; object-fit:cover;">
+              <img src="{{ p.image.url }}" alt="{{ p.name }} image"
+                   style="max-width:110px; max-height:110px; border-radius:8px; border:1px solid #eee; object-fit:cover;">
             {% endif %}
+
             <div style="flex:1;">
               <a class="product-link" href="{% url 'marketplace:product_detail' p.pk %}">
                 <strong>{{ p.name }}</strong>
@@ -88,12 +91,15 @@
               {% endif %}
 
               <br>
+
               {% if p.category %}
                 <span class="item-info">{{ p.category.name }}</span>
               {% endif %}
+
               {% if p.category and p.season %}
                 <span class="dot-separator">&bull;</span>
               {% endif %}
+
               {% if p.season %}
                 <span class="item-info">{{ p.season_label }}</span>
               {% endif %}
@@ -155,20 +161,40 @@
                 </div>
               {% endif %}
 
+<<<<<<< HEAD
               <div style="margin-top: 15px;">
                 {% if p.stock_quantity > 0 %}
                   {% if user.is_authenticated %}
                     {% if user.profile.role == "CUSTOMER" or user.profile.role == "COMMUNITY_GROUP" or user.profile.role == "RESTAURANT" %}
                   <form method="post" action="{% url 'cart:add' p.pk %}" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                     {% csrf_token %}
+=======
+              <!-- ✅ FIXED QUANTITY + BUTTON -->
+              {% if p.stock_quantity > 0 %}
+                <form method="post"
+                      action="{% url 'cart:add' p.id %}"
+                      class="add-to-cart"
+                      style="margin-top:16px; max-width:260px;">
+
+                  {% csrf_token %}
+
+                  <div style="display:inline-flex !important; align-items:center !important; gap:6px !important; margin-bottom:12px !important;">
+                    <label for="qty-{{ p.id }}" class="muted" style="margin:0 !important;">
+                      Quantity
+                    </label>
+
+>>>>>>> dev
                     <input
                       type="number"
-                      name="quantity"
+                      id="qty-{{ p.id }}"
+                      name="qty"
                       value="1"
                       min="1"
                       max="{{ p.stock_quantity }}"
-                      style="width:70px; padding:6px;"
+                      class="qty-input"
+                      style="width:70px !important; margin:0 !important;"
                     >
+<<<<<<< HEAD
 
                     <button type="submit" class="btn">
                       Add to Cart
@@ -185,9 +211,23 @@
                 {% else %}
                   <div class="muted" style="margin-top:10px; color:#b91c1c; font-weight:600;">
                     Out of stock
+=======
+>>>>>>> dev
                   </div>
-                {% endif %}
-              </div>
+
+                  <button type="submit"
+                          class="btn"
+                          style="font-size:14px; width:100%;">
+                    Add to Cart
+                  </button>
+
+                </form>
+              {% else %}
+                <div class="muted" style="margin-top:10px; color:#b91c1c; font-weight:600;">
+                  Out of stock
+                </div>
+              {% endif %}
+
             </div>
           </div>
         </li>

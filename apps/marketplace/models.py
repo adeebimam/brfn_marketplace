@@ -322,7 +322,7 @@ class Order(models.Model):
         PENDING = "PENDING", "Pending"
         CONFIRMED = "CONFIRMED", "Confirmed"
         READY = "READY", "Ready"
-        COMPLETED = "COMPLETED", "Completed"
+        DELIVERED = "DELIVERED", "Delivered"
         CANCELLED = "CANCELLED", "Cancelled"
 
     customer = models.ForeignKey(
@@ -460,3 +460,52 @@ class ProducerOrderStatusHistory(models.Model):
 
     def __str__(self):
         return f"Order {self.producer_order_id}: {self.old_status} -> {self.new_status}"
+class Review(models.Model):
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="reviews"
+    )
+
+    customer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="reviews"
+    )
+
+    rating = models.PositiveSmallIntegerField()
+    title = models.CharField(max_length=200)
+    comment = models.TextField()
+    anonymous = models.BooleanField(default=False)
+    verified_purchase = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("product", "customer")
+        ordering = ["-created_at"]
+
+    def clean(self):
+        if self.rating is None:
+            raise ValidationError("Rating is required.")
+
+        if self.rating < 1 or self.rating > 5:
+            raise ValidationError("Rating must be between 1 and 5.")
+
+    def __str__(self):
+        return f"{self.product.name} - {self.rating} stars"
+    
+class CustomerOrderHistory(models.Model):
+    customer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="customer_order_history"
+    )
+    order_number = models.CharField(max_length=50)
+    order_data = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.order_number

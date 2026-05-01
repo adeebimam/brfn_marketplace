@@ -8,9 +8,22 @@
 
   <link rel="stylesheet" href="{% static 'dist/css/main.css' %}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-
 </head>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    setTimeout(function () {
+        document.querySelectorAll(".message-container .alert").forEach(function (alert) {
+            alert.style.opacity = "0";
+            alert.style.transform = "translateY(-10px)";
+            alert.style.transition = "0.4s ease";
 
+            setTimeout(function () {
+                alert.remove();
+            }, 400);
+        });
+    }, 4000);
+});
+</script>
 <body>
 
 <header class="nav">
@@ -31,9 +44,12 @@
           <a href="{% url 'marketplace:producer_product_list' %}" {% if request.resolver_match.url_name == 'producer_product_list' or request.resolver_match.url_name == 'product_create' or request.resolver_match.url_name == 'product_update' %}class="active"{% endif %}>My Products</a>
           <a href="{% url 'marketplace:producer_order_list' %}" {% if request.resolver_match.url_name == 'producer_order_list' or request.resolver_match.url_name == 'producer_order_detail' %}class="active"{% endif %}>Orders</a>
           <a href="{% url 'marketplace:producer_payments' %}" {% if request.resolver_match.url_name == 'producer_payments' %}class="active"{% endif %}>Payments</a>
-        {% elif user.profile.role == "PRODUCER" and not user.profile.is_verified %}
-          <p href="#" style="color:  red;">Account under review</p>
         {% elif user.profile.role == "CUSTOMER" or user.profile.role == "COMMUNITY_GROUP" or user.profile.role == "RESTAURANT" %}
+<<<<<<< HEAD
+=======
+          <a href="{% url 'marketplace:order_history' %}" {% if request.resolver_match.url_name == 'order_history' or request.resolver_match.url_name == 'order_detail' %}class="active"{% endif %}>My Orders</a>
+
+>>>>>>> dev
           <a href="{% url 'cart:detail' %}">
             <i class="fa-solid fa-cart-shopping" style="font-size:22px;"></i>
             {% if cart_item_count > 0 %}
@@ -120,6 +136,7 @@
           ×
         </button>
 
+<<<<<<< HEAD
         <a href="{% url 'marketplace:surplus_deals' %}" class="surplus-popup-link">
           <strong>Hurry up and save on {{ active_surplus_deal_count }} limited deal{{ active_surplus_deal_count|pluralize }}</strong>
           <span>Enjoy our yellow-tag offers before the prices go back up.</span>
@@ -258,6 +275,9 @@
     </div>
     <div style="height: 12px;"></div>
   {% endif %}
+=======
+  
+>>>>>>> dev
 
   {% block content %}{% endblock %}
 </main>

@@ -94,7 +94,11 @@ def cart_add(request, product_id):
     cart, _ = Cart.objects.get_or_create(user=request.user)
 
     try:
+<<<<<<< HEAD
         qty = int(request.POST.get("qty") or request.POST.get("quantity") or 1)
+=======
+        qty = int(request.POST.get("qty"))
+>>>>>>> dev
     except (TypeError, ValueError):
         qty = 1
 
