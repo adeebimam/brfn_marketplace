@@ -215,10 +215,6 @@ class ReviewForm(forms.ModelForm):
             raise forms.ValidationError("Rating must be between 1 and 5.")
 
         return rating
-=======
 
-    def __init__(self, *args, **kwargs):
-        status_choices = kwargs.pop("status_choices", ProducerOrder.Status.choices)
-        super().__init__(*args, **kwargs)
-        self.fields["status"].choices = status_choices
->>>>>>> origin/dev
+
+   

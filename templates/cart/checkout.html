@@ -10,21 +10,14 @@
 <h3>Delivery Address</h3>
 {{ form.delivery_address }}
 
-<<<<<<< HEAD
-{% if form.delivery_address.errors %}
-=======
 <h3>Delivery Date</h3>
 <input type="date" name="delivery_date" id="id_delivery_date" required>
-
-<h3>Delivery Postcode</h3>
-{{ form.delivery_postcode }}
 
 <p id="date-warning" style="color:red; display:none;">
 Delivery must be at least 48 hours from now.
 </p>
 
 {% if form.delivery_date.errors %}
->>>>>>> origin/dev
 <p style="color:red;">
 {{ form.delivery_address.errors }}
 </p>
