@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect
+from apps.cart.models import Cart
 
 def checkout(request):
     return render(request, "orders/checkout.html")
@@ -22,6 +23,13 @@ def payment(request):
         request.session['delivery_date'] = date
         request.session['payment_method'] = payment_method
         order_number = "BRFN-" + str(request.user.id) + "-" + str(request.session.session_key)
+
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+        cart.items.all().delete()# Clear the cart after order is placed
+        request.session["cart"]={}
+        request.session["cart_items"]=[]
+        request.session.modified = True
+                        
         context = {
             "order_number": order_number,
             "address": address,

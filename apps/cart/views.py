@@ -30,10 +30,33 @@ def cart_detail(request):
     items = cart.items.select_related("product", "product__producer")
     cart_items = []
     total = Decimal("0.00")
+    total_food_miles = Decimal("0.00")
+
+    from apps.accounts.models import Profile
+    from apps.marketplace.foodmiles import calculate_food_miles
+
+    customer_postcode = None
+    try:
+        customer_profile = Profile.objects.get(user=request.user)
+        customer_postcode = customer_profile.delivery_postcode or customer_profile.postcode
+    except Profile.DoesNotExist:
+        pass
 
     for item in items:
         line_total = (item.product.price * item.quantity).quantize(Decimal("0.01"))
         total += line_total
+
+        food_miles = None
+        if customer_postcode:
+            try:
+                producer_profile = Profile.objects.get(user=item.product.producer)
+                producer_postcode = producer_profile.postcode
+                if producer_postcode:
+                    food_miles = calculate_food_miles(customer_postcode, producer_postcode)
+                    if food_miles is not None:
+                        total_food_miles += Decimal(str(food_miles))
+            except Profile.DoesNotExist:
+                pass
 
         cart_items.append({
             "product": item.product,
@@ -41,6 +64,7 @@ def cart_detail(request):
             "unit_price": item.product.price,
             "line_total": line_total,
             "producer": item.product.producer,
+            "food_miles": food_miles,
         })
 
     _sync_session_cart(request, cart)
@@ -48,6 +72,7 @@ def cart_detail(request):
     return render(request, "cart/detail.html", {
         "cart_items": cart_items,
         "cart_total": total.quantize(Decimal("0.01")),
+        "total_food_miles": round(float(total_food_miles), 1),
     })
 
 
@@ -59,6 +84,17 @@ def cart_add(request, product_id):
         return redirect("marketplace:product_list")
 
     product = get_object_or_404(Product, id=product_id)
+
+    # Block adding out-of-season products
+    if not product.is_in_season():
+        messages.error(request, f"'{product.name}' is currently out of season and cannot be ordered.")
+        return redirect("marketplace:product_list")
+
+    # Block adding unavailable products
+    if not product.is_active or product.stock_quantity <= 0:
+        messages.error(request, f"'{product.name}' is not currently available.")
+        return redirect("marketplace:product_list")
+
     cart, _ = Cart.objects.get_or_create(user=request.user)
 
     try:
@@ -178,7 +214,6 @@ def checkout(request):
             request.session['order_total'] = str(total)
             request.session['cart_items'] = cart_items
             request.session['delivery_address'] = form.cleaned_data.get('delivery_address', '')
-            # Convert delivery_date to string for session storage
             delivery_date = form.cleaned_data.get('delivery_date', '')
             if hasattr(delivery_date, 'isoformat'):
                 delivery_date = delivery_date.isoformat()

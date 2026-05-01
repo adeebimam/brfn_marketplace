@@ -1,32 +1,21 @@
 {% extends "base.html" %}
 {% block content %}
   <h1>{% if mode == "create" %}Create{% else %}Edit{% endif %} Product</h1>
-  <form method="post">
+  <form method="post" class="producer-product-form">
     {% csrf_token %}
-    {{ form.non_field_errors }}
+    {% if form.non_field_errors %}
+      <div style="background: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; margin-bottom: 15px;">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
     {{ form.category.label_tag }} {{ form.category }}<br><br>
     {{ form.name.label_tag }} {{ form.name }}<br><br>
     {{ form.description.label_tag }} {{ form.description }}<br><br>
     {{ form.price.label_tag }} {{ form.price }}<br><br>
+    {{ form.unit.label_tag }} {{ form.unit }}<br><br>
     {{ form.stock_quantity.label_tag }} {{ form.stock_quantity }}<br><br>
-<<<<<<< Updated upstream
-    {{ form.is_active.label_tag }} {{ form.is_active }}<br><br>
-    {{ form.season.label_tag }} {{ form.season }}<br><br>
-    {{ form.allergens.label_tag }} {{ form.allergens }}<br><br>
-    {{ form.other_allergen_info.label_tag }} {{ form.other_allergen_info }}<br><br>
-=======
     {{ form.harvest_date.label_tag }} {{ form.harvest_date }}<br><br>
     {{ form.not_available.label_tag }} {{ form.not_available }}<br><br>
-
-    <fieldset style="border:1px solid #ddd; padding:1rem; border-radius:8px; margin-bottom:1rem;">
-      <legend style="font-weight:600; padding:0 0.5rem;">📦 Stock Alert</legend>
-      <div style="margin-bottom:0.5rem;">
-        {{ form.low_stock_threshold.label_tag }} {{ form.low_stock_threshold }}
-      </div>
-      <p class="muted" style="font-size:0.85rem; margin-top:0.25rem;">
-        {{ form.low_stock_threshold.help_text }}
-      </p>
-    </fieldset>
 
     <fieldset style="border:1px solid #ddd; padding:1rem; border-radius:8px; margin-bottom:1rem;">
       <legend style="font-weight:600; padding:0 0.5rem;">Seasonal Availability</legend>
@@ -78,8 +67,23 @@
       </p>
     </fieldset>
 
->>>>>>> Stashed changes
     <button class="save-btn btn" type="submit">Save</button>
     <button class="back-btn btn" type="button" onclick="window.history.back();">Back</button>
   </form>
+
+  <script>
+    const seasonField = document.getElementById('id_season');
+    const monthsDiv = document.getElementById('seasonal-months');
+
+    function toggleMonths() {
+      if (seasonField.value === 'ALL' || seasonField.value === '') {
+        monthsDiv.style.display = 'none';
+      } else {
+        monthsDiv.style.display = 'flex';
+      }
+    }
+
+    seasonField.addEventListener('change', toggleMonths);
+    toggleMonths();
+  </script>
 {% endblock %}

@@ -7,14 +7,14 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
-from django.http import HttpResponse, HttpResponseForbidden
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from apps.accounts.models import Profile
 from .forms import CheckoutForm, ProductForm, ProducerOrderStatusForm
 from .models import (
-    Allergen, Category, Product,
+    Allergen, Category, Product, MONTH_NAMES,
     ProducerOrder, ProducerOrderStatusHistory,
 )
 
@@ -36,23 +36,41 @@ def _require_producer(request):
 # ----------------------------
 
 def product_list(request):
-    products = Product.objects.all().select_related("category", "producer").prefetch_related("allergens")
+    products = (
+        Product.objects.filter(is_active=True, stock_quantity__gt=0)
+        .select_related("category", "producer")
+        .prefetch_related("allergens")
+    )
     categories = Category.objects.order_by("name")
-    allergens = Allergen.objects.order_by("name")
+    allergens = Allergen.objects.exclude(name="No common allergens").order_by("name")
 
     selected_category = request.GET.get("category", "").strip()
-    selected_season = request.GET.get("season", "").strip()
+    selected_seasons = request.GET.getlist("season")
     query = request.GET.get("q", "").strip()
-    allergen_filter = request.GET.get("allergen_filter", "").strip()
+    selected_allergens = request.GET.getlist("allergens_exclude")
+    organic_filter = request.GET.get("organic", "").strip()
+    max_miles = request.GET.get("max_miles", "20").strip()
+
+    try:
+        max_miles = float(max_miles)
+    except ValueError:
+        max_miles = 20.0
 
     if selected_category:
         products = products.filter(category_id=selected_category)
 
-    if selected_season:
-        products = products.filter(season=selected_season)
+    if selected_seasons:
+        products = products.filter(season__in=selected_seasons)
+
+    if selected_allergens:
+        products = products.exclude(allergens__id__in=selected_allergens).distinct()
+
+    if organic_filter == "certified":
+        products = products.filter(is_organic=True)
 
     if query:
-        products = products.filter(
+        from thefuzz import fuzz
+        exact_matches = products.filter(
             Q(name__icontains=query) |
             Q(description__icontains=query) |
             Q(allergens__name__icontains=query) |
@@ -60,19 +78,6 @@ def product_list(request):
             Q(producer__username__icontains=query)
         ).distinct()
 
-<<<<<<< Updated upstream
-    if allergen_filter == "with":
-        products = products.filter(
-            Q(allergens__isnull=False) | ~Q(other_allergen_info="")
-        ).distinct()
-    elif allergen_filter == "without":
-        products = products.exclude(
-            allergens__isnull=False
-        ).filter(other_allergen_info="")
-    elif allergen_filter.startswith("specific_"):
-        allergen_id = allergen_filter.split("_")[1]
-        products = products.filter(allergens__id=allergen_id)
-=======
         if not exact_matches:
             all_products = list(products)
             fuzzy_matches = [
@@ -119,6 +124,7 @@ def product_list(request):
                 except Profile.DoesNotExist:
                     pass
 
+        # Apply max_miles filter only for logged-in users with food miles calculated
         products = [
             p for p in products
             if p.food_miles is None or p.food_miles <= max_miles
@@ -126,19 +132,47 @@ def product_list(request):
     else:
         for p in products:
             p.food_miles = None
->>>>>>> Stashed changes
 
     context = {
         "products": products,
         "categories": categories,
         "allergens": allergens,
+        "selected_allergens": selected_allergens,
         "selected_category": selected_category,
-        "selected_season": selected_season,
+        "selected_seasons": selected_seasons,
         "seasons": Product.SEASON_CHOICES,
         "query": query,
-        "allergen_filter": allergen_filter,
+        "current_month": current_month,
+        "organic_filter": organic_filter,
+        "max_miles": max_miles,
     }
     return render(request, "marketplace/product_list.html", context)
+
+
+# ----------------------------
+# PRODUCT SEARCH SUGGESTIONS
+# ----------------------------
+
+def product_search_suggestions(request):
+    query = request.GET.get("q", "").strip()
+    if len(query) < 2:
+        return JsonResponse({"suggestions": []})
+
+    from thefuzz import fuzz
+    products = Product.objects.filter(is_active=True, stock_quantity__gt=0)
+
+    exact = list(products.filter(name__icontains=query).values_list("name", flat=True)[:5])
+
+    if exact:
+        return JsonResponse({"suggestions": exact})
+
+    all_products = list(products.exclude(name__icontains=query))
+    fuzzy = [
+        p.name for p in all_products
+        if fuzz.partial_ratio(query.lower(), p.name.lower()) >= 75
+    ][:5]
+
+    return JsonResponse({"suggestions": fuzzy})
 
 
 # ----------------------------
@@ -148,9 +182,32 @@ def product_list(request):
 def product_detail(request, pk):
     product = get_object_or_404(
         Product.objects.select_related("category", "producer").prefetch_related("allergens"),
-        pk=pk
+        pk=pk,
+        is_active=True,
     )
-    return render(request, "marketplace/product_detail.html", {"product": product})
+    if (not product.is_active or product.stock_quantity <= 0 or not product.is_in_season()):
+        if request.user != product.producer:
+            from django.http import Http404
+            raise Http404("This product is not currently available.")
+
+    food_miles = None
+    if request.user.is_authenticated:
+        from .foodmiles import calculate_food_miles
+        try:
+            customer_profile = Profile.objects.get(user=request.user)
+            producer_profile = Profile.objects.get(user=product.producer)
+            customer_postcode = customer_profile.delivery_postcode or customer_profile.postcode
+            producer_postcode = producer_profile.postcode
+            if customer_postcode and producer_postcode:
+                food_miles = calculate_food_miles(customer_postcode, producer_postcode)
+        except Profile.DoesNotExist:
+            pass
+
+    return render(request, "marketplace/product_detail.html", {
+        "product": product,
+        "is_in_season": product.is_in_season(),
+        "food_miles": food_miles,
+    })
 
 
 # -----------------------------
@@ -162,7 +219,6 @@ TWO_PLACES = Decimal("0.01")
 
 
 def _compute_financials(gross):
-    """Return (commission, net) for a given gross amount."""
     gross = gross.quantize(TWO_PLACES)
     commission = (gross * COMMISSION_RATE).quantize(TWO_PLACES)
     net = (gross - commission).quantize(TWO_PLACES)
@@ -170,7 +226,6 @@ def _compute_financials(gross):
 
 
 def _build_settlement_ref(producer_id, week_start, week_end):
-    """Return a deterministic settlement reference string."""
     return (
         f"SET-{producer_id}-"
         f"{week_start.strftime('%Y%m%d')}-"
@@ -224,17 +279,7 @@ def producer_product_list(request):
         return HttpResponseForbidden("Producer access only.")
 
     products = Product.objects.filter(producer=request.user).select_related("category").order_by("-created_at")
-
-    from .models import StockNotification
-    active_alerts_count = StockNotification.objects.filter(
-        producer=request.user,
-        is_resolved=False
-    ).count()
-
-    return render(request, "marketplace/producer_product_list.html", {
-        "products": products,
-        "active_alerts_count": active_alerts_count,
-    })
+    return render(request, "marketplace/producer_product_list.html", {"products": products})
 
 
 # ----------------------------
@@ -290,7 +335,6 @@ def product_update(request, pk):
             product.producer = request.user
             product.save()
             form.save_m2m()
-            product.check_low_stock()
 
             messages.success(request, "Product updated.")
             return redirect("marketplace:producer_product_list")
@@ -720,30 +764,3 @@ def producer_order_update_status(request, pk):
             "form": form,
         },
     )
-
-
-# -----------------------------
-# Stock Notifications
-# -----------------------------
-
-@login_required
-def stock_notifications(request):
-    if not _require_producer(request):
-        return HttpResponseForbidden("Producer access only.")
-
-    from .models import StockNotification
-
-    active_notifications = StockNotification.objects.filter(
-        producer=request.user,
-        is_resolved=False
-    )
-
-    resolved_notifications = StockNotification.objects.filter(
-        producer=request.user,
-        is_resolved=True
-    )[:10]
-
-    return render(request, "marketplace/stock_notifications.html", {
-        "active_notifications": active_notifications,
-        "resolved_notifications": resolved_notifications,
-    })
