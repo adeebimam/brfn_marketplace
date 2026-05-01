@@ -1,40 +1,197 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="payment-container">
-    <h1 class="page-title">Payment</h1>
 
-    <div class="payment-summary">
-        <p class="payment-total">Total Amount: <span>£{{ total }}</span></p>
-        {% if cart_items %}
-        <ul class="payment-items">
-            {% for item in cart_items %}
-            <li>{{ item.product.name }} (x{{ item.qty }})</li>
-            {% endfor %}
-        </ul>
-        {% endif %}
+<div style="display:grid; grid-template-columns: 1fr 1fr; gap:40px; max-width:1100px; margin:30px auto; background:#fff; border-radius:18px; padding:40px;">
+
+  <!-- LEFT SIDE -->
+<div style="padding:30px;">
+  <p style="color:#666;">BRFN Marketplace</p>
+  <h1 style="font-size:38px; margin-bottom:10px;">£{{ order.total }}</h1>
+  <p style="color:#777;">This is a secure test payment for your BRFN order.</p>
+
+  <div style="width:360px; height:220px; margin-top:40px; border-radius:22px; padding:24px; background:linear-gradient(135deg, #dbeafe, #ccfbf1, #fef3c7); box-shadow:0 14px 30px rgba(0,0,0,0.12);">
+
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <p style="margin:0; color:#475569; font-size:13px;">BRFN Marketplace</p>
+        <h3 style="margin:5px 0 0; color:#0f172a;">Test Card</h3>
+      </div>
+
+      <div style="background:white; padding:7px 12px; border-radius:12px; font-weight:bold; color:#2563eb; font-size:13px;">
+        TEST
+      </div>
     </div>
 
-    <form method="POST" class="payment-form">
-        {% csrf_token %}
+    <div style="font-size:20px; letter-spacing:2px; color:#0f172a; margin-top:35px;">
+      <span id="preview-card-number">•••• •••• •••• ••••</span>
+    </div>
 
-        <div class="form-group" style="margin-bottom: 20px;">
-            <label for="card-number">Card Number</label>
-            <input type="text" id="card-number" name="card_number" placeholder="4242 4242 4242 4242" required pattern="\d{16}" maxlength="16" title="Card number must be 16 digits">
-        </div>
+    <div style="display:flex; justify-content:space-between; margin-top:35px; color:#334155;">
+      <div>
+        <p style="margin:0; font-size:11px;">CARD HOLDER</p>
+        <strong id="preview-card-holder" style="font-size:13px;">{{ request.user.username }}</strong>
+      </div>
 
-        <div class="form-group" style="margin-bottom: 20px;">
-            <label for="expiry">Expiry</label>
-            <input type="text" id="expiry" name="expiry" placeholder="MM/YY" required pattern="(0[1-9]|1[0-2])\/\d{2}" maxlength="5" title="Expiry must be in MM/YY format">
-        </div>
+      <div>
+        <p style="margin:0; font-size:11px;">EXPIRY</p>
+        <strong id="preview-card-expiry" style="font-size:13px;">MM/YY</strong>
+      </div>
 
-        <div class="form-group" style="margin-bottom: 20px;">
-            <label for="cvc">CVC</label>
-            <input type="text" id="cvc" name="cvc" placeholder="123" required pattern="\d{3}" maxlength="3" title="CVC must be a 3-digit number">
-        </div>
+      <div>
+        <p style="margin:0; font-size:11px;">TOTAL</p>
+        <strong style="font-size:13px;">£{{ order.total }}</strong>
+      </div>
+    </div>
 
-        <br>
+  </div>
 
-        <button class="save-btn btn" type="submit">Confirm Payment</button>
-    </form>
+  <p style="margin-top:80px; color:#aaa; font-size:13px;">
+    Powered by Stripe Test Mode
+  </p>
 </div>
+
+  <!-- RIGHT SIDE -->
+  <div style="padding:30px; border-left:1px solid #eee;">
+
+    
+
+    <form method="POST">
+      {% csrf_token %}
+
+      <div style="margin-bottom:18px;">
+        <label>Email</label>
+        <input type="email" name="email" value="{{ request.user.email }}" required
+               style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px;">
+      </div>
+
+      <div style="margin-bottom:18px;">
+        <label>Card information</label>
+        <input type="text" id="cardholder-name" name="cardholder_name" placeholder="Full name" required>
+        <input type="text" id="card-number" name="card_number" placeholder="Card number" required
+               style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; margin-top:8px;">
+
+        <div style="display:grid; grid-template-columns:1fr 1fr;">
+          <input type="text" id="expiry" name="expiry"
+                 placeholder="MM/YY"
+                 required maxlength="5"
+                 style="padding:12px; border:1px solid #ddd; border-top:0; border-radius:0 0 0 8px;">
+
+          <input type="text" id="cvc" name="cvc"
+                 placeholder="CVC"
+                 required maxlength="3"
+                 style="padding:12px; border:1px solid #ddd; border-top:0; border-left:0; border-radius:0 0 8px 0;">
+        </div>
+      </div>
+
+      <div style="margin-bottom:18px;">
+        <label>Cardholder name</label>
+        <input type="text" name="cardholder_name" placeholder="Full name" required
+               style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px;">
+      </div>
+
+      <div style="margin-bottom:18px;">
+        <label>Country or region</label>
+        <select name="country" required
+                style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px;">
+          <option value="UK">United Kingdom</option>
+          <option value="US">United States</option>
+          <option value="LK">Sri Lanka</option>
+          <option value="IN">India</option>
+        </select>
+      </div>
+
+      <label style="display:flex; gap:10px; align-items:flex-start; background:#f8fafc; padding:12px; border-radius:8px; margin-bottom:20px;">
+        <input type="checkbox">
+        <span>Securely save my information for faster checkout next time.</span>
+      </label>
+
+      <button type="submit"
+              style="width:100%; background:#0570de; color:white; border:none; padding:15px; border-radius:8px; font-size:18px; font-weight:bold;">
+        Pay £{{ order.total }} 🔒
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const cardInput = document.getElementById("card-number");
+    const expiryInput = document.getElementById("expiry");
+
+    cardInput.addEventListener("input", function () {
+        let value = cardInput.value.replace(/\D/g, "").slice(0, 16);
+        value = value.replace(/(.{4})/g, "$1 ").trim();
+        cardInput.value = value;
+    });
+
+    expiryInput.addEventListener("input", function () {
+        let value = expiryInput.value.replace(/\D/g, "").slice(0, 4);
+
+        if (value.length >= 3) {
+            value = value.slice(0, 2) + "/" + value.slice(2);
+        }
+
+        expiryInput.value = value;
+        validateExpiry();
+    });
+
+    function validateExpiry() {
+        const value = expiryInput.value;
+
+        if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(value)) {
+            expiryInput.setCustomValidity("Enter expiry date in MM/YY format.");
+            return;
+        }
+
+        const parts = value.split("/");
+        const month = parseInt(parts[0], 10);
+        const year = parseInt(parts[1], 10);
+
+        const today = new Date();
+        const currentMonth = today.getMonth() + 1;
+        const currentYear = today.getFullYear() % 100;
+
+        if (year < currentYear || (year === currentYear && month < currentMonth)) {
+            expiryInput.setCustomValidity("Card expiry date cannot be in the past.");
+        } else {
+            expiryInput.setCustomValidity("");
+        }
+    }
+});
+</script>
+
 {% endblock %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const cardInput = document.getElementById("card-number");
+    const expiryInput = document.getElementById("expiry");
+    const holderInput = document.getElementById("cardholder-name");
+
+    const previewCard = document.getElementById("preview-card-number");
+    const previewExpiry = document.getElementById("preview-card-expiry");
+    const previewHolder = document.getElementById("preview-card-holder");
+
+    cardInput.addEventListener("input", function () {
+        let value = cardInput.value.replace(/\D/g, "").slice(0, 16);
+        value = value.replace(/(.{4})/g, "$1 ").trim();
+        cardInput.value = value;
+
+        previewCard.textContent = value || "•••• •••• •••• ••••";
+    });
+
+    expiryInput.addEventListener("input", function () {
+        let value = expiryInput.value.replace(/\D/g, "").slice(0, 4);
+
+        if (value.length >= 3) {
+            value = value.slice(0, 2) + "/" + value.slice(2);
+        }
+
+        expiryInput.value = value;
+        previewExpiry.textContent = value || "MM/YY";
+    });
+
+    holderInput.addEventListener("input", function () {
+        previewHolder.textContent = holderInput.value || "{{ request.user.username }}";
+    });
+});
+</script>

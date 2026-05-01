@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Order {{ order.order_number }}</h2>
+
+<!-- ORDER INFO BOX -->
+<div style="border:1px solid #ddd; border-radius:10px; padding:16px; margin-bottom:20px; background:#fff;">
+
+  <p><strong>Order Date:</strong> {{ order.order_date }}</p>
+  <p><strong>Delivery Date:</strong> {{ order.delivery_date }}</p>
+  <p><strong>Delivery Address:</strong> {{ order.address }}</p>
+  <p><strong>Card:</strong> {{ order.payment|slice:"-4:" }}</p>
+  <p><strong>Total:</strong> £{{ order.total|floatformat:2 }}</p>
+  <p><strong>Status:</strong> Completed</p>
+  <p><strong>Payment:</strong> {{ order.payment|title }}</p>
+
+</div>
+
+<!-- ITEMS -->
+<h3>Items</h3>
+
+{% for producer, items in order.producers.items %}
+  <div style="border:1px solid #ddd; border-radius:10px; padding:20px; margin-bottom:20px; background:#fff;">
+
+    <h4 style="margin-bottom:15px;">{{ producer }}</h4>
+
+    {% for item in items %}
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:15px; padding:12px 0; border-bottom:1px solid #eee;">
+
+        <div>
+          <a href="{% url 'marketplace:product_detail' item.id %}" style="font-weight:600;">
+            {{ item.name }}
+          </a>
+          <p style="margin:5px 0 0 0; color:#555;">
+            Quantity: {{ item.qty }} | Total: £{{ item.total|floatformat:2 }}
+          </p>
+        </div>
+
+        <a class="btn btn-primary" href="{% url 'marketplace:create_review' item.id %}">
+          Write Review
+        </a>
+
+      </div>
+    {% endfor %}
+
+  </div>
+{% endfor %}
+
+<!-- ACTION BUTTONS -->
+<div style="margin-top:20px;">
+  <a href="{% url 'marketplace:order_history' %}" class="btn">
+    Back to Orders
+  </a>
+
+  <a href="{% url 'marketplace:reorder' order.order_number %}" class="btn btn-primary">
+    Reorder
+  </a>
+  <a href="{% url 'marketplace:download_receipt' order.order_number %}" class="btn btn-secondary">
+    Download Receipt
+  </a>
+</div>
+
+
+{% endblock %}

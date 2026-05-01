@@ -4,7 +4,7 @@
 
 <h1>Checkout</h1>
 
-<form method="POST">
+<form method="POST" action="{% url 'marketplace:checkout' %}">
 {% csrf_token %}
 
 <h3>Delivery Address</h3>
@@ -13,53 +13,78 @@
 <h3>Delivery Date</h3>
 <input type="date" name="delivery_date" id="id_delivery_date" required>
 
-<h3>Delivery Postcode</h3>
-{{ form.delivery_postcode }}
-
 <p id="date-warning" style="color:red; display:none;">
 Delivery must be at least 48 hours from now.
 </p>
 
 {% if form.delivery_date.errors %}
 <p style="color:red;">
-{{ form.delivery_date.errors }}
+{{ form.delivery_address.errors }}
 </p>
 {% endif %}
 
 <h3>Payment Method</h3>
-{{ form.payment_method }}
+
+<div style="border:1px solid #ddd; border-radius:12px; background:#fff; margin-bottom:25px; overflow:hidden;">
+
+  <label style="display:flex; gap:14px; align-items:flex-start; padding:18px; cursor:pointer; border-bottom:1px solid #eee;">
+    <input type="radio" name="payment_method" value="stripe" checked style="margin-top:6px;">
+    <div>
+      <strong>💳 Stripe Test</strong>
+      <p style="margin:6px 0 0; color:#666;">Pay securely using test card details on the next page.</p>
+      <p style="margin:8px 0 0; color:#555; font-size:14px;">Visa • Mastercard • Amex</p>
+    </div>
+  </label>
+
+  <label style="display:flex; gap:14px; align-items:flex-start; padding:18px; cursor:pointer;">
+    <input type="radio" name="payment_method" value="paypal" style="margin-top:6px;">
+    <div>
+      <strong>🅿️ PayPal Sandbox</strong>
+      <p style="margin:6px 0 0; color:#666;">Use PayPal sandbox test payment.</p>
+    </div>
+  </label>
+
+</div>
 
 <h3>Order Summary</h3>
 
 {% if producers %}
-<p><strong>Sold by:</strong>
-    {% for producer in producers.keys %}
-        {{ producer }}{% if not forloop.last %}, {% endif %}
-    {% endfor %}
-</p>
+<div style="border:1px solid #ddd; border-radius:12px; background:#fff; padding:18px; margin-bottom:20px;">
+  <p><strong>Sold by:</strong>
+      {% for producer in producers.keys %}
+          {{ producer }}{% if not forloop.last %}, {% endif %}
+      {% endfor %}
+  </p>
+
+  <p><strong>Total:</strong> £{{ total }}</p>
+</div>
 
 {% for producer, items in producers.items %}
+  <div style="border:1px solid #ddd; border-radius:12px; background:#fff; padding:18px; margin-bottom:20px;">
 
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:15px; flex-wrap:wrap;">
+      <h4 style="margin:0;">{{ producer }}</h4>
+      <p style="margin:0;"><strong>Lead Time:</strong> {{ items.0.lead_time }} days</p>
+    </div>
 
-<p><strong>Lead Time:</strong> {{ items.0.lead_time }} days</p>
+    <label style="display:block; margin-top:15px;">Delivery Date for {{ producer }}</label>
+    <input type="date" class="delivery-date" data-lead="{{ items.0.lead_time }}"
+           name="delivery_{{ forloop.counter }}"
+           required>
 
-<label>Delivery Date for {{ producer }}</label>
-<input type="date" class="delivery-date" data-lead="{{ items.0.lead_time }}"
-       name="delivery_{{ forloop.counter }}"
-       required>
+    <p class="lead-warning" style="color:red; display:none;">
+      Delivery must be at least {{ items.0.lead_time }} days from now.
+    </p>
 
-<p class="lead-warning" style="color:red; display:none;">
-Delivery must be at least {{ items.0.lead_time }} days from now.
-</p>
+    <ul>
+    {% for item in items %}
+      <li>
+        {{ item.name }} (x{{ item.qty }}) - £{{ item.total|floatformat:2 }}
+      </li>
+    {% endfor %}
+    </ul>
 
-<ul>
-{% for item in items %}
-<li>
-{{ item.name }} (x{{ item.qty }}) - £{{ item.total }}
-</li>
-{% endfor %}
-</ul>
-
+  </div>
 {% endfor %}
 
 {% else %}
@@ -68,13 +93,13 @@ Delivery must be at least {{ items.0.lead_time }} days from now.
 
 {% endif %}
 
-<p>Subtotal: £{{ subtotal }}</p>
-<p>Network Commission (5%): £{{ commission }}</p>
-<p><strong>Total: £{{ total }}</strong></p>
+<div style="border:1px solid #ddd; border-radius:12px; background:#fff; padding:18px; margin-bottom:20px;">
+  <p>Subtotal: £{{ subtotal|floatformat:2 }}</p>
+  <p>Network Commission (5%): £{{ commission|floatformat:2 }}</p>
+  <p style="font-size:22px;"><strong>Total: £{{ total|floatformat:2 }}</strong></p>
+</div>
 
-<br>
-
-<button class="save-btn btn" type="submit">
+<button class="save-btn btn btn-primary" type="submit">
 Proceed to Payment
 </button>
 
@@ -82,31 +107,30 @@ Proceed to Payment
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    // Set default delivery date to 2 days from today for the main delivery date input
-    var input = document.getElementById("id_delivery_date");
-    if (input && !input.value) {
-        var today = new Date();
-        today.setDate(today.getDate() + 2);
-        var minDate = today.toISOString().split("T")[0];
-        input.value = minDate;
-        input.min = minDate;
-    }
-    // Set default and min for each producer delivery date input
     document.querySelectorAll(".delivery-date").forEach(function(input){
         const lead = parseInt(input.dataset.lead) || 2;
         const warning = input.nextElementSibling;
+
         var today = new Date();
         today.setDate(today.getDate() + lead);
+
         var minDate = today.toISOString().split("T")[0];
+
         input.min = minDate;
-        if (!input.value) input.value = minDate;
+
+        if (!input.value) {
+            input.value = minDate;
+        }
+
         input.addEventListener("change", function(){
             if(input.value < minDate){
-                warning.style.display = "block"
+                warning.style.display = "block";
+                input.setCustomValidity("Delivery date is too soon.");
             } else {
-                warning.style.display = "none"
+                warning.style.display = "none";
+                input.setCustomValidity("");
             }
-        })
+        });
     });
 });
 </script>

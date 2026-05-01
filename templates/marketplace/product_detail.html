@@ -15,7 +15,6 @@
       </div>
     {% endif %}
 
-    {# ── Seasonal indicator ── #}
     {% if product.is_year_round %}
       <p style="color:#6b7280; font-size:0.9rem;">Available Year-Round</p>
     {% elif product.is_in_season %}
@@ -37,6 +36,12 @@
 
     <p class="price">£{{ product.price }}</p>
     <p>Stock: {{ product.stock_quantity }}</p>
+
+    {% if average_rating %}
+      <p><strong>Average Rating:</strong> {{ average_rating }} / 5 ⭐</p>
+    {% else %}
+      <p><strong>Average Rating:</strong> No reviews yet</p>
+    {% endif %}
 
     {% if product.allergens.exists or product.other_allergen_info %}
       <div class="allergen-warning">
@@ -87,5 +92,30 @@
     {% endif %}
 
     <a class="btn" href="{% url 'marketplace:product_list' %}">Back</a>
+  </div>
+
+  <div class="card stack" style="margin-top:20px;">
+    <h2>Customer Reviews</h2>
+
+    {% for review in reviews %}
+      <div style="border:1px solid #ddd; border-radius:10px; padding:14px; margin-bottom:15px; background:#fff;">
+        <p><strong>{{ review.rating }} / 5 ⭐</strong></p>
+        {% if review.verified_purchase %}
+          <span style="color:green; font-weight:bold;">✔ Verified Purchase</span>
+        {% endif %}
+        <p><strong>{{ review.title }}</strong></p>
+        <p>{{ review.comment }}</p>
+
+        {% if review.anonymous %}
+          <p><em>By Anonymous</em></p>
+        {% else %}
+          <p><em>By {{ review.customer.username }}</em></p>
+        {% endif %}
+
+        <p><small>{{ review.created_at }}</small></p>
+      </div>
+    {% empty %}
+      <p>No reviews yet.</p>
+    {% endfor %}
   </div>
 {% endblock %}

@@ -2,46 +2,88 @@
 
 {% block content %}
 
-<h2>Order Confirmation</h2>
+<div style="max-width:950px; margin:30px auto;">
 
-<p><strong>Order Number:</strong> {{ order_number }}</p>
-<p><strong>Delivery Address:</strong> {{ address }}</p>
-<p><strong>Delivery Date:</strong> {{ date }}</p>
-<p><strong>Payment Method:</strong> {{ payment }}</p>
+  <div style="background:linear-gradient(135deg, #dbeafe, #ccfbf1, #fef3c7); border-radius:22px; padding:30px; margin-bottom:25px; box-shadow:0 12px 30px rgba(0,0,0,0.08);">
+    <h1 style="margin-top:0;">🎉 Order Confirmed</h1>
+    <p style="font-size:18px; margin-bottom:0;">Thank you! Your order has been placed successfully.</p>
+  </div>
 
-<hr>
+  <div style="border:1px solid #ddd; border-radius:16px; background:#fff; padding:24px; margin-bottom:25px;">
+    <h2>Order Details</h2>
 
-<h3>Order Breakdown by Producer</h3>
+    <p><strong>Order Number:</strong> {{ order_number }}</p>
+    <p><strong>Delivery Address:</strong> {{ address }}</p>
+    <p><strong>Delivery Date:</strong> {{ date }}</p>
+    <p><strong>Payment Method:</strong> {{ payment|title }}</p>
+  </div>
 
-{% for summary in producer_order_summaries %}
-    <h4>{{ summary.producer }}</h4>
-    <p><strong>Producer Order ID:</strong> {{ summary.producer_order.id }}</p>
-    <p><strong>Status:</strong> {{ summary.producer_order.get_status_display }}</p>
+  <h2>Order Breakdown by Producer</h2>
 
-    <ul>
+  {% if producer_order_summaries %}
+    {% for summary in producer_order_summaries %}
+      <div style="border:1px solid #ddd; border-radius:16px; background:#fff; padding:22px; margin-bottom:20px;">
+        <h3 style="margin-top:0;">{{ summary.producer }}</h3>
+        <p><strong>Producer Order ID:</strong> {{ summary.producer_order.id }}</p>
+        <p><strong>Status:</strong> {{ summary.producer_order.get_status_display }}</p>
+
         {% for item in summary.items %}
-            <li>
-                {{ item.product.name }} (x{{ item.quantity }}) - £{{ item.product.price }}
-            </li>
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #eee; padding:10px 0;">
+            <span>{{ item.product.name }} (x{{ item.quantity }})</span>
+            <strong>£{{ item.line_total|floatformat:2 }}</strong>
+          </div>
         {% endfor %}
-    </ul>
 
-    <p><strong>Producer Total:</strong> £{{ summary.total }}</p>
-{% endfor %}
+        <p style="text-align:right; margin-top:12px;">
+          <strong>Producer Total: £{{ summary.total|floatformat:2 }}</strong>
+        </p>
+      </div>
+    {% endfor %}
+  {% else %}
+    {% for producer, items in producers.items %}
+      <div style="border:1px solid #ddd; border-radius:16px; background:#fff; padding:22px; margin-bottom:20px;">
+        <h3 style="margin-top:0;">{{ producer }}</h3>
 
-<hr>
+        {% for item in items %}
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #eee; padding:10px 0;">
+            <span>{{ item.name }} (x{{ item.qty }})</span>
+            <strong>£{{ item.total|floatformat:2 }}</strong>
+          </div>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  {% endif %}
 
-<h3>Order Summary</h3>
-<p>Subtotal: £{{ subtotal }}</p>
-<p>Network Commission (5%): £{{ commission }}</p>
-<p><strong>Total Paid: £{{ total }}</strong></p>
+  <div style="border:1px solid #ddd; border-radius:16px; background:#fff; padding:24px; margin-top:25px;">
+    <h2>Order Summary</h2>
 
-<p style="color:green;">
-✔ Your order has been created and split across the relevant producers.
-</p>
+    <div style="display:flex; justify-content:space-between;">
+      <span>Subtotal</span>
+      <strong>£{{ subtotal|floatformat:2 }}</strong>
+    </div>
 
-<h2>Thank you. Your order has been placed successfully.</h2>
-<button class="save-btn btn" onclick="window.print()">Print Order</button>
-<button class="back-btn btn" onclick="window.location.href='/'">Continue Shopping</button>
+    <div style="display:flex; justify-content:space-between; margin-top:10px;">
+      <span>Network Commission (5%)</span>
+      <strong>£{{ commission|floatformat:2 }}</strong>
+    </div>
+
+    <hr>
+
+    <div style="display:flex; justify-content:space-between; font-size:22px;">
+      <strong>Total Paid</strong>
+      <strong>£{{ total|floatformat:2 }}</strong>
+    </div>
+  </div>
+
+  <div style="background:#ecfdf5; border:1px solid #a7f3d0; border-radius:14px; padding:16px; margin-top:25px; color:#047857;">
+    ✔ Your order has been created and split across the relevant producers.
+  </div>
+
+  <div style="display:flex; gap:15px; margin-top:25px;">
+    <button class="save-btn btn" onclick="window.print()">Print Order</button>
+    <button class="back-btn btn" onclick="window.location.href='/'">Continue Shopping</button>
+  </div>
+
+</div>
 
 {% endblock %}

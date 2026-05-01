@@ -4,7 +4,15 @@
 
   <div class="card stack">
     <h1>Your Cart</h1>
-
+    {% if messages %}
+  <div class="message-container">
+    {% for message in messages %}
+      <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
+        {{ message }}
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
     {% if cart_items %}
       <div class="cart-layout">
 
