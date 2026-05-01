@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>BRFN Marketplace</title>
 
-  <link rel="stylesheet" href="{% static 'css/main.css' %}">
+  <link rel="stylesheet" href="{% static 'dist/css/main.css' %}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
 </head>
@@ -121,8 +121,8 @@
         </button>
 
         <a href="{% url 'marketplace:surplus_deals' %}" class="surplus-popup-link">
-          <strong>Fresh offers are live</strong>
-          <span>Browse yellow-tag savings before the best picks sell out.</span>
+          <strong>Hurry up and save on {{ active_surplus_deal_count }} limited deal{{ active_surplus_deal_count|pluralize }}</strong>
+          <span>Enjoy our yellow-tag offers before the prices go back up.</span>
         </a>
       </div>
 
@@ -241,7 +241,7 @@
         if (surplusPopup && sessionStorage.getItem("surplusPopupClosed") !== "true") {
           surplusPopupShowTimer = setTimeout(() => {
             showSurplusPopup();
-          }, 60000); // first appears after 1 minute
+          }, 8000); // first appears after 8 seconds
         }
       </script>
       {% endif %}
@@ -249,7 +249,7 @@
   {% endif %}
 {% endif %}
   {% if messages %}
-    <div class="messages-wrap stack">
+    <div class="stack">
       {% for message in messages %}
         <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
           {{ message }}

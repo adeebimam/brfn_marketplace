@@ -19,7 +19,7 @@ from .models import (
     Product,
     ProducerOrder,
 )
-from .services import update_producer_order_status
+from .services import expire_surplus_deals, update_producer_order_status
 
 
 # -----------------------------
@@ -66,11 +66,28 @@ def _get_product_unit_price(product):
     return product.price
 
 
+def _attach_producer_order_context(producer_orders):
+    for producer_order in producer_orders:
+        order_date = timezone.localtime(producer_order.order.created_at).date()
+        producer_order.lead_time_days = max(
+            (producer_order.delivery_date - order_date).days,
+            0,
+        )
+        producer_order.item_summary = ", ".join(
+            f"{item.product.name} x{item.quantity}"
+            for item in producer_order.items.all()
+        )
+
+    return producer_orders
+
+
 # ----------------------------
 # PRODUCT LIST
 # ----------------------------
 
 def product_list(request):
+    expire_surplus_deals()
+
     products = (
         Product.objects.filter(is_active=True, stock_quantity__gt=0)
         .select_related("category", "producer")
@@ -148,6 +165,8 @@ def product_list(request):
 # ----------------------------
 
 def product_detail(request, pk):
+    expire_surplus_deals()
+
     product = get_object_or_404(
         Product.objects.select_related("category", "producer").prefetch_related("allergens"),
         pk=pk,
@@ -169,6 +188,8 @@ def product_detail(request, pk):
 # ----------------------------
 
 def surplus_deals(request):
+    expire_surplus_deals()
+
     now = timezone.now()
 
     products = (
@@ -570,6 +591,9 @@ def producer_order_list(request):
     else:
         orders = orders.order_by("delivery_date")
 
+    orders = list(orders)
+    _attach_producer_order_context(orders)
+
     return render(request, "marketplace/producer_order_list.html", {
         "orders": orders,
         "selected_status": status,
@@ -594,6 +618,7 @@ def producer_order_detail(request, pk):
         pk=pk,
         producer=request.user,
     )
+    _attach_producer_order_context([po])
 
     return render(
         request,

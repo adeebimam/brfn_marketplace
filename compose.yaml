@@ -38,7 +38,7 @@ services:
       - .:/app
     command: >
       sh -c "npm install -g sass &&
-             sass --watch static/src/scss/main.scss:static/css/main.css"
+             sass --watch static/src/scss:static/dist/css"
 
 volumes:
   mysql_data:

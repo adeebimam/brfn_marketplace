@@ -6,9 +6,13 @@
 
   <p><strong>Customer:</strong> {{ po.order.customer.username }}</p>
   <p><strong>Customer email:</strong> {{ po.order.customer.email }}</p>
+  {% if po.order.customer.profile.phone %}
+    <p><strong>Customer phone:</strong> {{ po.order.customer.profile.phone }}</p>
+  {% endif %}
 
   <p><strong>Order date:</strong> {{ po.order.created_at|date:"F j, Y, P" }}</p>
   <p><strong>Delivery date:</strong> {{ po.delivery_date|date:"F j, Y" }}</p>
+  <p><strong>Lead time:</strong> {{ po.lead_time_days }} day{{ po.lead_time_days|pluralize }}</p>
 
   <p><strong>Status:</strong> {{ po.get_status_display }}</p>
   <p><strong>Total:</strong> £{{ po.total_value }}</p>

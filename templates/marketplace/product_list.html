@@ -62,16 +62,6 @@
 
     <br>
 
-    {% if active_surplus_deal_count > 0 %}
-      <a href="{% url 'marketplace:surplus_deals' %}" class="deal-callout" style="margin-bottom:1rem;">
-        <div>
-          <strong>Fresh offers just dropped</strong>
-          <div>Yellow-tag items have limited discount stock. When that runs out, extra quantity stays at the normal price.</div>
-        </div>
-        <span class="deal-callout-link">Browse offers</span>
-      </a>
-    {% endif %}
-
     <ul class="list product-results">
       {% for p in products %}
         <li class="product-card">
@@ -118,25 +108,27 @@
 
               <div style="margin-top: 12px;">
                 {% if p.is_active_surplus_deal %}
-                  <p style="margin: 0;">
-                    <span style="color: red; text-decoration: line-through; font-weight: 600;">
-                      £{{ p.price }}
-                    </span>
-                    <strong style="color: green; margin-left: 8px; font-size: 1.1rem;">
-                      £{{ p.discounted_price }}
-                    </strong>
-                    <span class="muted">/ {{ p.get_unit_display }}</span>
-                  </p>
+                  <div class="deal-price-cluster">
+                    <div class="deal-price-current">
+                      <span>£{{ p.discounted_price }}</span>
+                      <span class="deal-price-unit">/ {{ p.get_unit_display }}</span>
+                    </div>
 
-                  <p style="color:#a16207; font-weight:700; margin: 4px 0;">
-                    Limited-time offer — {{ p.surplus_discount_percent }}% off
-                  </p>
+                    <div class="deal-price-compare">
+                      <span class="deal-price-was">Was £{{ p.price }}</span>
+                      <span class="deal-price-save">Save £{{ p.surplus_discount_amount }}</span>
+                    </div>
 
-                  {% if p.surplus_expires_at %}
-                    <p class="muted" style="margin: 4px 0;">
-                      Deal ends: {{ p.surplus_expires_at }}
+                    <p class="deal-stock-note">
+                      {{ p.surplus_discount_percent }}% off on {{ p.surplus_stock_quantity }} offer item{{ p.surplus_stock_quantity|pluralize }}.
                     </p>
-                  {% endif %}
+
+                    {% if p.surplus_expires_at %}
+                      <p class="deal-expiry">
+                        Deal ends: {{ p.surplus_expires_at|date:"F j, Y, g:i a" }}
+                      </p>
+                    {% endif %}
+                  </div>
                 {% else %}
                   <p style="margin: 0;">
                     <strong>£{{ p.price }}</strong>

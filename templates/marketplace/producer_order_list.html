@@ -31,16 +31,17 @@
   {% if orders %}
     <table class="table producer-order-table">
       <thead>
-        <tr>
-          <th>Order #</th>
-          <th>Customer</th>
-          <th>Order Date</th>
-          <th>Delivery Date</th>
-          <th>Status</th>
-          <th class="center">Items</th>
-          <th class="right">Total</th>
-          <th class="right"></th>
-        </tr>
+          <tr>
+            <th>Order #</th>
+            <th>Customer</th>
+            <th>Order Date</th>
+            <th>Delivery Date</th>
+            <th>Lead Time</th>
+            <th>Status</th>
+            <th>Items Ordered</th>
+            <th class="right">Total</th>
+            <th class="right"></th>
+          </tr>
       </thead>
       <tbody>
         {% for po in orders %}
@@ -49,12 +50,13 @@
             <td>{{ po.order.customer.username }}</td>
             <td>{{ po.order.created_at|date:"Y-m-d H:i" }}</td>
             <td>{{ po.delivery_date|date:"F j, Y" }}</td>
+            <td>{{ po.lead_time_days }} day{{ po.lead_time_days|pluralize }}</td>
             <td>
               <span class="order-status status-{{ po.status|lower }}">
                 {{ po.get_status_display }}
               </span>
             </td>
-            <td class="center">{{ po.items.count }}</td>
+            <td>{{ po.item_summary|default:"No items recorded" }}</td>
             <td class="right">£{{ po.total_value }}</td>
             <td class="right">
               <a href="{% url 'marketplace:producer_order_detail' po.id %}">View</a>

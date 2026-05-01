@@ -466,3 +466,31 @@ class TC19SurplusDealTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "Last Minute Deal")
         self.assertContains(response, "£10.00")
+
+    def test_expired_surplus_deal_is_cleared_from_database_on_product_list_visit(self):
+        product = Product.objects.create(
+            producer=self.producer,
+            category=self.category,
+            name="Milk",
+            description="Fresh milk",
+            price=Decimal("4.00"),
+            stock_quantity=5,
+            is_surplus=True,
+            surplus_discount_percent=25,
+            surplus_stock_quantity=2,
+            surplus_expires_at=timezone.now() - timedelta(minutes=10),
+            surplus_note="Use soon",
+        )
+
+        response = self.client.get(reverse("marketplace:product_list"))
+
+        self.assertEqual(response.status_code, 200)
+
+        product.refresh_from_db()
+        self.assertFalse(product.is_surplus)
+        self.assertIsNone(product.surplus_discount_percent)
+        self.assertEqual(product.surplus_discounted_price, Decimal("0.00"))
+        self.assertEqual(product.surplus_discount_amount, Decimal("0.00"))
+        self.assertEqual(product.surplus_stock_quantity, 0)
+        self.assertIsNone(product.surplus_expires_at)
+        self.assertEqual(product.surplus_note, "")

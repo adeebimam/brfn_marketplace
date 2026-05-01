@@ -7,6 +7,7 @@ from django.views.decorators.http import require_POST
 
 from apps.marketplace.models import Product
 from apps.marketplace.forms import CheckoutForm
+from apps.marketplace.services import expire_surplus_deals
 from .models import Cart, CartItem
 
 
@@ -48,6 +49,8 @@ def _build_cart_pricing(item):
 
 @login_required
 def cart_detail(request):
+    expire_surplus_deals()
+
     cart, _ = Cart.objects.get_or_create(user=request.user)
 
     items = cart.items.select_related("product", "product__producer")
@@ -70,6 +73,8 @@ def cart_detail(request):
 @require_POST
 @login_required
 def cart_add(request, product_id):
+    expire_surplus_deals()
+
     if not _can_use_cart(request.user):
         messages.error(request, "Only buyer accounts can add items to the cart.")
         return redirect("marketplace:product_list")
@@ -121,6 +126,8 @@ def cart_add(request, product_id):
 @require_POST
 @login_required
 def cart_update(request, product_id):
+    expire_surplus_deals()
+
     if not _can_use_cart(request.user):
         messages.error(request, "Only buyer accounts can update the cart.")
         return redirect("marketplace:product_list")
@@ -175,6 +182,8 @@ def cart_remove(request, product_id):
 
 @login_required
 def checkout(request):
+    expire_surplus_deals()
+
     cart, _ = Cart.objects.get_or_create(user=request.user)
 
     if not cart.items.exists():

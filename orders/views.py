@@ -16,6 +16,7 @@ from apps.marketplace.models import (
     Product,
     ProducerOrderStatusHistory,
 )
+from apps.marketplace.services import expire_surplus_deals
 
 
 @login_required
@@ -139,6 +140,8 @@ def _order_status_steps(order):
 
 @login_required
 def payment(request):
+    expire_surplus_deals()
+
     total = request.session.get("order_total")
     cart_items = request.session.get("cart_items", [])
     address = request.session.get("delivery_address", "")

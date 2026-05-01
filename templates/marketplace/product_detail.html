@@ -15,16 +15,6 @@
       </div>
     {% endif %}
 
-    {% if product.is_active_surplus_deal %}
-      <a href="{% url 'marketplace:surplus_deals' %}" class="deal-callout">
-        <div>
-          <strong>Offer live now</strong>
-          <div>{{ product.surplus_stock_quantity }} discounted item(s) left until {{ product.surplus_expires_at|date:"F j, Y, g:i a" }}</div>
-        </div>
-        <span class="deal-callout-link">See offers</span>
-      </a>
-    {% endif %}
-
     {# ── Seasonal indicator ── #}
     {% if product.is_year_round %}
       <p style="color:#6b7280; font-size:0.9rem;">Available Year-Round</p>
@@ -48,18 +38,25 @@
     {% if product.is_active_surplus_deal %}
       <div class="deal-price-block">
         <div class="deal-badge">Limited-time offer — {{ product.surplus_discount_percent }}% OFF</div>
-        <p class="price" style="margin:10px 0 0;">
-          <span style="color:#b45309; text-decoration:line-through; font-weight:600;">
-            £{{ product.price }}
-          </span>
-          <strong style="color:#166534; margin-left:8px;">
-            £{{ product.discounted_price }}
-          </strong>
-          <span class="muted">/ {{ product.get_unit_display }}</span>
-        </p>
+
+        <div class="deal-price-cluster">
+          <div class="deal-price-current">
+            <span>£{{ product.discounted_price }}</span>
+            <span class="deal-price-unit">/ {{ product.get_unit_display }}</span>
+          </div>
+
+          <div class="deal-price-compare">
+            <span class="deal-price-was">Was £{{ product.price }}</span>
+            <span class="deal-price-save">Save £{{ product.surplus_discount_amount }}</span>
+          </div>
+
+          <p class="deal-stock-note">
+            {{ product.surplus_stock_quantity }} discounted item{{ product.surplus_stock_quantity|pluralize }} left at this offer price.
+          </p>
+        </div>
 
         {% if product.surplus_expires_at %}
-          <p><strong>Offer ends:</strong> {{ product.surplus_expires_at|date:"F j, Y, g:i a" }}</p>
+          <p class="deal-expiry"><strong>Offer ends:</strong> {{ product.surplus_expires_at|date:"F j, Y, g:i a" }}</p>
         {% endif %}
 
         {% if product.best_before_date %}

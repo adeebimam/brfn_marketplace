@@ -1,6 +1,9 @@
-from django.db import transaction
+from decimal import Decimal
 
-from .models import Order, ProducerOrder, ProducerOrderStatusHistory
+from django.db import transaction
+from django.utils import timezone
+
+from .models import Order, ProducerOrder, ProducerOrderStatusHistory, Product
 
 
 ALLOWED_TRANSITIONS = {
@@ -18,6 +21,32 @@ ALLOWED_TRANSITIONS = {
     ProducerOrder.Status.DELIVERED: [],
     ProducerOrder.Status.CANCELLED: [],
 }
+
+
+def expire_surplus_deals(now=None):
+    """
+    Clear expired surplus pricing from the database.
+
+    This keeps the stored product state aligned with what customers should see
+    once a timed offer has ended.
+    """
+    if now is None:
+        now = timezone.now()
+
+    return Product.objects.filter(
+        is_surplus=True,
+        surplus_expires_at__isnull=False,
+        surplus_expires_at__lte=now,
+    ).update(
+        is_surplus=False,
+        surplus_discount_percent=None,
+        surplus_discounted_price=Decimal("0.00"),
+        surplus_discount_amount=Decimal("0.00"),
+        surplus_stock_quantity=0,
+        surplus_expires_at=None,
+        surplus_note="",
+        best_before_date=None,
+    )
 
 
 def recalculate_order_status(order):
