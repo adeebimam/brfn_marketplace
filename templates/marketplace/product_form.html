@@ -42,6 +42,16 @@
     </fieldset>
 
     <fieldset style="border:1px solid #ddd; padding:1rem; border-radius:8px; margin-bottom:1rem;">
+      <legend style="font-weight:600; padding:0 0.5rem;">📦 Stock Alert</legend>
+      <div style="margin-bottom:0.5rem;">
+        {{ form.low_stock_threshold.label_tag }} {{ form.low_stock_threshold }}
+      </div>
+      <p class="muted" style="font-size:0.85rem; margin-top:0.25rem;">
+        {{ form.low_stock_threshold.help_text }}
+      </p>
+    </fieldset>
+
+    <fieldset style="border:1px solid #ddd; padding:1rem; border-radius:8px; margin-bottom:1rem;">
       <legend style="font-weight:600; padding:0 0.5rem;">Seasonal Availability</legend>
       <div style="margin-bottom:0.75rem;">
         {{ form.season.label_tag }} {{ form.season }}
