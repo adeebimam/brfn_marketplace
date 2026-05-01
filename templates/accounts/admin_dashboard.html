@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+  <h1>BRFN Admin Dashboard</h1>
+
+  <div class="admin-stats">
+      <div class="admin-grid">
+          <div class="admin-card">
+            <h3>Pending Approvals</h3>
+            <p>{{ pending_producers_count }}</p>
+            {% if pending_producers_count > 0 %}
+              <a class="a-text" href="{% url 'accounts:admin_producer_approvals' %}">View</a>
+            {% endif %}
+          </div>
+
+          <div class="admin-card">
+            <h3>Total Orders</h3>
+            <p>{{ total_orders }}</p>
+            {% if total_orders > 0 %}
+              <a class="a-text" href="{% url 'accounts:admin_total_orders' %}">View</a>
+            {% endif %}
+          </div>
+
+
+        <div class="admin-card">
+          <h3>Total Products</h3>
+          <p>{{ total_products }}</p>
+          {% if total_products > 0 %}
+            <a class="a-text" href="{% url 'accounts:admin_total_products' %}">View</a>
+          {% endif %}
+        </div>
+
+        <div class="admin-card">
+          <h3>Accounts</h3>
+          <p>{{ total_accounts }}</p>
+          {% if total_accounts > 0 %}
+            <a class="a-text" href="{% url 'accounts:admin_accounts' %}">View</a>
+          {% endif %}
+        </div>
+        
+      </div>
+    
+  </div>
+
+
+
+  <h2>Admin Actions</h2>
+
+  <p>
+    <a class="btn save-btn" href="{% url 'accounts:admin_producer_approvals' %}">
+      Review Producer Approvals
+    </a>
+    <a class="btn save-btn" href="{% url 'accounts:admin_financial_report' %}">
+      View Finance
+    </a>
+
+  </p>
+</div>
+{% endblock %}

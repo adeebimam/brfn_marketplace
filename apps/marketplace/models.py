@@ -79,6 +79,8 @@ class Product(models.Model):
         help_text="Last month this product is in season (leave blank for year-round).",
     )
 
+    image = models.ImageField(upload_to="product_images/", blank=True, null=True)
+
     # ── Computed helpers ──────────────────────────────────
     @property
     def is_year_round(self):
@@ -139,6 +141,13 @@ class Product(models.Model):
 
 
 class Order(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        CONFIRMED = "CONFIRMED", "Confirmed"
+        READY = "READY", "Ready"
+        DELIVERED = "DELIVERED", "Delivered"
+        CANCELLED = "CANCELLED", "Cancelled"
+
     customer = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -152,10 +161,22 @@ class Order(models.Model):
 
     special_instructions = models.TextField(blank=True)
 
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING
+    )
+
+    total_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00
+    )
+
     def __str__(self):
         return f"Order #{self.id}"
-
-
+    
+    
 class ProducerOrder(models.Model):
 
     class Status(models.TextChoices):
@@ -163,6 +184,7 @@ class ProducerOrder(models.Model):
         CONFIRMED = "CONFIRMED", "Confirmed"
         READY = "READY", "Ready"
         DELIVERED = "DELIVERED", "Delivered"
+        CANCELLED = "CANCELLED", "Cancelled"
 
     order = models.ForeignKey(
         Order,

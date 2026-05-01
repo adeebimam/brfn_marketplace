@@ -1,44 +1,207 @@
-from django.shortcuts import render, redirect
-from apps.cart.models import Cart
+from collections import defaultdict
+from decimal import Decimal
+from datetime import datetime
 
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from django.shortcuts import render, redirect
+
+from apps.cart.models import Cart
+from apps.marketplace.models import (
+    Order,
+    ProducerOrder,
+    OrderItem,
+    Product,
+    ProducerOrderStatusHistory,
+)
+
+
+@login_required
 def checkout(request):
     return render(request, "orders/checkout.html")
 
+
+@login_required
 def payment(request):
-    total = request.session.get('order_total')
-    cart_items = request.session.get('cart_items', [])
-    # Retrieve checkout/session data
-    address = request.session.get('delivery_address', '')
-    date = request.session.get('delivery_date', '')
-    payment_method = request.session.get('payment_method', '')
-    producers = request.session.get('producers', {})
-    subtotal = request.session.get('subtotal', total)
-    commission = request.session.get('commission', '')
+    total = request.session.get("order_total")
+    cart_items = request.session.get("cart_items", [])
+    address = request.session.get("delivery_address", "")
+    date = request.session.get("delivery_date", "")
+    payment_method = request.session.get("payment_method", "")
+    subtotal = request.session.get("subtotal", total)
+    commission = request.session.get("commission", "")
+
     if request.method == "POST":
-        # Update session with latest POSTed values if present
-        address = request.POST.get('delivery_address', address)
-        date = request.POST.get('delivery_date', date)
-        payment_method = request.POST.get('payment_method', payment_method)
-        request.session['delivery_address'] = address
-        request.session['delivery_date'] = date
-        request.session['payment_method'] = payment_method
-        order_number = "BRFN-" + str(request.user.id) + "-" + str(request.session.session_key)
+        address = request.POST.get("delivery_address", address)
+        date = request.POST.get("delivery_date", date)
+        payment_method = request.POST.get("payment_method", payment_method)
+        postcode = request.session.get("delivery_postcode", "")
+
+        request.session["delivery_address"] = address
+        request.session["delivery_date"] = date
+        request.session["payment_method"] = payment_method
 
         cart, _ = Cart.objects.get_or_create(user=request.user)
-        cart.items.all().delete()# Clear the cart after order is placed
-        request.session["cart"]={}
-        request.session["cart_items"]=[]
-        request.session.modified = True
-                        
+        db_cart_items = list(
+            cart.items.select_related("product", "product__producer")
+        )
+
+        if not db_cart_items:
+            messages.error(request, "Your cart is empty.")
+            return redirect("cart:detail")
+
+        try:
+            if not date:
+                messages.error(request, "Delivery date is missing.")
+                return redirect("cart:checkout")
+
+            try:
+                delivery_date_obj = datetime.fromisoformat(date).date()
+            except ValueError:
+                messages.error(request, "Invalid delivery date.")
+                return redirect("cart:checkout")
+
+            with transaction.atomic():
+                locked_products = {}
+
+                for item in db_cart_items:
+                    product = Product.objects.select_for_update().get(
+                        pk=item.product_id
+                    )
+
+                    if not product.is_active:
+                        raise ValueError(f"{product.name} is no longer available.")
+
+                    if not product.is_in_season():
+                        raise ValueError(f"{product.name} is currently out of season.")
+
+                    if item.quantity > product.stock_quantity:
+                        raise ValueError(
+                            f"Insufficient stock for {product.name}. "
+                            f"Available: {product.stock_quantity}, requested: {item.quantity}."
+                        )
+
+                    locked_products[item.product_id] = product
+
+                order = Order.objects.create(
+                    customer=request.user,
+                    delivery_address=address,
+                    special_instructions="",
+                    delivery_postcode=postcode,
+                    status=Order.Status.PENDING,
+                    total_amount=Decimal("0.00"),
+                )
+
+                grouped_items = defaultdict(list)
+
+                for item in db_cart_items:
+                    grouped_items[item.product.producer].append(item)
+
+                producer_order_summaries = []
+                computed_subtotal = Decimal("0.00")
+
+                for producer, items in grouped_items.items():
+                    producer_total = Decimal("0.00")
+
+                    producer_order = ProducerOrder.objects.create(
+                        order=order,
+                        producer=producer,
+                        delivery_date=delivery_date_obj,
+                        status=ProducerOrder.Status.PENDING,
+                        total_value=Decimal("0.00"),
+                    )
+
+                    ProducerOrderStatusHistory.objects.create(
+                        producer_order=producer_order,
+                        old_status="",
+                        new_status=ProducerOrder.Status.PENDING,
+                        note="Order created",
+                        changed_by=request.user,
+                    )
+
+                    for item in items:
+                        product = locked_products[item.product_id]
+                        line_total = (
+                            product.price * item.quantity
+                        ).quantize(Decimal("0.01"))
+
+                        OrderItem.objects.create(
+                            producer_order=producer_order,
+                            product=product,
+                            quantity=item.quantity,
+                            unit_price=product.price,
+                        )
+
+                        product.stock_quantity -= item.quantity
+                        product.save(update_fields=["stock_quantity"])
+
+                        producer_total += line_total
+                        computed_subtotal += line_total
+
+                    producer_order.total_value = producer_total.quantize(
+                        Decimal("0.01")
+                    )
+                    producer_order.save(update_fields=["total_value"])
+
+                    producer_order_summaries.append({
+                        "producer": producer,
+                        "producer_order": producer_order,
+                        "items": items,
+                        "total": producer_order.total_value,
+                    })
+
+                computed_commission = (
+                    computed_subtotal * Decimal("0.05")
+                ).quantize(Decimal("0.01"))
+
+                computed_total = (
+                    computed_subtotal + computed_commission
+                ).quantize(Decimal("0.01"))
+
+                order.total_amount = computed_total
+                order.save(update_fields=["total_amount"])
+
+                cart.items.all().delete()
+
+                request.session["cart"] = {}
+
+                for key in [
+                    "cart_items",
+                    "order_total",
+                    "delivery_address",
+                    "delivery_postcode",
+                    "delivery_date",
+                    "payment_method",
+                    "producers",
+                    "subtotal",
+                    "commission",
+                ]:
+                    request.session.pop(key, None)
+
+                request.session.modified = True
+
+        except ValueError as e:
+            messages.error(request, str(e))
+            return redirect("cart:checkout")
+
         context = {
-            "order_number": order_number,
-            "address": address,
+            "order": order,
+            "order_number": f"BRFN-{order.id}",
+            "address": order.delivery_address,
             "date": date,
             "payment": payment_method,
-            "producers": producers,
-            "subtotal": subtotal,
-            "commission": commission,
-            "total": total,
+            "producer_order_summaries": producer_order_summaries,
+            "subtotal": computed_subtotal,
+            "commission": computed_commission,
+            "total": computed_total,
         }
+
         return render(request, "orders/confirmation.html", context)
-    return render(request, "orders/payment.html", {"total": total, "cart_items": cart_items})
+
+    return render(request, "orders/payment.html", {
+        "total": total,
+        "cart_items": cart_items,
+        "subtotal": subtotal,
+        "commission": commission,
+    })

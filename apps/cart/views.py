@@ -73,7 +73,7 @@ def cart_add(request, product_id):
     cart, _ = Cart.objects.get_or_create(user=request.user)
 
     try:
-        qty = int(request.POST.get("qty", 1))
+        qty = int(request.POST.get("qty"))
     except (TypeError, ValueError):
         qty = 1
 
@@ -82,17 +82,21 @@ def cart_add(request, product_id):
 
     item, created = CartItem.objects.get_or_create(cart=cart, product=product)
 
-    if created:
-        item.quantity = qty
-    else:
-        item.quantity += qty
+    new_quantity = qty if created else item.quantity + qty
 
+    if new_quantity > product.stock_quantity:
+        messages.error(
+            request,
+            f"Cannot add more than available stock ({product.stock_quantity}) for {product.name}."
+        )
+        return redirect("cart:detail")
+
+    item.quantity = new_quantity
     item.save()
     _sync_session_cart(request, cart)
 
     messages.success(request, f"Added {qty} {product.name} to your cart.")
     return redirect("cart:detail")
-
 
 @require_POST
 @login_required
@@ -103,6 +107,7 @@ def cart_update(request, product_id):
 
     cart, _ = Cart.objects.get_or_create(user=request.user)
     item = get_object_or_404(CartItem, cart=cart, product_id=product_id)
+    product = item.product
 
     try:
         qty = int(request.POST.get("qty", 1))
@@ -110,13 +115,16 @@ def cart_update(request, product_id):
         qty = 1
 
     if qty <= 0:
-        product_name = item.product.name
+        product_name = product.name
         item.delete()
         messages.info(request, f"Removed {product_name} from your cart.")
     else:
+        if qty > product.stock_quantity:
+            messages.error(request, f"Cannot add more than available stock ({product.stock_quantity}) for {product.name}.")
+            qty = product.stock_quantity
         item.quantity = qty
         item.save()
-        messages.success(request, f"Updated {item.product.name} to {qty}.")
+        messages.success(request, f"Updated {product.name} to {qty}.")
 
     _sync_session_cart(request, cart)
     return redirect("cart:detail")
@@ -179,8 +187,11 @@ def checkout(request):
     _sync_session_cart(request, cart)
 
     initial = {}
-    if hasattr(request.user, 'profile') and request.user.profile.delivery_address:
-        initial['delivery_address'] = request.user.profile.delivery_address
+    if hasattr(request.user, 'profile'):  
+        if request.user.profile.delivery_address:
+                initial['delivery_address'] = request.user.profile.delivery_address
+        if request.user.profile.delivery_postcode:
+            initial['delivery_postcode'] = request.user.profile.delivery_postcode
     form = CheckoutForm(initial=initial)
 
     if request.method == "POST":
@@ -189,6 +200,7 @@ def checkout(request):
             request.session['order_total'] = str(total)
             request.session['cart_items'] = cart_items
             request.session['delivery_address'] = form.cleaned_data.get('delivery_address', '')
+            request.session['delivery_postcode'] = form.cleaned_data.get('delivery_postcode', '')
             # Convert delivery_date to string for session storage
             delivery_date = form.cleaned_data.get('delivery_date', '')
             if hasattr(delivery_date, 'isoformat'):

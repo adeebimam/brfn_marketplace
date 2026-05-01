@@ -39,13 +39,13 @@
                   </td>
 
                   <td>
-                    {% if item.producer.profile.business_name %}
-                      {{ item.producer.profile.business_name }}
+                    {% if item.product.producer.profile.business_name %}
+                      {{ item.product.producer.profile.business_name }}
                     {% else %}
-                      {{ item.producer.username }}
+                      {{ item.product.producer.username }}
                     {% endif %}
                   </td>
-                  <td>£{{ item.unit_price }}</td>
+                  <td>£{{ item.product.price }}</td>
 
                   <!-- Auto-submit qty form on change -->
                   <td>

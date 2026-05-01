@@ -1,7 +1,11 @@
 from django import forms
+from django.forms.widgets import ClearableFileInput
 from datetime import date, timedelta
 from .models import Product, Allergen, ProducerOrder, MONTH_CHOICES
 from .models import Product, Allergen, ProducerOrder, MONTH_CHOICES, Review
+
+class NoClearableFileInput(forms.ClearableFileInput):
+    template_name = 'widgets/no_clearable_file_input.html'
 
 class ProductForm(forms.ModelForm):
     # Virtual field: ticking "Not available" sets is_active=False
@@ -38,6 +42,7 @@ class ProductForm(forms.ModelForm):
             "allergens",
             "other_allergen_info",
             "harvest_date",
+            "image",  # Add image field to form
         ]
         widgets = {
             "allergens": forms.CheckboxSelectMultiple(),
@@ -49,6 +54,7 @@ class ProductForm(forms.ModelForm):
             ),
             "harvest_date": forms.DateInput(attrs={"type": "date"}),
             "unit": forms.Select(choices=Product.UNIT_CHOICES),
+            "image": NoClearableFileInput,
         }
 
     def clean(self):
@@ -92,6 +98,7 @@ class CheckoutForm(forms.Form):
     delivery_address = forms.CharField(
         widget=forms.Textarea(attrs={"rows": 2})
     )
+    delivery_postcode = forms.CharField(max_length=20)
 
     delivery_date = forms.DateField(
         required=False,
@@ -167,11 +174,12 @@ class CheckoutForm(forms.Form):
 
 
 class ProducerOrderStatusForm(forms.Form):
-    status = forms.ChoiceField(choices=ProducerOrder.Status.choices)
+    status = forms.ChoiceField(choices=[])
     note = forms.CharField(
         required=False,
         widget=forms.Textarea(attrs={"rows": 3, "placeholder": "Optional note about status change"}),
     )
+<<<<<<< HEAD
 class ReviewForm(forms.ModelForm):
     rating = forms.IntegerField(
         min_value=1,
@@ -207,3 +215,10 @@ class ReviewForm(forms.ModelForm):
             raise forms.ValidationError("Rating must be between 1 and 5.")
 
         return rating
+=======
+
+    def __init__(self, *args, **kwargs):
+        status_choices = kwargs.pop("status_choices", ProducerOrder.Status.choices)
+        super().__init__(*args, **kwargs)
+        self.fields["status"].choices = status_choices
+>>>>>>> origin/dev
