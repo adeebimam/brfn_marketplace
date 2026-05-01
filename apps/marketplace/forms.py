@@ -179,7 +179,7 @@ class ProducerOrderStatusForm(forms.Form):
         required=False,
         widget=forms.Textarea(attrs={"rows": 3, "placeholder": "Optional note about status change"}),
     )
-<<<<<<< HEAD
+
 class ReviewForm(forms.ModelForm):
     rating = forms.IntegerField(
         min_value=1,

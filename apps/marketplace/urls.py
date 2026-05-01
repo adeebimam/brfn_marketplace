@@ -31,7 +31,7 @@ urlpatterns = [
     # TC-012 Producer payments
     path("producer/payments/", views.producer_payments, name="producer_payments"),
     path("producer/payments/download/", views.download_payments_csv, name="download_payments_csv"),
-<<<<<<< HEAD
+
 
      # TC21 - CUSTOMER ORDER HISTORY
     # -----------------------------
@@ -39,8 +39,8 @@ urlpatterns = [
     path("orders/<str:order_id>/", views.order_detail, name="order_detail"),
     path("orders/<str:order_id>/reorder/", views.reorder, name="reorder"),
     path("orders/<str:order_id>/receipt/", views.download_receipt, name="download_receipt"),
-=======
+
     path("producer/orders/", views.producer_order_management, name="producer_order_management"),
 
->>>>>>> origin/dev
+
 ]
