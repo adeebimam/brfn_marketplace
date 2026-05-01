@@ -26,11 +26,9 @@
 
             <div class="producer-details" style="display: none;">
               <p><strong>Email:</strong> {{ producer.user.email|default:"-" }}</p>
-              <p><strong>Business Type:</strong> {{ producer.business_type|default:"-" }}</p>
               <p><strong>Address:</strong> {{ producer.address|default:"-" }}</p>
               <p><strong>Postcode:</strong> {{ producer.postcode|default:"-" }}</p>
-              <p><strong>Phone:</strong> {{ producer.phone_number|default:"-" }}</p>
-              <p><strong>Notes:</strong> {{ producer.verification_notes|default:"-" }}</p>
+              <p><strong>Phone:</strong> {{ producer.phone|default:"-" }}</p>
             </div>
           </div>
 

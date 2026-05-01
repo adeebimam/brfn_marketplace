@@ -406,12 +406,12 @@ def admin_order_detail(request, order_id):
                                     ],
             Order.Status.READY: [
                                 Order.Status.READY,
-                                Order.Status.COMPLETED,
+                                Order.Status.DELIVERED,
                                 Order.Status.CANCELLED,
                                 ],
 
-            Order.Status.COMPLETED: [
-                                    Order.Status.COMPLETED,
+           Order.Status.DELIVERED: [
+                                    Order.Status.DELIVERED,
                                     Order.Status.CANCELLED,
                                     ],
             Order.Status.CANCELLED: [],
