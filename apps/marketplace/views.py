@@ -3,38 +3,38 @@ import random
 from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
-<<<<<<< HEAD
+
 from tracemalloc import start
 from urllib import request
 from .forms import CheckoutForm, ProductForm, ProducerOrderStatusForm, ReviewForm
 
-=======
+
 from .services import update_producer_order_status
->>>>>>> origin/dev
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-<<<<<<< HEAD
+
 from datetime import date, timedelta, datetime
 
 from apps.cart.models import Cart, CartItem
-=======
+
 from django.http import Http404
->>>>>>> origin/dev
+
 
 from apps.accounts.models import Profile
 
 from .models import (
-<<<<<<< HEAD
+
     Allergen, Category, CustomerOrderHistory, Product, MONTH_NAMES,
     ProducerOrder, ProducerOrderStatusHistory, Review,
-=======
+
     Allergen, Category, Product, MONTH_NAMES,Order,
     ProducerOrder, ProducerOrderStatusHistory,
->>>>>>> origin/dev
+
 )
 
 
