@@ -5,7 +5,6 @@ from apps.accounts import models
 from .models import Product, Allergen, ProducerOrder, MONTH_CHOICES
 
 class ProductForm(forms.ModelForm):
-    # Virtual field: ticking "Not available" sets is_active=False
     not_available = forms.BooleanField(required=False, label="Not available")
 
     def __init__(self, *args, **kwargs):
@@ -19,13 +18,12 @@ class ProductForm(forms.ModelForm):
             "name"
         )
 
-        # Friendly labels for seasonal fields
         self.fields["available_from_month"].label = "In season from"
         self.fields["available_to_month"].label = "In season to"
-
-        # Make month fields optional with blank option
         self.fields["available_from_month"].required = False
         self.fields["available_to_month"].required = False
+        self.fields["low_stock_threshold"].label = "Low stock alert threshold"
+        self.fields["low_stock_threshold"].help_text = "You will be alerted when stock falls below this number."
 
     class Meta:
         model = Product
@@ -34,8 +32,9 @@ class ProductForm(forms.ModelForm):
             "name",
             "description",
             "price",
-            "unit", 
+            "unit",
             "stock_quantity",
+            "low_stock_threshold",
             "season",
             "available_from_month",
             "available_to_month",
@@ -54,6 +53,7 @@ class ProductForm(forms.ModelForm):
             ),
             "harvest_date": forms.DateInput(attrs={"type": "date"}),
             "unit": forms.Select(choices=Product.UNIT_CHOICES),
+            "low_stock_threshold": forms.NumberInput(attrs={"min": 0}),
         }
 
     def clean(self):
@@ -63,29 +63,25 @@ class ProductForm(forms.ModelForm):
         category = cleaned_data.get("category")
         cleaned_data["other_allergen_info"] = other_allergen_info
 
-        
-        if (not allergens or len (allergens) == 0) and not other_allergen_info:
-                raise forms.ValidationError(
-                   "All products must declare allergen information. "
-                    "Select the allergens present, choose 'No common allergens' if none apply, "
-                    "or provide details in the other allergen info field."
-        )
+        if (not allergens or len(allergens) == 0) and not other_allergen_info:
+            raise forms.ValidationError(
+                "All products must declare allergen information. "
+                "Select the allergens present, choose 'No common allergens' if none apply, "
+                "or provide details in the other allergen info field."
+            )
         season = cleaned_data.get("season")
         from_month = cleaned_data.get("available_from_month")
         to_month = cleaned_data.get("available_to_month")
 
-        # If season is not ALL, require both month fields
         if season and season != "ALL":
             if not from_month or not to_month:
                 raise forms.ValidationError(
                     "Please select both 'In season from' and 'In season to' months for seasonal products."
                 )
-        # If ALL, clear month fields
         if season == "ALL":
             cleaned_data["available_from_month"] = None
             cleaned_data["available_to_month"] = None
 
-        # If one month is set the other must be too
         if (from_month and not to_month) or (to_month and not from_month):
             raise forms.ValidationError(
                 "Please set both 'In season from' and 'In season to', or leave both blank for year-round."
@@ -95,11 +91,12 @@ class ProductForm(forms.ModelForm):
 
     def save(self, commit=True):
         product = super().save(commit=False)
-        # Invert: "Not available" checked → is_active = False
         product.is_active = not self.cleaned_data.get("not_available", False)
         if commit:
             product.save()
             self.save_m2m()
+            # Check low stock after saving
+            product.check_low_stock()
         return product
 
 

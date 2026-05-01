@@ -124,7 +124,6 @@ def product_list(request):
                 except Profile.DoesNotExist:
                     pass
 
-        # Apply max_miles filter only for logged-in users with food miles calculated
         products = [
             p for p in products
             if p.food_miles is None or p.food_miles <= max_miles
@@ -279,7 +278,17 @@ def producer_product_list(request):
         return HttpResponseForbidden("Producer access only.")
 
     products = Product.objects.filter(producer=request.user).select_related("category").order_by("-created_at")
-    return render(request, "marketplace/producer_product_list.html", {"products": products})
+
+    from .models import StockNotification
+    active_alerts_count = StockNotification.objects.filter(
+        producer=request.user,
+        is_resolved=False
+    ).count()
+
+    return render(request, "marketplace/producer_product_list.html", {
+        "products": products,
+        "active_alerts_count": active_alerts_count,
+    })
 
 
 # ----------------------------
@@ -335,6 +344,7 @@ def product_update(request, pk):
             product.producer = request.user
             product.save()
             form.save_m2m()
+            product.check_low_stock()
 
             messages.success(request, "Product updated.")
             return redirect("marketplace:producer_product_list")
@@ -764,3 +774,30 @@ def producer_order_update_status(request, pk):
             "form": form,
         },
     )
+
+
+# -----------------------------
+# Stock Notifications
+# -----------------------------
+
+@login_required
+def stock_notifications(request):
+    if not _require_producer(request):
+        return HttpResponseForbidden("Producer access only.")
+
+    from .models import StockNotification
+
+    active_notifications = StockNotification.objects.filter(
+        producer=request.user,
+        is_resolved=False
+    )
+
+    resolved_notifications = StockNotification.objects.filter(
+        producer=request.user,
+        is_resolved=True
+    )[:10]
+
+    return render(request, "marketplace/stock_notifications.html", {
+        "active_notifications": active_notifications,
+        "resolved_notifications": resolved_notifications,
+    })

@@ -31,6 +31,7 @@ def cart_detail(request):
     cart_items = []
     total = Decimal("0.00")
     total_food_miles = Decimal("0.00")
+    seen_producers = set()
 
     from apps.accounts.models import Profile
     from apps.marketplace.foodmiles import calculate_food_miles
@@ -53,8 +54,10 @@ def cart_detail(request):
                 producer_postcode = producer_profile.postcode
                 if producer_postcode:
                     food_miles = calculate_food_miles(customer_postcode, producer_postcode)
-                    if food_miles is not None:
+                    producer_id = item.product.producer.id
+                    if food_miles is not None and producer_id not in seen_producers:
                         total_food_miles += Decimal(str(food_miles))
+                        seen_producers.add(producer_id)
             except Profile.DoesNotExist:
                 pass
 

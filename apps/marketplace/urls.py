@@ -35,4 +35,6 @@ urlpatterns = [
 
     path("products/suggestions/", views.product_search_suggestions, name="product_search_suggestions"),
 
+    # Stock notifications
+    path("producer/stock-alerts/", views.stock_notifications, name="stock_notifications"),
 ]
