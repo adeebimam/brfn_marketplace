@@ -20,7 +20,7 @@ class CartItem(models.Model):
     quantity = models.PositiveIntegerField(default=1)
 
     def line_total(self):
-        return self.product.price * self.quantity
+        return self.product.calculate_price_for_quantity(self.quantity)["total"]
 
     def __str__(self):
         return f"{self.product.name} x {self.quantity}"

@@ -1,30 +1,39 @@
 import csv
 import random
 from collections import defaultdict
-from datetime import date, timedelta, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
-
-from .forms import CheckoutForm, ProductForm, ProducerOrderStatusForm, ReviewForm
-from .services import update_producer_order_status
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import get_user_model
 from django.db.models import Q
-from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
+from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from apps.cart.models import Cart, CartItem
-from django.http import Http404
 from apps.accounts.models import Profile
+from apps.cart.models import Cart, CartItem
 
+from .forms import CheckoutForm, ProductForm, ProducerOrderStatusForm, ReviewForm
 from .models import (
-    Allergen, Category, CustomerOrderHistory, Product, MONTH_NAMES,
-    Order, ProducerOrder, ProducerOrderStatusHistory, Review,
+    Allergen,
+    Category,
+    CustomerOrderHistory,
+    MONTH_NAMES,
+    Order,
+    OrderItem,
+    Product,
+    ProducerOrder,
+    ProducerOrderStatusHistory,
+    Review,
+    StockNotification,
 )
+from .services import expire_surplus_deals, update_producer_order_status
 
-TWO_PLACES = Decimal("0.01")
+
 COMMISSION_RATE = Decimal("0.05")
+TWO_PLACES = Decimal("0.01")
 
 
 # -----------------------------
@@ -32,7 +41,7 @@ COMMISSION_RATE = Decimal("0.05")
 # -----------------------------
 
 def _compute_financials(gross):
-    gross = gross.quantize(TWO_PLACES)
+    gross = Decimal(gross).quantize(TWO_PLACES)
     commission = (gross * COMMISSION_RATE).quantize(TWO_PLACES)
     net = (gross - commission).quantize(TWO_PLACES)
     return commission, net
@@ -47,20 +56,76 @@ def _build_settlement_ref(producer_id, week_start, week_end):
 
 
 def _last_completed_week_range(today):
-    days_since_monday = today.weekday()
-    last_monday = today - timedelta(days=days_since_monday + 7)
-    last_sunday = last_monday + timedelta(days=6)
-    return last_monday, last_sunday
+    current_week_start = today - timedelta(days=today.weekday())
+    week_end = current_week_start - timedelta(days=1)
+    week_start = week_end - timedelta(days=6)
+    return week_start, week_end
 
 
 def _uk_tax_year_start(today):
-    if today.month > 4 or (today.month == 4 and today.day >= 6):
-        return date(today.year, 4, 6)
-    return date(today.year - 1, 4, 6)
+    tax_year_start = date(today.year, 4, 6)
+    if today < tax_year_start:
+        tax_year_start = date(today.year - 1, 4, 6)
+    return tax_year_start
 
 
-def _anonymise_customer(user):
-    return f"{user.first_name} {user.last_name[0]}." if user.last_name else user.username
+def _anonymise_customer(customer):
+    if not customer:
+        return "Unknown customer"
+    full_name = customer.get_full_name().strip()
+    if full_name:
+        parts = full_name.split()
+        if len(parts) == 1:
+            return parts[0]
+        return f"{parts[0]} {parts[-1][0]}."
+    return customer.username
+
+
+def _get_customer_order_history(user):
+    return [
+        record.order_data
+        for record in CustomerOrderHistory.objects.filter(customer=user).order_by("-id")
+    ]
+
+
+def _parse_date(value):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def _has_purchased_product(order_history, product_id):
+    for order in order_history:
+        for producer, items in order.get("producers", {}).items():
+            for item in items:
+                if str(item.get("id")) == str(product_id):
+                    return True
+    return False
+
+
+def _get_product_unit_price(product):
+    if product.is_active_surplus_deal and product.discounted_price is not None:
+        return product.discounted_price
+    return product.price
+
+
+def _attach_producer_order_context(producer_orders):
+    for producer_order in producer_orders:
+        order_date = timezone.localtime(producer_order.order.created_at).date()
+        if producer_order.delivery_date:
+            producer_order.lead_time_days = max(
+                (producer_order.delivery_date - order_date).days, 0,
+            )
+        else:
+            producer_order.lead_time_days = 0
+        producer_order.item_summary = ", ".join(
+            f"{item.product.name} x{item.quantity}"
+            for item in producer_order.items.all()
+        )
+    return producer_orders
 
 
 # -----------------------------
@@ -95,11 +160,14 @@ def _producer_access_denied_response(request):
 # ----------------------------
 
 def product_list(request):
+    expire_surplus_deals()
+
     products = (
         Product.objects.filter(is_active=True, stock_quantity__gt=0)
         .select_related("category", "producer")
         .prefetch_related("allergens")
     )
+
     categories = Category.objects.order_by("name")
     allergens = Allergen.objects.exclude(name="No common allergens").order_by("name")
 
@@ -156,6 +224,7 @@ def product_list(request):
         p.in_season_now = p.is_in_season(today)
         p.real_allergens = [a for a in p.allergens.all() if a.name != "No common allergens"]
 
+    # Food miles
     if request.user.is_authenticated:
         from .foodmiles import _get_lat_lng, _haversine_miles
         try:
@@ -182,10 +251,7 @@ def product_list(request):
                 except Profile.DoesNotExist:
                     pass
 
-        products = [
-            p for p in products
-            if p.food_miles is None or p.food_miles <= max_miles
-        ]
+        products = [p for p in products if p.food_miles is None or p.food_miles <= max_miles]
     else:
         for p in products:
             p.food_miles = None
@@ -203,6 +269,7 @@ def product_list(request):
         "organic_filter": organic_filter,
         "max_miles": max_miles,
     }
+
     return render(request, "marketplace/product_list.html", context)
 
 
@@ -217,9 +284,7 @@ def product_search_suggestions(request):
 
     from thefuzz import fuzz
     products = Product.objects.filter(is_active=True, stock_quantity__gt=0)
-
     exact = list(products.filter(name__icontains=query).values_list("name", flat=True)[:5])
-
     if exact:
         return JsonResponse({"suggestions": exact})
 
@@ -228,7 +293,6 @@ def product_search_suggestions(request):
         p.name for p in all_products
         if fuzz.partial_ratio(query.lower(), p.name.lower()) >= 75
     ][:5]
-
     return JsonResponse({"suggestions": fuzzy})
 
 
@@ -237,21 +301,22 @@ def product_search_suggestions(request):
 # ----------------------------
 
 def product_detail(request, pk):
+    expire_surplus_deals()
+
     product = get_object_or_404(
         Product.objects.select_related("category", "producer").prefetch_related("allergens"),
         pk=pk,
         is_active=True,
     )
 
-    if (not product.is_active or product.stock_quantity <= 0 or not product.is_in_season()):
+    if not product.is_active or product.stock_quantity <= 0 or not product.is_in_season():
         if request.user != product.producer:
             raise Http404("This product is not currently available.")
 
-    reviews = Review.objects.filter(product=product)
-
+    reviews = Review.objects.filter(product=product).order_by("-id")
     average_rating = None
     if reviews.exists():
-        average_rating = round(sum(r.rating for r in reviews) / reviews.count(), 1)
+        average_rating = round(sum(review.rating for review in reviews) / reviews.count(), 1)
 
     food_miles = None
     if request.user.is_authenticated:
@@ -275,29 +340,44 @@ def product_detail(request, pk):
     })
 
 
+# ----------------------------
+# SURPLUS DEALS
+# ----------------------------
+
+def surplus_deals(request):
+    expire_surplus_deals()
+    now = timezone.now()
+    products = (
+        Product.objects.filter(
+            is_active=True, is_surplus=True,
+            surplus_stock_quantity__gt=0, surplus_expires_at__gt=now, stock_quantity__gt=0,
+        )
+        .select_related("category", "producer")
+        .prefetch_related("allergens")
+        .order_by("surplus_expires_at")
+    )
+    today = date.today()
+    products = [p for p in products if p.is_in_season(today)]
+    for p in products:
+        p.in_season_now = p.is_in_season(today)
+    return render(request, "marketplace/surplus_deals.html", {"products": products})
+
+
+# -----------------------------
+# REVIEWS
+# -----------------------------
+
 @login_required
 def create_review(request, product_id):
     product = get_object_or_404(Product, id=product_id)
-
-    order_history = [
-        record.order_data
-        for record in CustomerOrderHistory.objects.filter(customer=request.user)
-    ]
-
-    has_purchased = False
-    for order in order_history:
-        for producer, items in order.get("producers", {}).items():
-            for item in items:
-                if str(item.get("id")) == str(product_id):
-                    has_purchased = True
-                    break
+    order_history = _get_customer_order_history(request.user)
+    has_purchased = _has_purchased_product(order_history, product_id)
 
     if not has_purchased:
         messages.error(request, "You can only review products you have purchased.")
         return redirect("marketplace:product_detail", pk=product_id)
 
     existing_review = Review.objects.filter(product=product, customer=request.user).first()
-
     if existing_review:
         messages.error(request, "You have already reviewed this product.")
         return redirect("marketplace:product_detail", pk=product_id)
@@ -315,14 +395,11 @@ def create_review(request, product_id):
     else:
         form = ReviewForm()
 
-    return render(request, "marketplace/review_form.html", {
-        "form": form,
-        "product": product,
-    })
+    return render(request, "marketplace/review_form.html", {"form": form, "product": product})
 
 
 # -----------------------------
-# Producer product management
+# PRODUCER PRODUCT MANAGEMENT
 # -----------------------------
 
 @login_required
@@ -330,12 +407,15 @@ def producer_product_list(request):
     if not _require_producer(request):
         return _producer_access_denied_response(request)
 
-    products = Product.objects.filter(producer=request.user).select_related("category").order_by("-created_at")
+    products = (
+        Product.objects
+        .filter(producer=request.user)
+        .select_related("category")
+        .order_by("-created_at")
+    )
 
-    from .models import StockNotification
     active_alerts_count = StockNotification.objects.filter(
-        producer=request.user,
-        is_resolved=False
+        producer=request.user, is_resolved=False
     ).count()
 
     return render(request, "marketplace/producer_product_list.html", {
@@ -406,10 +486,8 @@ def product_delete(request, pk):
 # CHECKOUT
 # ----------------------------
 
+@login_required
 def checkout(request):
-    if not request.user.is_authenticated:
-        return redirect("accounts:login")
-
     cart, _ = Cart.objects.get_or_create(user=request.user)
     cart_items = CartItem.objects.select_related("product", "product__producer").filter(cart=cart)
 
@@ -421,20 +499,27 @@ def checkout(request):
         if not product.is_active or product.stock_quantity <= 0:
             continue
         qty = int(cart_item.quantity)
-        line_total = product.price * qty
+        unit_price = _get_product_unit_price(product)
+        line_total = unit_price * qty
         subtotal += line_total
-        lead_time = getattr(product.producer, "lead_time", 2)
+
+        lead_time = getattr(product.producer, "lead_time", None)
+        if lead_time is None and hasattr(product.producer, "profile"):
+            lead_time = getattr(product.producer.profile, "lead_time", 2)
+        if lead_time is None:
+            lead_time = 2
+
         producers[product.producer.username].append({
             "name": product.name,
-            "price": float(product.price),
+            "price": float(unit_price),
             "qty": qty,
             "total": float(line_total),
             "lead_time": lead_time,
             "id": product.id,
         })
 
-    commission = subtotal * Decimal("0.05")
-    total = subtotal + commission
+    commission = (subtotal * COMMISSION_RATE).quantize(TWO_PLACES)
+    total = (subtotal + commission).quantize(TWO_PLACES)
 
     if request.method == "POST":
         form = CheckoutForm(request.POST)
@@ -473,9 +558,7 @@ def checkout(request):
 
         messages.error(request, "Please check the checkout form and try again.")
     else:
-        initial = {}
-        if request.user.is_authenticated:
-            initial["delivery_address"] = request.user.email or request.user.username
+        initial = {"delivery_address": request.user.email or request.user.username}
         form = CheckoutForm(initial=initial)
 
     return render(request, "cart/checkout.html", {
@@ -492,12 +575,12 @@ def checkout(request):
 # PAYMENT
 # ----------------------------
 
+@login_required
 def payment(request):
     order = request.session.get("order")
     if not order:
         return redirect("marketplace:product_list")
 
-    error_message = None
     debug_info = []
 
     if request.method == "POST":
@@ -510,7 +593,7 @@ def payment(request):
             return render(request, "orders/payment.html", {"order": order})
 
         month_part, year_part = expiry.split("/")
-        if not (month_part.isdigit() and year_part.isdigit()):
+        if not month_part.isdigit() or not year_part.isdigit():
             messages.error(request, "Enter expiry date in MM/YY format.")
             return render(request, "orders/payment.html", {"order": order})
 
@@ -522,22 +605,20 @@ def payment(request):
             return render(request, "orders/payment.html", {"order": order})
 
         today = timezone.localdate()
-        current_month = today.month
         current_year = today.year % 100
-
-        if year < current_year or (year == current_year and month < current_month):
+        if year < current_year or (year == current_year and month < today.month):
             messages.error(request, "Card expiry date cannot be in the past.")
             return render(request, "orders/payment.html", {"order": order})
 
         order_number = "ORD-" + str(random.randint(10000, 99999))
+        delivery_date_obj = _parse_date(order.get("date"))
 
         try:
-            from .models import Order, ProducerOrder, OrderItem, Product
-            from django.contrib.auth import get_user_model
             User = get_user_model()
             customer = request.user
+
             if not customer.is_authenticated:
-                raise Exception("User is not authenticated!")
+                raise Exception("User is not authenticated.")
 
             db_order = Order.objects.create(
                 customer=customer,
@@ -546,37 +627,48 @@ def payment(request):
                 special_instructions="",
             )
 
+            debug_info.append(f"Created Order: {db_order}")
+
             for producer_username, items in order["producers"].items():
                 producer = User.objects.get(username=producer_username)
-                delivery_date = order.get("date") or None
+
                 producer_order = ProducerOrder.objects.create(
                     order=db_order,
                     producer=producer,
-                    delivery_date=delivery_date,
+                    delivery_date=delivery_date_obj,
                     status=ProducerOrder.Status.PENDING,
-                    total_value=0,
+                    total_value=Decimal("0.00"),
                 )
-                total_value = 0
+
+                total_value = Decimal("0.00")
+
                 for item in items:
-                    product = Product.objects.get(name=item["name"], producer=producer)
+                    product = Product.objects.get(id=item["id"], producer=producer)
+                    quantity = int(item["qty"])
+                    unit_price = Decimal(str(item["price"]))
+
                     OrderItem.objects.create(
                         producer_order=producer_order,
                         product=product,
-                        quantity=item["qty"],
-                        unit_price=item["price"],
+                        quantity=quantity,
+                        unit_price=unit_price,
                     )
-                    total_value += item["qty"] * float(item["price"])
-                    product.stock_quantity = max(0, product.stock_quantity - item["qty"])
+
+                    total_value += unit_price * quantity
+                    product.stock_quantity = max(0, product.stock_quantity - quantity)
                     product.save()
-                producer_order.total_value = total_value
+
+                producer_order.total_value = total_value.quantize(TWO_PLACES)
                 producer_order.save()
 
-        except Exception as e:
+        except Exception as error:
             import traceback
-            error_message = f"Order creation failed: {e}"
+            error_message = f"Order creation failed: {error}"
             print(error_message)
             print(traceback.format_exc())
-            return render(request, "payment.html", {"order": order, "error_message": error_message})
+            return render(request, "orders/payment.html", {
+                "order": order, "error_message": error_message, "debug_info": debug_info,
+            })
 
         order_data = {
             "order_number": order_number,
@@ -598,13 +690,11 @@ def payment(request):
         CustomerOrderHistory.objects.create(
             customer=request.user,
             order_number=order_number,
-            order_data=order_data
+            order_data=order_data,
         )
 
-        if request.user.is_authenticated:
-            cart, _ = Cart.objects.get_or_create(user=request.user)
-            CartItem.objects.filter(cart=cart).delete()
-
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+        CartItem.objects.filter(cart=cart).delete()
         request.session.pop("order", None)
         request.session.pop("cart", None)
 
@@ -632,7 +722,7 @@ def allergen_test(request):
 
 
 # -----------------------------
-# TC-009 Producer Order List
+# PRODUCER ORDERS
 # -----------------------------
 
 @login_required
@@ -652,11 +742,13 @@ def producer_order_list(request):
         orders = orders.filter(status=status)
 
     sort = request.GET.get("sort", "newest")
-    orders = list(orders)
     if sort == "oldest":
-        orders = sorted(orders, key=lambda x: x.delivery_date or date.min)
+        orders = orders.order_by("order__created_at", "id")
     else:
-        orders = sorted(orders, key=lambda x: x.delivery_date or date.min, reverse=True)
+        orders = orders.order_by("-order__created_at", "-id")
+
+    orders = list(orders)
+    _attach_producer_order_context(orders)
 
     return render(request, "marketplace/producer_order_list.html", {
         "orders": orders,
@@ -666,16 +758,12 @@ def producer_order_list(request):
     })
 
 
-# -----------------------------
-# TC-009 Order Detail Page
-# -----------------------------
-
 @login_required
 def producer_order_detail(request, pk):
     if not _require_producer(request):
         return _producer_access_denied_response(request)
 
-    po = get_object_or_404(
+    producer_order = get_object_or_404(
         ProducerOrder.objects
         .select_related("order", "order__customer")
         .prefetch_related("items", "items__product"),
@@ -683,11 +771,86 @@ def producer_order_detail(request, pk):
         producer=request.user,
     )
 
-    return render(request, "marketplace/producer_order_detail.html", {"po": po})
+    _attach_producer_order_context([producer_order])
+
+    return render(request, "marketplace/producer_order_detail.html", {"po": producer_order})
+
+
+@login_required
+def producer_order_update_status(request, pk):
+    if not _require_producer(request):
+        return _producer_access_denied_response(request)
+
+    po = get_object_or_404(
+        ProducerOrder.objects.select_related("order", "order__customer"),
+        pk=pk, producer=request.user,
+    )
+
+    allowed_transitions = {
+        ProducerOrder.Status.PENDING: [ProducerOrder.Status.CONFIRMED, ProducerOrder.Status.CANCELLED],
+        ProducerOrder.Status.CONFIRMED: [ProducerOrder.Status.READY, ProducerOrder.Status.CANCELLED],
+        ProducerOrder.Status.READY: [ProducerOrder.Status.DELIVERED],
+        ProducerOrder.Status.DELIVERED: [],
+        ProducerOrder.Status.CANCELLED: [],
+    }
+
+    next_statuses = allowed_transitions.get(po.status, [])
+    status_choices = [(s, ProducerOrder.Status(s).label) for s in next_statuses]
+
+    if request.method == "POST":
+        form = ProducerOrderStatusForm(request.POST, status_choices=status_choices)
+        if form.is_valid():
+            new_status = form.cleaned_data["status"]
+            note = form.cleaned_data["note"]
+            try:
+                update_producer_order_status(
+                    producer_order=po, new_status=new_status,
+                    changed_by=request.user, note=note,
+                )
+            except ValueError:
+                messages.error(request, "Invalid status progression.")
+                return redirect("marketplace:producer_order_detail", pk=po.pk)
+            messages.success(request, "Order status updated successfully.")
+            return redirect("marketplace:producer_order_detail", pk=po.pk)
+    else:
+        form = ProducerOrderStatusForm(initial={"status": po.status}, status_choices=status_choices)
+
+    return render(request, "marketplace/producer_order_update_status.html", {"po": po, "form": form})
+
+
+@login_required
+def producer_order_management(request):
+    if not _require_producer(request):
+        return _producer_access_denied_response(request)
+
+    current_orders = (
+        ProducerOrder.objects
+        .filter(producer=request.user, status__in=[
+            ProducerOrder.Status.PENDING,
+            ProducerOrder.Status.CONFIRMED,
+            ProducerOrder.Status.READY,
+        ])
+        .select_related("order", "order__customer")
+        .prefetch_related("items", "items__product", "status_history")
+        .order_by("delivery_date", "-id")
+    )
+
+    order_history = (
+        ProducerOrder.objects
+        .filter(producer=request.user, status=ProducerOrder.Status.DELIVERED)
+        .select_related("order", "order__customer")
+        .prefetch_related("items", "items__product", "status_history")
+        .order_by("-delivery_date", "-id")
+    )
+
+    return render(request, "marketplace/order_management.html", {
+        "current_orders": current_orders,
+        "order_history": order_history,
+    })
 
 
 # -----------------------------
-# TC-012 Producer Payment Settlement
+# PRODUCER PAYMENTS
 # -----------------------------
 
 @login_required
@@ -697,7 +860,6 @@ def producer_payments(request):
 
     producer = request.user
     today = timezone.localdate()
-
     week_start, week_end = _last_completed_week_range(today)
     tax_year_start = _uk_tax_year_start(today)
 
@@ -714,20 +876,22 @@ def producer_payments(request):
     ).order_by("-delivery_date", "-id")
 
     gross_total = sum(
-        (order.total_value for order in weekly_orders), Decimal("0.00")
+        (order.total_value or Decimal("0.00") for order in weekly_orders), Decimal("0.00"),
     ).quantize(TWO_PLACES)
 
     commission, net_payment = _compute_financials(gross_total)
 
     tax_year_orders = all_delivered_orders.filter(delivery_date__gte=tax_year_start)
     tax_year_total = sum(
-        (order.total_value for order in tax_year_orders), Decimal("0.00")
+        (order.total_value or Decimal("0.00") for order in tax_year_orders), Decimal("0.00"),
     ).quantize(TWO_PLACES)
 
     settlement_reference = _build_settlement_ref(producer.id, week_start, week_end)
 
     history_map = defaultdict(list)
     for order in all_delivered_orders:
+        if not order.delivery_date:
+            continue
         order_week_start = order.delivery_date - timedelta(days=order.delivery_date.weekday())
         order_week_end = order_week_start + timedelta(days=6)
         history_map[(order_week_start, order_week_end)].append(order)
@@ -737,16 +901,13 @@ def producer_payments(request):
         if hist_start == week_start and hist_end == week_end:
             continue
         hist_gross = sum(
-            (o.total_value for o in orders_in_week), Decimal("0.00")
+            (order.total_value or Decimal("0.00") for order in orders_in_week), Decimal("0.00"),
         ).quantize(TWO_PLACES)
         hist_commission, hist_net = _compute_financials(hist_gross)
         historical_records.append({
-            "week_start": hist_start,
-            "week_end": hist_end,
-            "gross": hist_gross,
-            "commission": hist_commission,
-            "net": hist_net,
-            "order_count": len(orders_in_week),
+            "week_start": hist_start, "week_end": hist_end,
+            "gross": hist_gross, "commission": hist_commission,
+            "net": hist_net, "order_count": len(orders_in_week),
         })
 
     return render(request, "marketplace/producer_payments.html", {
@@ -774,11 +935,7 @@ def download_payments_csv(request):
 
     orders = (
         ProducerOrder.objects
-        .filter(
-            producer=producer,
-            status=ProducerOrder.Status.DELIVERED,
-            delivery_date__range=(week_start, week_end)
-        )
+        .filter(producer=producer, status=ProducerOrder.Status.DELIVERED, delivery_date__range=(week_start, week_end))
         .select_related("order", "order__customer")
         .prefetch_related("items", "items__product")
         .order_by("-delivery_date", "-id")
@@ -798,10 +955,8 @@ def download_payments_csv(request):
     settlement_reference = _build_settlement_ref(producer.id, week_start, week_end)
 
     for order in orders:
-        items_sold = ", ".join(
-            f"{item.product.name} x{item.quantity}" for item in order.items.all()
-        )
-        gross = order.total_value.quantize(TWO_PLACES)
+        items_sold = ", ".join(f"{item.product.name} x{item.quantity}" for item in order.items.all())
+        gross = (order.total_value or Decimal("0.00")).quantize(TWO_PLACES)
         commission, net = _compute_financials(gross)
         writer.writerow([
             settlement_reference, order.order.id,
@@ -813,160 +968,83 @@ def download_payments_csv(request):
     return response
 
 
+# -----------------------------
+# Stock Notifications
+# -----------------------------
+
 @login_required
-def producer_order_management(request):
+def stock_notifications(request):
     if not _require_producer(request):
         return HttpResponseForbidden("Producer access only.")
 
-    current_orders = (
-        ProducerOrder.objects
-        .filter(
-            producer=request.user,
-            status__in=[
-                ProducerOrder.Status.PENDING,
-                ProducerOrder.Status.CONFIRMED,
-                ProducerOrder.Status.READY,
-            ],
-        )
-        .select_related("order", "order__customer")
-        .prefetch_related("items", "items__product", "status_history")
-        .order_by("delivery_date", "-id")
+    active_notifications = StockNotification.objects.filter(
+        producer=request.user, is_resolved=False
     )
+    resolved_notifications = StockNotification.objects.filter(
+        producer=request.user, is_resolved=True
+    )[:10]
 
-    order_history = (
-        ProducerOrder.objects
-        .filter(producer=request.user, status=ProducerOrder.Status.DELIVERED)
-        .select_related("order", "order__customer")
-        .prefetch_related("items", "items__product", "status_history")
-        .order_by("-delivery_date", "-id")
-    )
-
-    return render(request, "marketplace/order_management.html", {
-        "current_orders": current_orders,
-        "order_history": order_history,
+    return render(request, "marketplace/stock_notifications.html", {
+        "active_notifications": active_notifications,
+        "resolved_notifications": resolved_notifications,
     })
 
 
-@login_required
-def producer_order_update_status(request, pk):
-    if not _require_producer(request):
-        return _producer_access_denied_response(request)
-
-    po = get_object_or_404(
-        ProducerOrder.objects.select_related("order", "order__customer"),
-        pk=pk,
-        producer=request.user,
-    )
-
-    allowed_transitions = {
-        ProducerOrder.Status.PENDING: [ProducerOrder.Status.CONFIRMED, ProducerOrder.Status.CANCELLED],
-        ProducerOrder.Status.CONFIRMED: [ProducerOrder.Status.READY, ProducerOrder.Status.CANCELLED],
-        ProducerOrder.Status.READY: [ProducerOrder.Status.DELIVERED],
-        ProducerOrder.Status.DELIVERED: [],
-        ProducerOrder.Status.CANCELLED: [],
-    }
-
-    if request.method == "POST":
-        next_statuses = allowed_transitions.get(po.status, [])
-        status_choices = [(s, ProducerOrder.Status(s).label) for s in next_statuses]
-        form = ProducerOrderStatusForm(request.POST, status_choices=status_choices)
-
-        if form.is_valid():
-            new_status = form.cleaned_data["status"]
-            note = form.cleaned_data["note"]
-            try:
-                update_producer_order_status(
-                    producer_order=po,
-                    new_status=new_status,
-                    changed_by=request.user,
-                    note=note,
-                )
-            except ValueError:
-                messages.error(request, "Invalid status progression.")
-                return redirect("marketplace:producer_order_detail", pk=po.pk)
-            messages.success(request, "Order status updated successfully.")
-            return redirect("marketplace:producer_order_detail", pk=po.pk)
-    else:
-        next_statuses = allowed_transitions.get(po.status, [])
-        status_choices = [(s, ProducerOrder.Status(s).label) for s in next_statuses]
-        form = ProducerOrderStatusForm(initial={"status": po.status}, status_choices=status_choices)
-
-    return render(request, "marketplace/producer_order_update_status.html", {"po": po, "form": form})
-
-
 # -----------------------------
-# TC21 - Order History
+# CUSTOMER ORDER HISTORY
 # -----------------------------
 
 @login_required
 def order_history(request):
-    orders = [
-        record.order_data
-        for record in CustomerOrderHistory.objects.filter(customer=request.user)
-    ]
+    orders = _get_customer_order_history(request.user)
 
     start = request.GET.get("start", "").strip()
     end = request.GET.get("end", "").strip()
     producer = request.GET.get("producer", "").strip()
 
-    start_date = None
-    end_date = None
+    start_date = _parse_date(start)
+    end_date = _parse_date(end)
 
-    if start:
-        try:
-            start_date = datetime.strptime(start, "%Y-%m-%d").date()
-        except ValueError:
-            messages.error(request, "Invalid start date.")
+    if start and not start_date:
+        messages.error(request, "Invalid start date.")
 
-    if end:
-        try:
-            end_date = datetime.strptime(end, "%Y-%m-%d").date()
-        except ValueError:
-            messages.error(request, "Invalid end date.")
+    if end and not end_date:
+        messages.error(request, "Invalid end date.")
 
     if start_date and end_date and end_date < start_date:
         messages.error(request, "End date cannot be before start date.")
     elif start_date or end_date:
         filtered_orders = []
-        for o in orders:
-            raw_order_date = o.get("order_date") or o.get("date")
-            if not raw_order_date:
-                continue
-            try:
-                order_date = datetime.strptime(raw_order_date, "%Y-%m-%d").date()
-            except ValueError:
+        for order in orders:
+            raw_order_date = order.get("order_date") or order.get("date")
+            order_date = _parse_date(raw_order_date)
+            if not order_date:
                 continue
             if start_date and order_date < start_date:
                 continue
             if end_date and order_date > end_date:
                 continue
-            filtered_orders.append(o)
+            filtered_orders.append(order)
         orders = filtered_orders
 
     if producer:
         orders = [
-            o for o in orders
-            if producer.lower() in [p.lower() for p in o.get("producers", {}).keys()]
+            order for order in orders
+            if producer.lower() in [p.lower() for p in order.get("producers", {}).keys()]
         ]
 
     return render(request, "orders/history.html", {
-        "orders": orders,
-        "start": start,
-        "end": end,
-        "producer": producer,
+        "orders": orders, "start": start, "end": end, "producer": producer,
     })
 
 
 @login_required
 def order_detail(request, order_id):
-    orders = [
-        record.order_data
-        for record in CustomerOrderHistory.objects.filter(customer=request.user)
-    ]
+    orders = _get_customer_order_history(request.user)
     order = next((o for o in orders if str(o.get("order_number")) == str(order_id)), None)
 
     if not order:
-        messages.error(request, "Order not found")
+        messages.error(request, "Order not found.")
         return redirect("marketplace:order_history")
 
     return render(request, "orders/order_detail.html", {"order": order})
@@ -974,14 +1052,11 @@ def order_detail(request, order_id):
 
 @login_required
 def reorder(request, order_id):
-    orders = [
-        record.order_data
-        for record in CustomerOrderHistory.objects.filter(customer=request.user)
-    ]
+    orders = _get_customer_order_history(request.user)
     order = next((o for o in orders if str(o.get("order_number")) == str(order_id)), None)
 
     if not order:
-        messages.error(request, "Order not found")
+        messages.error(request, "Order not found.")
         return redirect("marketplace:order_history")
 
     cart, _ = Cart.objects.get_or_create(user=request.user)
@@ -1013,7 +1088,7 @@ def reorder(request, order_id):
             cart_item.save()
 
     if price_changed_items:
-        messages.warning(request, "Price changes detected:\n" + "\n".join(price_changed_items))
+        messages.warning(request, "Price changes detected: " + "; ".join(price_changed_items))
 
     if unavailable_items:
         messages.error(request, "Some items unavailable: " + ", ".join(unavailable_items))
@@ -1024,41 +1099,14 @@ def reorder(request, order_id):
 
 @login_required
 def download_receipt(request, order_id):
-    orders = [
-        record.order_data
-        for record in CustomerOrderHistory.objects.filter(customer=request.user)
-    ]
+    orders = _get_customer_order_history(request.user)
     order = next((o for o in orders if str(o.get("order_number")) == str(order_id)), None)
 
     if not order:
-        messages.error(request, "Receipt not found")
+        messages.error(request, "Receipt not found.")
         return redirect("marketplace:order_history")
 
     content = f"Order {order['order_number']} - Total £{order['total']}"
     response = HttpResponse(content, content_type="text/plain")
     response["Content-Disposition"] = f'attachment; filename="receipt_{order_id}.txt"'
     return response
-
-
-# -----------------------------
-# Stock Notifications
-# -----------------------------
-
-@login_required
-def stock_notifications(request):
-    if not _require_producer(request):
-        return HttpResponseForbidden("Producer access only.")
-
-    from .models import StockNotification
-
-    active_notifications = StockNotification.objects.filter(
-        producer=request.user, is_resolved=False
-    )
-    resolved_notifications = StockNotification.objects.filter(
-        producer=request.user, is_resolved=True
-    )[:10]
-
-    return render(request, "marketplace/stock_notifications.html", {
-        "active_notifications": active_notifications,
-        "resolved_notifications": resolved_notifications,
-    })
