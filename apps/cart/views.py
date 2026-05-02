@@ -1,9 +1,11 @@
 from decimal import Decimal
+import json
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 
 from apps.marketplace.models import Product
 from apps.marketplace.forms import CheckoutForm
@@ -38,6 +40,39 @@ def _build_cart_pricing(item):
         "line_total": pricing["total"],
         **pricing,
     }
+
+
+def _calculate_total_food_miles(cart_items_qs, customer_postcode):
+    """
+    Given a queryset of cart items and a customer postcode,
+    returns the total food miles (float) counting each producer only once.
+    Returns None if postcode is missing or all lookups fail.
+    """
+    from apps.accounts.models import Profile
+    from apps.marketplace.foodmiles import calculate_food_miles
+
+    if not customer_postcode:
+        return None
+
+    total_food_miles = Decimal("0.00")
+    seen_producers = set()
+
+    for item in cart_items_qs:
+        producer_id = item.product.producer.id
+        if producer_id in seen_producers:
+            continue
+        try:
+            producer_profile = Profile.objects.get(user=item.product.producer)
+            producer_postcode = producer_profile.postcode
+            if producer_postcode:
+                miles = calculate_food_miles(customer_postcode, producer_postcode)
+                if miles is not None:
+                    total_food_miles += Decimal(str(miles))
+                    seen_producers.add(producer_id)
+        except Profile.DoesNotExist:
+            pass
+
+    return round(float(total_food_miles), 1)
 
 
 @login_required
@@ -242,13 +277,20 @@ def checkout(request):
 
     _sync_session_cart(request, cart)
 
+    # Determine initial postcode for food miles display
+    initial_postcode = None
     initial = {}
     if hasattr(request.user, 'profile'):
         if request.user.profile.delivery_address:
             initial['delivery_address'] = request.user.profile.delivery_address
         if request.user.profile.delivery_postcode:
             initial['delivery_postcode'] = request.user.profile.delivery_postcode
+            initial_postcode = request.user.profile.delivery_postcode
+
     form = CheckoutForm(initial=initial)
+
+    # Calculate initial food miles using profile postcode
+    total_food_miles = _calculate_total_food_miles(items, initial_postcode)
 
     if request.method == "POST":
         form = CheckoutForm(request.POST)
@@ -274,4 +316,27 @@ def checkout(request):
         "subtotal": subtotal,
         "commission": commission,
         "total": total,
+        "total_food_miles": total_food_miles,
     })
+
+
+@require_GET
+@login_required
+def food_miles_ajax(request):
+    """
+    AJAX endpoint — returns food miles for a given postcode.
+    Called by the checkout page when the user changes their delivery postcode.
+    GET param: postcode
+    Returns: { "food_miles": 12.3 } or { "food_miles": null }
+    """
+    postcode = request.GET.get("postcode", "").strip()
+
+    if not postcode:
+        return JsonResponse({"food_miles": None})
+
+    cart, _ = Cart.objects.get_or_create(user=request.user)
+    items = cart.items.select_related("product", "product__producer")
+
+    total_food_miles = _calculate_total_food_miles(items, postcode)
+
+    return JsonResponse({"food_miles": total_food_miles})

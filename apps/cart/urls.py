@@ -9,6 +9,7 @@ urlpatterns = [
     path("update/<int:product_id>/", views.cart_update, name="update"),
     path("remove/<int:product_id>/", views.cart_remove, name="remove"),
     path ("checkout/", views.checkout, name="checkout"),
+    path("food-miles/", views.food_miles_ajax, name="food_miles_ajax"),
 
 ]
 

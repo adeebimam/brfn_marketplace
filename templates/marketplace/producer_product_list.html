@@ -28,32 +28,33 @@
                 <img src="{{ p.image.url }}" alt="{{ p.name }} image" style="max-width:90px; max-height:90px; border-radius:8px; border:1px solid #eee; object-fit:cover;">
               {% endif %}
               <div style="flex:1;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-
-              <div>
-                <strong>{{ p.name }}</strong>
-                {% if not p.is_active %}
-                  <span style="margin-left: 0.5rem; font-size: 0.8rem; color: #b45309; background: #fef3c7; padding: 2px 8px; border-radius: 4px;">Not Available</span>
-                {% elif p.stock_quantity <= 0 %}
-                  <span style="margin-left: 0.5rem; font-size: 0.8rem; color: #dc2626; background: #fee2e2; padding: 2px 8px; border-radius: 4px;">Out of Stock</span>
-                {% elif not p.is_in_season %}
-                  <span style="margin-left: 0.5rem; font-size: 0.8rem; color: #9333ea; background: #f3e8ff; padding: 2px 8px; border-radius: 4px;">Out of Season</span>
-                {% elif not p.is_year_round %}
-                  <span style="margin-left: 0.5rem; font-size: 0.8rem; color: #15803d; background: #dcfce7; padding: 2px 8px; border-radius: 4px;">🌿 In Season</span>
-                {% endif %}
-                {% if p.is_low_stock and p.stock_quantity > 0 %}
-                  <span style="margin-left: 0.5rem; font-size: 0.8rem; color: #dc2626; background: #fee2e2; padding: 2px 8px; border-radius: 4px;">⚠️ Low Stock</span>
-                {% endif %}
-                <br>
-                <span class="muted">£{{ p.price }} · Stock: {{ p.stock_quantity }}{% if not p.is_year_round %} · {{ p.season_label }}{% endif %}</span>
-              </div>
-              <div style="display: flex; gap: 0.5rem;">
-                <a href="{% url 'marketplace:product_update' p.pk %}" class="btn">
-                  Edit
-                </a>
-                <a href="{% url 'marketplace:product_delete' p.pk %}" class="btn btn-danger">
-                  Delete
-                </a>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <strong>{{ p.name }}</strong>
+                    {% if not p.is_active %}
+                      <span style="margin-left: 0.5rem; font-size: 0.8rem; color: #b45309; background: #fef3c7; padding: 2px 8px; border-radius: 4px;">Not Available</span>
+                    {% elif p.stock_quantity <= 0 %}
+                      <span style="margin-left: 0.5rem; font-size: 0.8rem; color: #dc2626; background: #fee2e2; padding: 2px 8px; border-radius: 4px;">Out of Stock</span>
+                    {% elif not p.is_in_season %}
+                      <span style="margin-left: 0.5rem; font-size: 0.8rem; color: #9333ea; background: #f3e8ff; padding: 2px 8px; border-radius: 4px;">Out of Season</span>
+                    {% elif not p.is_year_round %}
+                      <span style="margin-left: 0.5rem; font-size: 0.8rem; color: #15803d; background: #dcfce7; padding: 2px 8px; border-radius: 4px;">🌿 In Season</span>
+                    {% endif %}
+                    {% if p.is_low_stock and p.stock_quantity > 0 %}
+                      <span style="margin-left: 0.5rem; font-size: 0.8rem; color: #dc2626; background: #fee2e2; padding: 2px 8px; border-radius: 4px;">⚠️ Low Stock</span>
+                    {% endif %}
+                    <br>
+                    <span class="muted">£{{ p.price }} · Stock: {{ p.stock_quantity }}{% if not p.is_year_round %} · {{ p.season_label }}{% endif %}</span>
+                  </div>
+                  <div style="display: flex; gap: 0.5rem;">
+                    <a href="{% url 'marketplace:product_update' p.pk %}" class="btn">
+                      Edit
+                    </a>
+                    <a href="{% url 'marketplace:product_delete' p.pk %}" class="btn btn-danger">
+                      Delete
+                    </a>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
