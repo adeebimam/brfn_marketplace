@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+
 {% block content %}
   <div class="card stack">
     <h1>{{ product.name }}</h1>
@@ -8,10 +9,14 @@
         {{ product.category.name }}
       {% endif %}
     </div>
-    
+
     {% if product.image %}
       <div style="margin: 1rem 0;">
-        <img src="{{ product.image.url }}" alt="{{ product.name }}" style="max-width:320px; max-height:320px; border-radius:8px; border:1px solid #eee;">
+        <img
+          src="{{ product.image.url }}"
+          alt="{{ product.name }}"
+          style="max-width:320px; max-height:320px; border-radius:8px; border:1px solid #eee;"
+        >
       </div>
     {% endif %}
 
@@ -36,7 +41,9 @@
 
     {% if product.is_active_surplus_deal %}
       <div class="deal-price-block">
-        <div class="deal-badge">Limited-time offer — {{ product.surplus_discount_percent }}% OFF</div>
+        <div class="deal-badge">
+          Limited-time offer — {{ product.surplus_discount_percent }}% OFF
+        </div>
 
         <div class="deal-price-cluster">
           <div class="deal-price-current">
@@ -55,7 +62,9 @@
         </div>
 
         {% if product.surplus_expires_at %}
-          <p class="deal-expiry"><strong>Offer ends:</strong> {{ product.surplus_expires_at|date:"F j, Y, g:i a" }}</p>
+          <p class="deal-expiry">
+            <strong>Offer ends:</strong> {{ product.surplus_expires_at|date:"F j, Y, g:i a" }}
+          </p>
         {% endif %}
 
         {% if product.best_before_date %}
@@ -85,12 +94,20 @@
       <div class="allergen-warning">
         <i class="fa-solid fa-triangle-exclamation"></i>
         <strong>Contains allergens:</strong>
+
         <ul class="allergen-list">
           {% for allergen in product.allergens.all %}
-            <li><span class="allergen-tag">{{ allergen.name }}</span></li>
+            <li>
+              <span class="allergen-tag">{{ allergen.name }}</span>
+            </li>
           {% endfor %}
+
           {% if product.other_allergen_info %}
-            <li><span class="allergen-tag allergen-other">{{ product.other_allergen_info }}</span></li>
+            <li>
+              <span class="allergen-tag allergen-other">
+                {{ product.other_allergen_info }}
+              </span>
+            </li>
           {% endif %}
         </ul>
       </div>
@@ -101,43 +118,48 @@
       </div>
     {% endif %}
 
-    {% if user.is_authenticated %}
-      {% if user.profile.role == "CUSTOMER" or user.profile.role == "COMMUNITY_GROUP" or user.profile.role == "RESTAURANT" %}
-        <form method="post" action="{% url 'cart:add' product.id %}" class="add-to-cart">
-          {% csrf_token %}
+    {% if product.stock_quantity > 0 %}
+      {% if user.is_authenticated %}
+        {% if user.profile.role == "CUSTOMER" or user.profile.role == "COMMUNITY_GROUP" or user.profile.role == "RESTAURANT" %}
+          <form method="post" action="{% url 'cart:add' product.id %}" class="add-to-cart">
+            {% csrf_token %}
 
-          <div class="qty-row">
-            <label for="qty" class="muted">Quantity</label>
-            <input
-              type="number"
-              id="qty"
-              name="qty"
-              value="1"
-              min="1"
-              max="{{ product.stock_quantity }}"
-              class="qty-input"
-              style="width:70px; margin-right:10px;"
-            >
+            <div class="qty-row">
+              <label for="qty" class="muted">Quantity</label>
+              <input
+                type="number"
+                id="qty"
+                name="qty"
+                value="1"
+                min="1"
+                max="{{ product.stock_quantity }}"
+                class="qty-input"
+                style="width:70px; margin-right:10px;"
+              >
+            </div>
+
+            <button type="submit" class="btn" style="font-size:14px; display:block; width:100%;">
+              Add to Cart
+            </button>
+          </form>
+        {% else %}
+          <div class="muted">
+            Customer checkout preview is hidden for producer accounts.
           </div>
-
-          <button type="submit" class="btn" style="font-size: 14px;display:block; width:100%;">
-            Add to Cart
-          </button>
-        </form>
+        {% endif %}
       {% else %}
-        <div class="muted">Customer checkout preview is hidden for producer accounts.</div>
+        <a class="btn btn-primary" href="{% url 'accounts:login' %}?next={{ request.path }}">
+          Login to add to cart
+        </a>
       {% endif %}
     {% else %}
-      <a class="btn btn-primary" href="{% url 'accounts:login' %}?next={{ request.path }}">
-        Login to add to cart
-      </a>
+      <div class="muted" style="margin-top:10px; color:#b91c1c; font-weight:600;">
+        Out of stock
+      </div>
     {% endif %}
 
     <a class="btn" href="{% url 'marketplace:product_list' %}">Back</a>
   </div>
-<<<<<<< HEAD
-{% endblock %}
-=======
 
   <div class="card stack" style="margin-top:20px;">
     <h2>Customer Reviews</h2>
@@ -145,10 +167,15 @@
     {% for review in reviews %}
       <div style="border:1px solid #ddd; border-radius:10px; padding:14px; margin-bottom:15px; background:#fff;">
         <p><strong>{{ review.rating }} / 5 ⭐</strong></p>
+
         {% if review.verified_purchase %}
           <span style="color:green; font-weight:bold;">✔ Verified Purchase</span>
         {% endif %}
-        <p><strong>{{ review.title }}</strong></p>
+
+        {% if review.title %}
+          <p><strong>{{ review.title }}</strong></p>
+        {% endif %}
+
         <p>{{ review.comment }}</p>
 
         {% if review.anonymous %}
@@ -164,4 +191,3 @@
     {% endfor %}
   </div>
 {% endblock %}
->>>>>>> dev

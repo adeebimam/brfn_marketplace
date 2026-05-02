@@ -2,209 +2,176 @@
 
 {% block content %}
 <div class="confirmation-shell">
-    <section class="card confirmation-hero">
+  <section class="card confirmation-hero">
+    <div>
+      <p class="eyebrow">Order placed</p>
+      <h1>Thanks, your order is confirmed</h1>
+      <p class="muted">
+        Your order has been placed successfully and split across the relevant producers.
+      </p>
+    </div>
+
+    <div class="confirmation-badge">
+      <span>Order number</span>
+      <strong>{{ order_number }}</strong>
+    </div>
+  </section>
+
+  <div class="confirmation-layout">
+    <section class="card confirmation-main">
+      <div class="section-heading">
+        <h2>Delivery and payment</h2>
+        <p class="muted">Saved from your checkout and payment steps.</p>
+      </div>
+
+      <div class="detail-pairs">
         <div>
-            <p class="eyebrow">Order placed</p>
-            <h1>Thanks, your order is confirmed</h1>
-            <p class="muted">We created the main order and split it across the right producers so each one can update their own delivery status.</p>
+          <span>Delivery date</span>
+          <strong>{{ date }}</strong>
         </div>
-        <div class="confirmation-badge">
-            <span>Order number</span>
-            <strong>{{ order_number }}</strong>
+
+        <div>
+          <span>Payment</span>
+          <strong>{{ payment|title }}</strong>
         </div>
-    </section>
 
-<<<<<<< HEAD
-    <div class="confirmation-layout">
-        <section class="card confirmation-main">
-            <div class="section-heading">
-                <h2>Delivery and payment</h2>
-                <p class="muted">Saved from your checkout and payment steps.</p>
-            </div>
+        <div class="detail-pairs--full">
+          <span>Delivery address</span>
+          <strong>{{ address }}</strong>
+        </div>
+      </div>
 
-            <div class="detail-pairs">
-                <div>
-                    <span>Delivery date</span>
-                    <strong>{{ date }}</strong>
-                </div>
-                <div>
-                    <span>Payment</span>
-                    <strong>{{ payment }}</strong>
-                </div>
-                <div class="detail-pairs--full">
-                    <span>Delivery address</span>
-                    <strong>{{ address }}</strong>
-                </div>
-            </div>
-
-            <div class="section-heading" style="margin-top: 28px;">
-                <h2>Producer breakdown</h2>
-                <p class="muted">Each producer receives a linked order and can update the status the customer sees in order history.</p>
-            </div>
-
-            <div class="producer-summary-list">
-                {% for summary in producer_order_summaries %}
-                    <section class="producer-summary-card">
-                        <div class="producer-summary-head">
-                            <div>
-                                <h3>{{ summary.producer }}</h3>
-                                <p class="muted">Producer order #{{ summary.producer_order.id }}</p>
-                            </div>
-                            <span class="status-badge status-badge--{{ summary.producer_order.status|lower }}">
-                                {{ summary.producer_order.get_status_display }}
-                            </span>
-                        </div>
-
-                        <div class="producer-summary-items">
-                            {% for item in summary.items %}
-                                <article class="summary-line-item">
-                                    <div class="summary-line-main">
-                                        <strong>{{ item.product.name }}</strong>
-                                        <span>x{{ item.qty }}</span>
-                                    </div>
-
-                                    <div class="summary-line-breakdown">
-                                        {% if item.discounted_qty > 0 %}
-                                            <div class="price-row price-row--offer">
-                                                <span>{{ item.discounted_qty }} offer item{{ item.discounted_qty|pluralize }}</span>
-                                                <span>£{{ item.discounted_unit_price }} each</span>
-                                            </div>
-                                        {% endif %}
-
-                                        {% if item.normal_qty > 0 %}
-                                            <div class="price-row">
-                                                <span>{{ item.normal_qty }} normal-price item{{ item.normal_qty|pluralize }}</span>
-                                                <span>£{{ item.normal_unit_price }} each</span>
-                                            </div>
-                                        {% endif %}
-                                    </div>
-
-                                    <div class="summary-line-total">£{{ item.line_total }}</div>
-                                </article>
-                            {% endfor %}
-                        </div>
-
-                        <div class="producer-total-row">
-                            <span>Producer total</span>
-                            <strong>£{{ summary.total }}</strong>
-                        </div>
-                    </section>
-                {% endfor %}
-            </div>
-        </section>
-
-        <aside class="card confirmation-side">
-            <div class="section-heading">
-                <h2>Payment summary</h2>
-            </div>
-
-            <div class="checkout-totals">
-                <div>
-                    <span>Subtotal</span>
-                    <strong>£{{ subtotal }}</strong>
-                </div>
-                <div>
-                    <span>Network commission (5%)</span>
-                    <strong>£{{ commission }}</strong>
-                </div>
-                <div class="checkout-grand-total">
-                    <span>Total paid</span>
-                    <strong>£{{ total }}</strong>
-                </div>
-            </div>
-=======
-<div style="max-width:950px; margin:30px auto;">
-
-  <div style="background:linear-gradient(135deg, #dbeafe, #ccfbf1, #fef3c7); border-radius:22px; padding:30px; margin-bottom:25px; box-shadow:0 12px 30px rgba(0,0,0,0.08);">
-    <h1 style="margin-top:0;">🎉 Order Confirmed</h1>
-    <p style="font-size:18px; margin-bottom:0;">Thank you! Your order has been placed successfully.</p>
-  </div>
-
-  <div style="border:1px solid #ddd; border-radius:16px; background:#fff; padding:24px; margin-bottom:25px;">
-    <h2>Order Details</h2>
-
-    <p><strong>Order Number:</strong> {{ order_number }}</p>
-    <p><strong>Delivery Address:</strong> {{ address }}</p>
-    <p><strong>Delivery Date:</strong> {{ date }}</p>
-    <p><strong>Payment Method:</strong> {{ payment|title }}</p>
-  </div>
-
-  <h2>Order Breakdown by Producer</h2>
-
-  {% if producer_order_summaries %}
-    {% for summary in producer_order_summaries %}
-      <div style="border:1px solid #ddd; border-radius:16px; background:#fff; padding:22px; margin-bottom:20px;">
-        <h3 style="margin-top:0;">{{ summary.producer }}</h3>
-        <p><strong>Producer Order ID:</strong> {{ summary.producer_order.id }}</p>
-        <p><strong>Status:</strong> {{ summary.producer_order.get_status_display }}</p>
-
-        {% for item in summary.items %}
-          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #eee; padding:10px 0;">
-            <span>{{ item.product.name }} (x{{ item.quantity }})</span>
-            <strong>£{{ item.line_total|floatformat:2 }}</strong>
-          </div>
-        {% endfor %}
-
-        <p style="text-align:right; margin-top:12px;">
-          <strong>Producer Total: £{{ summary.total|floatformat:2 }}</strong>
+      <div class="section-heading" style="margin-top:28px;">
+        <h2>Producer breakdown</h2>
+        <p class="muted">
+          Each producer receives the items assigned to them.
         </p>
       </div>
-    {% endfor %}
-  {% else %}
-    {% for producer, items in producers.items %}
-      <div style="border:1px solid #ddd; border-radius:16px; background:#fff; padding:22px; margin-bottom:20px;">
-        <h3 style="margin-top:0;">{{ producer }}</h3>
 
-        {% for item in items %}
-          <div style="display:flex; justify-content:space-between; border-bottom:1px solid #eee; padding:10px 0;">
-            <span>{{ item.name }} (x{{ item.qty }})</span>
-            <strong>£{{ item.total|floatformat:2 }}</strong>
-          </div>
-        {% endfor %}
+      <div class="producer-summary-list">
+        {% if producer_order_summaries %}
+          {% for summary in producer_order_summaries %}
+            <section class="producer-summary-card">
+              <div class="producer-summary-head">
+                <div>
+                  <h3>{{ summary.producer }}</h3>
+
+                  {% if summary.producer_order %}
+                    <p class="muted">
+                      Producer order #{{ summary.producer_order.id }}
+                    </p>
+                  {% endif %}
+                </div>
+
+                {% if summary.producer_order %}
+                  <span class="status-badge status-badge--{{ summary.producer_order.status|lower }}">
+                    {{ summary.producer_order.get_status_display }}
+                  </span>
+                {% endif %}
+              </div>
+
+              <div class="producer-summary-items">
+                {% for item in summary.items %}
+                  <article class="summary-line-item">
+                    <div class="summary-line-main">
+                      <strong>{{ item.product.name }}</strong>
+                      <span>
+                        x{% if item.quantity %}{{ item.quantity }}{% else %}{{ item.qty }}{% endif %}
+                      </span>
+                    </div>
+
+                    <div class="summary-line-total">
+                      £{{ item.line_total|floatformat:2 }}
+                    </div>
+                  </article>
+                {% endfor %}
+              </div>
+
+              <div class="producer-total-row">
+                <span>Producer total</span>
+                <strong>£{{ summary.total|floatformat:2 }}</strong>
+              </div>
+            </section>
+          {% endfor %}
+        {% else %}
+          {% for producer, items in producers.items %}
+            <section class="producer-summary-card">
+              <div class="producer-summary-head">
+                <div>
+                  <h3>{{ producer }}</h3>
+                  <p class="muted">{{ items|length }} item{{ items|length|pluralize }}</p>
+                </div>
+              </div>
+
+              <div class="producer-summary-items">
+                {% for item in items %}
+                  <article class="summary-line-item">
+                    <div class="summary-line-main">
+                      <strong>{{ item.name }}</strong>
+                      <span>x{{ item.qty }}</span>
+                    </div>
+
+                    <div class="summary-line-breakdown">
+                      <div class="price-row">
+                        <span>Unit price</span>
+                        <span>£{{ item.price|floatformat:2 }}</span>
+                      </div>
+                    </div>
+
+                    <div class="summary-line-total">
+                      £{{ item.total|floatformat:2 }}
+                    </div>
+                  </article>
+                {% endfor %}
+              </div>
+            </section>
+          {% empty %}
+            <p class="muted">No producer items found.</p>
+          {% endfor %}
+        {% endif %}
       </div>
-    {% endfor %}
-  {% endif %}
+    </section>
 
-  <div style="border:1px solid #ddd; border-radius:16px; background:#fff; padding:24px; margin-top:25px;">
-    <h2>Order Summary</h2>
+    <aside class="card confirmation-side">
+      <div class="section-heading">
+        <h2>Payment summary</h2>
+      </div>
 
-    <div style="display:flex; justify-content:space-between;">
-      <span>Subtotal</span>
-      <strong>£{{ subtotal|floatformat:2 }}</strong>
-    </div>
+      <div class="checkout-totals">
+        <div>
+          <span>Subtotal</span>
+          <strong>£{{ subtotal|floatformat:2 }}</strong>
+        </div>
 
-    <div style="display:flex; justify-content:space-between; margin-top:10px;">
-      <span>Network Commission (5%)</span>
-      <strong>£{{ commission|floatformat:2 }}</strong>
-    </div>
+        <div>
+          <span>Network commission (5%)</span>
+          <strong>£{{ commission|floatformat:2 }}</strong>
+        </div>
 
-    <hr>
+        <div class="checkout-grand-total">
+          <span>Total paid</span>
+          <strong>£{{ total|floatformat:2 }}</strong>
+        </div>
+      </div>
 
-    <div style="display:flex; justify-content:space-between; font-size:22px;">
-      <strong>Total Paid</strong>
-      <strong>£{{ total|floatformat:2 }}</strong>
-    </div>
+      <div style="background:#ecfdf5; border:1px solid #a7f3d0; border-radius:14px; padding:16px; margin-top:25px; color:#047857;">
+        ✔ Your order has been created successfully.
+      </div>
+
+      <div class="confirmation-actions">
+        <a class="btn btn-primary" href="{% url 'marketplace:order_history' %}">
+          Track this order
+        </a>
+
+        <a class="btn" href="{% url 'marketplace:product_list' %}">
+          Continue shopping
+        </a>
+
+        <button class="btn" type="button" onclick="window.print()">
+          Print receipt
+        </button>
+      </div>
+    </aside>
   </div>
-
-  <div style="background:#ecfdf5; border:1px solid #a7f3d0; border-radius:14px; padding:16px; margin-top:25px; color:#047857;">
-    ✔ Your order has been created and split across the relevant producers.
-  </div>
-
-  <div style="display:flex; gap:15px; margin-top:25px;">
-    <button class="save-btn btn" onclick="window.print()">Print Order</button>
-    <button class="back-btn btn" onclick="window.location.href='/'">Continue Shopping</button>
-  </div>
-
 </div>
->>>>>>> dev
-
-            <div class="confirmation-actions">
-                <a class="btn btn-primary" href="{% url 'orders:history' %}">Track this order</a>
-                <a class="btn" href="{% url 'marketplace:product_list' %}">Continue shopping</a>
-                <button class="btn" type="button" onclick="window.print()">Print receipt</button>
-            </div>
-        </aside>
-    </div>
-</div>
-
 {% endblock %}
