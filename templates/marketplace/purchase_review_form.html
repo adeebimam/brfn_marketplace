@@ -14,7 +14,7 @@
       Submit Purchase Review
     </button>
 
-    <a href="{% url 'marketplace:product_detail' product.id %}" class="btn">
+    <a href="{% url 'marketplace:order_detail' order.order_number %}" class="btn">
       Cancel
     </a>
   </form>

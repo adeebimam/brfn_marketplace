@@ -41,6 +41,6 @@ urlpatterns = [
     path("orders/<str:order_id>/receipt/", views.download_receipt, name="download_receipt"),
 
     path("producer/orders/", views.producer_order_management, name="producer_order_management"),
-
+    path("orders/<str:order_id>/purchase-review/", views.create_purchase_review, name="create_purchase_review"),
 
 ]

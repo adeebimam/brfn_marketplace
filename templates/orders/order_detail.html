@@ -36,14 +36,39 @@
           </p>
         </div>
 
-        <a class="btn btn-primary" href="{% url 'marketplace:create_review' item.id %}">
-          Write Review
-        </a>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <a class="btn btn-primary" href="{% url 'marketplace:create_review' item.id %}">
+            Write Product Review
+          </a>
+
+          <a class="btn btn-primary" href="{% url 'marketplace:create_purchase_review' order.order_number %}">
+            Write Purchase Review
+          </a>
+        </div>
 
       </div>
     {% endfor %}
 
   </div>
+{% endfor %}
+
+<!-- PURCHASE REVIEWS -->
+<h3>Purchase Reviews</h3>
+
+{% for review in purchase_reviews %}
+  <div style="border:1px solid #ddd; border-radius:10px; padding:20px; margin-bottom:20px; background:#fff;">
+    <p><strong>{{ review.rating }} / 5 ⭐</strong></p>
+    <p><strong>Delivery:</strong> {{ review.delivery_rating }} / 5</p>
+    <p><strong>Packaging:</strong> {{ review.packaging_rating }} / 5</p>
+
+    <h4>{{ review.title }}</h4>
+    <p>{{ review.comment }}</p>
+
+    <p style="font-style:italic;">By {{ review.customer.username }}</p>
+    <p style="color:#666; font-size:14px;">{{ review.created_at }}</p>
+  </div>
+{% empty %}
+  <p>No purchase reviews yet.</p>
 {% endfor %}
 
 <!-- ACTION BUTTONS -->
@@ -55,10 +80,10 @@
   <a href="{% url 'marketplace:reorder' order.order_number %}" class="btn btn-primary">
     Reorder
   </a>
+
   <a href="{% url 'marketplace:download_receipt' order.order_number %}" class="btn btn-secondary">
     Download Receipt
   </a>
 </div>
-
 
 {% endblock %}

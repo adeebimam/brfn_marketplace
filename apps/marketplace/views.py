@@ -3,12 +3,12 @@ import random
 from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
-
+from decimal import Decimal, ROUND_HALF_UP
 from tracemalloc import start
 from urllib import request
-from .forms import CheckoutForm, ProductForm, ProducerOrderStatusForm, ReviewForm
-
-
+from .forms import CheckoutForm, ProductForm, ProducerOrderStatusForm, PurchaseReviewForm, ReviewForm
+from .models import PurchaseReview
+from .models import CustomerOrderHistory
 from .services import update_producer_order_status
 
 from django.contrib import messages
@@ -180,31 +180,28 @@ def product_detail(request, pk):
 def create_review(request, product_id):
     product = get_object_or_404(Product, id=product_id)
 
-    order_history = [
-    record.order_data
-    for record in CustomerOrderHistory.objects.filter(customer=request.user)
-]
+    # Check purchased product from database order history
+    order_records = CustomerOrderHistory.objects.filter(customer=request.user)
 
     has_purchased = False
 
-    for order in order_history:
+    for record in order_records:
+        order = record.order_data
+
         for producer, items in order.get("producers", {}).items():
             for item in items:
                 if str(item.get("id")) == str(product_id):
                     has_purchased = True
                     break
 
+            if has_purchased:
+                break
+
+        if has_purchased:
+            break
+
     if not has_purchased:
         messages.error(request, "You can only review products you have purchased.")
-        return redirect("marketplace:product_detail", pk=product_id)
-
-    existing_review = Review.objects.filter(
-        product=product,
-        customer=request.user
-    ).first()
-
-    if existing_review:
-        messages.error(request, "You have already reviewed this product.")
         return redirect("marketplace:product_detail", pk=product_id)
 
     if request.method == "POST":
@@ -217,7 +214,7 @@ def create_review(request, product_id):
             review.verified_purchase = True
             review.save()
 
-            messages.success(request, "Review submitted successfully.")
+            messages.success(request, "Product review submitted successfully.")
             return redirect("marketplace:product_detail", pk=product_id)
     else:
         form = ReviewForm()
@@ -375,6 +372,8 @@ def checkout(request):
 
     if request.method == "POST":
         form = CheckoutForm(request.POST)
+        print("CHECKOUT POST:", request.POST)
+        print("FORM ERRORS:", form.errors)
 
         if form.is_valid():
             delivery_address = form.cleaned_data["delivery_address"]
@@ -528,7 +527,10 @@ def payment(request):
                     product.stock_quantity = max(0, product.stock_quantity - item["qty"])
                     product.save()
                     debug_info.append(f"Updated stock for {product.name}: {product.stock_quantity}")
-                producer_order.total_value = total_value
+                producer_order.total_value = Decimal(str(total_value)).quantize(
+                    Decimal("0.01"),
+                    rounding=ROUND_HALF_UP
+                )
                 producer_order.save()
                 debug_info.append(f"Saved ProducerOrder with total_value: {total_value}")
             print("DEBUG INFO:", debug_info)
@@ -537,7 +539,11 @@ def payment(request):
             error_message = f"Order creation failed: {e}"
             print(error_message)
             print(traceback.format_exc())
-            return render(request, "payment.html", {"order": order, "error_message": error_message, "debug_info": debug_info})
+            return render(request, "orders/payment.html", {
+                "order": order,
+                "error_message": error_message,
+                "debug_info": debug_info
+            })
 
         order_history = request.session.get("order_history", [])
 
@@ -1006,9 +1012,9 @@ def order_history(request):
 @login_required
 def order_detail(request, order_id):
     orders = [
-    record.order_data
-    for record in CustomerOrderHistory.objects.filter(customer=request.user)
-]
+        record.order_data
+        for record in CustomerOrderHistory.objects.filter(customer=request.user)
+    ]
 
     order = next((o for o in orders if str(o.get("order_number")) == str(order_id)), None)
 
@@ -1016,8 +1022,14 @@ def order_detail(request, order_id):
         messages.error(request, "Order not found")
         return redirect("marketplace:order_history")
 
+    purchase_reviews = PurchaseReview.objects.filter(
+        customer=request.user,
+        order_number=order_id
+    ).order_by("-created_at")
+
     return render(request, "orders/order_detail.html", {
-        "order": order
+        "order": order,
+        "purchase_reviews": purchase_reviews,
     })
 
 
@@ -1115,3 +1127,34 @@ def download_receipt(request, order_id):
     response = HttpResponse(content, content_type="text/plain")
     response["Content-Disposition"] = f'attachment; filename="receipt_{order_id}.txt"'
     return response
+@login_required
+def create_purchase_review(request, order_id):
+    order_record = CustomerOrderHistory.objects.filter(
+        customer=request.user,
+        order_number=order_id
+    ).first()
+
+    if not order_record:
+        messages.error(request, "Order not found.")
+        return redirect("marketplace:order_history")
+
+    
+
+    if request.method == "POST":
+        form = PurchaseReviewForm(request.POST)
+
+        if form.is_valid():
+            review = form.save(commit=False)
+            review.customer = request.user
+            review.order_number = order_id
+            review.save()
+
+            messages.success(request, "Purchase review submitted successfully.")
+            return redirect("marketplace:order_detail", order_id=order_id)
+    else:
+        form = PurchaseReviewForm()
+
+    return render(request, "marketplace/purchase_review_form.html", {
+        "form": form,
+        "order": order_record.order_data,
+    })
