@@ -342,10 +342,6 @@ class Review(models.Model):
     verified_purchase = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    class Meta:
-        unique_together = ("product", "customer")
-        ordering = ["-created_at"]
-
     def clean(self):
         if self.rating is None:
             raise ValidationError("Rating is required.")
@@ -355,6 +351,31 @@ class Review(models.Model):
 
     def __str__(self):
         return f"{self.product.name} - {self.rating} stars"
+class PurchaseReview(models.Model):
+    customer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="purchase_reviews"
+    )
+
+    order_number = models.CharField(max_length=50)
+
+    rating = models.IntegerField()
+    delivery_rating = models.IntegerField()
+    packaging_rating = models.IntegerField()
+
+    title = models.CharField(max_length=255)
+    comment = models.TextField()
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def clean(self):
+        for value in [self.rating, self.delivery_rating, self.packaging_rating]:
+            if value is None or value < 1 or value > 5:
+                raise ValidationError("Ratings must be between 1 and 5.")
+
+    def __str__(self):
+        return f"Purchase Review {self.order_number} - {self.rating} stars"
     
 class CustomerOrderHistory(models.Model):
     customer = models.ForeignKey(

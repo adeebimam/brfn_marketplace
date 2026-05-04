@@ -4,7 +4,7 @@ from django.db.models import Case, When, Value, IntegerField
 from datetime import date, timedelta
 from apps.accounts import models
 from .models import Product, Allergen, ProducerOrder, MONTH_CHOICES, Review
-
+from .models import Product, Allergen, ProducerOrder, MONTH_CHOICES, Review, PurchaseReview
 class NoClearableFileInput(forms.ClearableFileInput):
     template_name = 'widgets/no_clearable_file_input.html'
 
@@ -110,7 +110,7 @@ class CheckoutForm(forms.Form):
     delivery_address = forms.CharField(
         widget=forms.Textarea(attrs={"rows": 2})
     )
-    delivery_postcode = forms.CharField(max_length=20)
+    
 
     delivery_date = forms.DateField(
         required=False,
@@ -228,5 +228,15 @@ class ReviewForm(forms.ModelForm):
 
         return rating
 
+class PurchaseReviewForm(forms.ModelForm):
+    rating = forms.IntegerField(min_value=1, max_value=5)
+    delivery_rating = forms.IntegerField(min_value=1, max_value=5)
+    packaging_rating = forms.IntegerField(min_value=1, max_value=5)
 
+    class Meta:
+        model = PurchaseReview
+        fields = ["rating", "delivery_rating", "packaging_rating", "title", "comment"]
+        widgets = {
+            "comment": forms.Textarea(attrs={"rows": 4}),
+        }
    
