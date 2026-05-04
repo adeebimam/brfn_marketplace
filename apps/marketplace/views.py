@@ -3,17 +3,12 @@ import random
 from collections import defaultdict
 from datetime import date, timedelta, datetime
 from decimal import Decimal
-<<<<<<< HEAD
-
-from .forms import CheckoutForm, ProductForm, ProducerOrderStatusForm, ReviewForm
-=======
 from decimal import Decimal, ROUND_HALF_UP
 from tracemalloc import start
 from urllib import request
 from .forms import CheckoutForm, ProductForm, ProducerOrderStatusForm, PurchaseReviewForm, ReviewForm
 from .models import PurchaseReview
 from .models import CustomerOrderHistory
->>>>>>> melee
 from .services import update_producer_order_status
 
 from django.contrib import messages
@@ -288,15 +283,6 @@ def product_detail(request, pk):
 def create_review(request, product_id):
     product = get_object_or_404(Product, id=product_id)
 
-<<<<<<< HEAD
-    order_history = [
-        record.order_data
-        for record in CustomerOrderHistory.objects.filter(customer=request.user)
-    ]
-
-    has_purchased = False
-    for order in order_history:
-=======
     # Check purchased product from database order history
     order_records = CustomerOrderHistory.objects.filter(customer=request.user)
 
@@ -305,7 +291,6 @@ def create_review(request, product_id):
     for record in order_records:
         order = record.order_data
 
->>>>>>> melee
         for producer, items in order.get("producers", {}).items():
             for item in items:
                 if str(item.get("id")) == str(product_id):
@@ -322,15 +307,6 @@ def create_review(request, product_id):
         messages.error(request, "You can only review products you have purchased.")
         return redirect("marketplace:product_detail", pk=product_id)
 
-<<<<<<< HEAD
-    existing_review = Review.objects.filter(product=product, customer=request.user).first()
-
-    if existing_review:
-        messages.error(request, "You have already reviewed this product.")
-        return redirect("marketplace:product_detail", pk=product_id)
-
-=======
->>>>>>> melee
     if request.method == "POST":
         form = ReviewForm(request.POST)
         if form.is_valid():
@@ -339,12 +315,8 @@ def create_review(request, product_id):
             review.customer = request.user
             review.verified_purchase = True
             review.save()
-<<<<<<< HEAD
-            messages.success(request, "Review submitted successfully.")
-=======
 
             messages.success(request, "Product review submitted successfully.")
->>>>>>> melee
             return redirect("marketplace:product_detail", pk=product_id)
     else:
         form = ReviewForm()
@@ -472,12 +444,9 @@ def checkout(request):
 
     if request.method == "POST":
         form = CheckoutForm(request.POST)
-<<<<<<< HEAD
-=======
         print("CHECKOUT POST:", request.POST)
         print("FORM ERRORS:", form.errors)
 
->>>>>>> melee
         if form.is_valid():
             delivery_address = form.cleaned_data["delivery_address"]
             delivery_date = request.POST.get("delivery_1")
@@ -608,15 +577,13 @@ def payment(request):
                     total_value += item["qty"] * float(item["price"])
                     product.stock_quantity = max(0, product.stock_quantity - item["qty"])
                     product.save()
-<<<<<<< HEAD
+
                 producer_order.total_value = total_value
-=======
-                    debug_info.append(f"Updated stock for {product.name}: {product.stock_quantity}")
+                debug_info.append(f"Updated stock for {product.name}: {product.stock_quantity}")
                 producer_order.total_value = Decimal(str(total_value)).quantize(
                     Decimal("0.01"),
                     rounding=ROUND_HALF_UP
                 )
->>>>>>> melee
                 producer_order.save()
 
         except Exception as e:
@@ -624,9 +591,6 @@ def payment(request):
             error_message = f"Order creation failed: {e}"
             print(error_message)
             print(traceback.format_exc())
-<<<<<<< HEAD
-            return render(request, "payment.html", {"order": order, "error_message": error_message})
-=======
             return render(request, "orders/payment.html", {
                 "order": order,
                 "error_message": error_message,
@@ -634,7 +598,6 @@ def payment(request):
             })
 
         order_history = request.session.get("order_history", [])
->>>>>>> melee
 
         order_data = {
             "order_number": order_number,
@@ -1021,19 +984,15 @@ def order_detail(request, order_id):
         record.order_data
         for record in CustomerOrderHistory.objects.filter(customer=request.user)
     ]
-<<<<<<< HEAD
-=======
 
->>>>>>> melee
+
+
     order = next((o for o in orders if str(o.get("order_number")) == str(order_id)), None)
 
     if not order:
         messages.error(request, "Order not found")
         return redirect("marketplace:order_history")
 
-<<<<<<< HEAD
-    return render(request, "orders/order_detail.html", {"order": order})
-=======
     purchase_reviews = PurchaseReview.objects.filter(
         customer=request.user,
         order_number=order_id
@@ -1043,7 +1002,6 @@ def order_detail(request, order_id):
         "order": order,
         "purchase_reviews": purchase_reviews,
     })
->>>>>>> melee
 
 
 @login_required
@@ -1112,31 +1070,6 @@ def download_receipt(request, order_id):
     response = HttpResponse(content, content_type="text/plain")
     response["Content-Disposition"] = f'attachment; filename="receipt_{order_id}.txt"'
     return response
-<<<<<<< HEAD
-
-
-# -----------------------------
-# Stock Notifications
-# -----------------------------
-
-@login_required
-def stock_notifications(request):
-    if not _require_producer(request):
-        return HttpResponseForbidden("Producer access only.")
-
-    from .models import StockNotification
-
-    active_notifications = StockNotification.objects.filter(
-        producer=request.user, is_resolved=False
-    )
-    resolved_notifications = StockNotification.objects.filter(
-        producer=request.user, is_resolved=True
-    )[:10]
-
-    return render(request, "marketplace/stock_notifications.html", {
-        "active_notifications": active_notifications,
-        "resolved_notifications": resolved_notifications,
-=======
 @login_required
 def create_purchase_review(request, order_id):
     order_record = CustomerOrderHistory.objects.filter(
@@ -1167,5 +1100,4 @@ def create_purchase_review(request, order_id):
     return render(request, "marketplace/purchase_review_form.html", {
         "form": form,
         "order": order_record.order_data,
->>>>>>> melee
     })
