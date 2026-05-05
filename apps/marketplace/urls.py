@@ -8,6 +8,9 @@ urlpatterns = [
     path("products/", views.product_list, name="product_list"),
     path("products/<int:pk>/", views.product_detail, name="product_detail"),
 
+    # Reviews
+    path("products/<int:product_id>/reviews/create/", views.create_review, name="create_review"),
+
     # Producer products
     path("producer/products/", views.producer_product_list, name="producer_product_list"),
     path("producer/products/new/", views.product_create, name="product_create"),
@@ -21,16 +24,31 @@ urlpatterns = [
     # Allergen test
     path("allergen-test/", views.allergen_test, name="allergen_test"),
 
-    # TC-009 Producer orders
+    # Producer orders
     path("producer/orders/", views.producer_order_list, name="producer_order_list"),
     path("producer/orders/<int:pk>/", views.producer_order_detail, name="producer_order_detail"),
-
-    # TC-010 Update order status
     path("producer/orders/<int:pk>/update-status/", views.producer_order_update_status, name="producer_order_update_status"),
 
-    # TC-012 Producer payments
+    # Producer order management
+    path("producer/order-management/", views.producer_order_management, name="producer_order_management"),
+
+    # Producer payments
     path("producer/payments/", views.producer_payments, name="producer_payments"),
     path("producer/payments/download/", views.download_payments_csv, name="download_payments_csv"),
-    path("producer/orders/", views.producer_order_management, name="producer_order_management"),
 
+    # Customer order history
+    path("orders/", views.order_history, name="order_history"),
+    path("orders/<str:order_id>/", views.order_detail, name="order_detail"),
+    path("orders/<str:order_id>/reorder/", views.reorder, name="reorder"),
+    path("orders/<str:order_id>/receipt/", views.download_receipt, name="download_receipt"),
+
+    # Search suggestions
+    path("products/suggestions/", views.product_search_suggestions, name="product_search_suggestions"),
+    path("orders/<str:order_id>/purchase-review/", views.create_purchase_review, name="create_purchase_review"),
+
+    # Stock notifications
+    path("producer/stock-alerts/", views.stock_notifications, name="stock_notifications"),
+
+    # Surplus deals
+    path("surplus-deals/", views.surplus_deals, name="surplus_deals"),
 ]

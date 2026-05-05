@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2>My Orders</h2>
+
+<form method="GET" style="margin-bottom: 20px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+
+  <label for="start-date">Start:</label>
+  <input type="date" name="start" id="start-date" value="{{ start }}">
+
+  <label for="end-date">End:</label>
+  <input type="date" name="end" id="end-date" value="{{ end }}">
+
+  <label for="sort">Sort:</label>
+  <select name="sort" id="sort">
+    <option value="newest" {% if request.GET.sort == "newest" or not request.GET.sort %}selected{% endif %}>
+      Newest First
+    </option>
+    <option value="oldest" {% if request.GET.sort == "oldest" %}selected{% endif %}>
+      Oldest First
+    </option>
+  </select>
+
+  <label for="producer">Producer:</label>
+  <input
+    type="text"
+    name="producer"
+    id="producer"
+    value="{{ producer }}"
+    placeholder="Enter producer name"
+  >
+
+  <button type="submit" class="btn btn-primary">Filter</button>
+</form>
+
+{% for order in orders %}
+  <div style="border:1px solid #ddd; border-radius:10px; padding:16px; margin-bottom:20px; background:#fff;">
+
+    <p><strong>Order #{{ order.order_number }}</strong></p>
+    <p>Order Date: {{ order.order_date }}</p>
+    <p>Delivery Date: {{ order.delivery_date }}</p>
+    <p>Total: £{{ order.total|floatformat:2 }}</p>
+    <p>Status: Completed</p>
+
+    <p><strong>Producers:</strong></p>
+    <ul>
+      {% for producer_name, items in order.producers.items %}
+        <li>
+          <strong>{{ producer_name }}</strong>
+          <ul>
+            {% for item in items %}
+              <li>
+                {{ item.name }} x{{ item.qty }} — £{{ item.total|floatformat:2 }}
+              </li>
+            {% endfor %}
+          </ul>
+        </li>
+      {% endfor %}
+    </ul>
+
+    <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+      <a class="btn" href="{% url 'marketplace:order_detail' order.order_number %}">
+        View Details
+      </a>
+
+      <a class="btn btn-primary" href="{% url 'marketplace:reorder' order.order_number %}">
+        Reorder
+      </a>
+
+      <a class="btn" href="{% url 'marketplace:download_receipt' order.order_number %}">
+        Download Receipt
+      </a>
+    </div>
+
+  </div>
+{% empty %}
+  <div class="card empty-state">
+    <h2>No orders found</h2>
+    <p class="muted">Once you place an order, it will appear here.</p>
+    <a class="btn btn-primary" href="{% url 'marketplace:product_list' %}">
+      Browse products
+    </a>
+  </div>
+{% endfor %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const startInput = document.getElementById("start-date");
+  const endInput = document.getElementById("end-date");
+
+  function validateDates() {
+    if (!startInput || !endInput) return;
+
+    if (startInput.value) {
+      endInput.min = startInput.value;
+    } else {
+      endInput.removeAttribute("min");
+    }
+
+    if (endInput.value) {
+      startInput.max = endInput.value;
+    } else {
+      startInput.removeAttribute("max");
+    }
+
+    if (startInput.value && endInput.value && endInput.value < startInput.value) {
+      endInput.setCustomValidity("End date cannot be before start date.");
+    } else {
+      endInput.setCustomValidity("");
+    }
+  }
+
+  if (startInput && endInput) {
+    startInput.addEventListener("change", validateDates);
+    endInput.addEventListener("change", validateDates);
+    validateDates();
+  }
+});
+</script>
+
+{% endblock %}

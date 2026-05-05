@@ -14,10 +14,34 @@ class ProductAdminForm(forms.ModelForm):
         widgets = {
             "allergens": forms.CheckboxSelectMultiple(),
         }
+    def clean (self):
+        cleaned_data = super().clean()
+        allergens = cleaned_data.get("allergens")
+        other_info = cleaned_data.get("other_allergen_info")
 
+        if not allergens and not other_info:
+            raise forms.ValidationError ( 
+                  "All products must declare allergen information. "
+                "Select the allergens present, choose 'No common allergens' if none apply, "
+                "or provide details in the other allergen info field."
+            )
+        return cleaned_data 
 
 class ProductAdmin(admin.ModelAdmin):
     form = ProductAdminForm
+    list_display = (
+        "name",
+        "producer",
+        "price",
+        "surplus_discount_percent",
+        "surplus_discount_amount",
+        "surplus_discounted_price",
+        "surplus_stock_quantity",
+        "surplus_expires_at",
+        "is_surplus",
+        "is_active",
+    )
+    list_filter = ("is_surplus", "is_active", "category")
 
 
 class OrderItemInline(admin.TabularInline):
@@ -82,6 +106,5 @@ class ProducerOrderStatusHistoryAdmin(admin.ModelAdmin):
     readonly_fields = ("producer_order", "old_status", "new_status", "note", "changed_by", "changed_at")
 
 
-admin.site.register(Category)
 admin.site.register(Allergen)
 admin.site.register(Product, ProductAdmin)
