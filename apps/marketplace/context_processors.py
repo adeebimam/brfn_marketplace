@@ -1,0 +1,18 @@
+from django.utils import timezone
+
+from .services import expire_surplus_deals
+from .models import Product
+
+
+def active_surplus_deal_count(request):
+    expire_surplus_deals()
+
+    count = Product.objects.filter(
+        is_active=True,
+        is_surplus=True,
+        surplus_stock_quantity__gt=0,
+        stock_quantity__gt=0,
+        surplus_expires_at__gt=timezone.now(),
+    ).count()
+
+    return {"active_surplus_deal_count": count}

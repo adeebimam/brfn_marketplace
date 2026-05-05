@@ -7,6 +7,9 @@ def drop_legacy_allergens(apps, schema_editor):
     We query information_schema to avoid relying on `ALTER TABLE ... DROP COLUMN IF EXISTS`.
     """
     conn = schema_editor.connection
+    if conn.vendor != "mysql":
+        return
+
     with conn.cursor() as cursor:
         cursor.execute(
             """

@@ -8,6 +8,7 @@
         {{ form.non_field_errors }}
       </div>
     {% endif %}
+
     {{ form.category.label_tag }} {{ form.category }}<br><br>
     {{ form.name.label_tag }} {{ form.name }}<br><br>
     {{ form.description.label_tag }} {{ form.description }}<br><br>
@@ -17,7 +18,6 @@
     {{ form.harvest_date.label_tag }} {{ form.harvest_date }}<br><br>
     {{ form.not_available.label_tag }} {{ form.not_available }}<br><br>
 
-    {# Product image upload #}
     <div style="margin-bottom:1rem;">
       {{ form.image.label_tag }}
       {% if form.instance.image %}
@@ -47,12 +47,8 @@
         {{ form.season.label_tag }} {{ form.season }}
       </div>
       <div id="seasonal-months" style="display:flex; gap:1rem; flex-wrap:wrap;">
-        <div>
-          {{ form.available_from_month.label_tag }} {{ form.available_from_month }}
-        </div>
-        <div>
-          {{ form.available_to_month.label_tag }} {{ form.available_to_month }}
-        </div>
+        <div>{{ form.available_from_month.label_tag }} {{ form.available_from_month }}</div>
+        <div>{{ form.available_to_month.label_tag }} {{ form.available_to_month }}</div>
       </div>
       <p class="muted" style="font-size:0.85rem; margin-top:0.5rem;">
         Select "All Season" for year-round products. For seasonal products, choose a season and set the month range.
@@ -61,18 +57,20 @@
 
     <fieldset class="allergen-fieldset" style="border:1px solid #ddd; padding:1rem; border-radius:8px; margin-bottom:1rem;">
       <legend style="font-weight:600; padding:0 0.5rem;">Allergen Information <span style="color: red;">*</span></legend>
-      {{ form.allergens.label_tag }}
-      <div class="allergen-checkboxes" role="group" aria-label="Allergens">
-        {% for checkbox in form.allergens %}
-          <label class="allergen-option" for="{{ checkbox.id_for_label }}">
-            {{ checkbox.tag }}
-            <span>{{ checkbox.choice_label }}</span>
-          </label>
-        {% endfor %}
+      <div class="allergen-section">
+        {{ form.allergens.label_tag }}
+        <div class="allergen-checkboxes" role="group" aria-label="Allergens">
+          {% for checkbox in form.allergens %}
+            <label class="allergen-option" for="{{ checkbox.id_for_label }}">
+              {{ checkbox.tag }}
+              <span>{{ checkbox.choice_label }}</span>
+            </label>
+          {% endfor %}
+        </div>
+        {% if form.allergens.help_text %}
+          <p class="allergen-help-text muted" style="font-size:0.85rem; margin-top:0.5rem;">{{ form.allergens.help_text }}</p>
+        {% endif %}
       </div>
-      {% if form.allergens.help_text %}
-        <p class="allergen-help-text muted" style="font-size:0.85rem; margin-top:0.5rem;">{{ form.allergens.help_text }}</p>
-      {% endif %}
       <div style="margin-top:0.75rem;">
         <label for="id_other_allergen_info">Additional allergen details</label>
         {{ form.other_allergen_info }}
@@ -84,10 +82,27 @@
       <legend style="font-weight:600; padding:0 0.5rem;">Certification</legend>
       <label class="allergen-option" style="display:inline-flex; align-items:center; gap:8px;">
         {{ form.is_organic }}
-        <span>This product is <strong> 🌱 Certified Organic</strong></span>
+        <span>This product is <strong>🌱 Certified Organic</strong></span>
       </label>
       <p class="muted" style="font-size:0.85rem; margin-top:0.5rem;">
         Only tick this if your product holds a valid organic certification.
+      </p>
+    </fieldset>
+
+    <fieldset style="border:1px solid #ddd; padding:1rem; border-radius:8px; margin-bottom:1rem;">
+      <legend style="font-weight:600; padding:0 0.5rem;">Surplus / Last Minute Deal</legend>
+      <div style="margin-bottom:0.75rem;">
+        {{ form.is_surplus.label_tag }} {{ form.is_surplus }}
+      </div>
+      <div id="surplus-fields" style="display:flex; flex-direction:column; gap:0.75rem;">
+        <div>{{ form.surplus_discount_percent.label_tag }} {{ form.surplus_discount_percent }}</div>
+        <div>{{ form.surplus_stock_quantity.label_tag }} {{ form.surplus_stock_quantity }}</div>
+        <div>{{ form.surplus_expires_at.label_tag }} {{ form.surplus_expires_at }}</div>
+        <div>{{ form.best_before_date.label_tag }} {{ form.best_before_date }}</div>
+        <div>{{ form.surplus_note.label_tag }} {{ form.surplus_note }}</div>
+      </div>
+      <p class="muted" style="font-size:0.85rem; margin-top:0.5rem;">
+        Mark products with excess stock as surplus, apply a discount, and set when the deal expires.
       </p>
     </fieldset>
 
@@ -98,7 +113,6 @@
   <script>
     const seasonField = document.getElementById('id_season');
     const monthsDiv = document.getElementById('seasonal-months');
-
     function toggleMonths() {
       if (seasonField.value === 'ALL' || seasonField.value === '') {
         monthsDiv.style.display = 'none';
@@ -106,8 +120,21 @@
         monthsDiv.style.display = 'flex';
       }
     }
-
     seasonField.addEventListener('change', toggleMonths);
     toggleMonths();
+
+    const surplusCheckbox = document.getElementById('id_is_surplus');
+    const surplusFields = document.getElementById('surplus-fields');
+    function toggleSurplusFields() {
+      if (surplusCheckbox && surplusCheckbox.checked) {
+        surplusFields.style.display = 'flex';
+      } else {
+        surplusFields.style.display = 'none';
+      }
+    }
+    if (surplusCheckbox) {
+      surplusCheckbox.addEventListener('change', toggleSurplusFields);
+      toggleSurplusFields();
+    }
   </script>
 {% endblock %}

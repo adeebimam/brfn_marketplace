@@ -9,21 +9,7 @@
   <link rel="stylesheet" href="{% static 'dist/css/main.css' %}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 </head>
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-    setTimeout(function () {
-        document.querySelectorAll(".message-container .alert").forEach(function (alert) {
-            alert.style.opacity = "0";
-            alert.style.transform = "translateY(-10px)";
-            alert.style.transition = "0.4s ease";
 
-            setTimeout(function () {
-                alert.remove();
-            }, 400);
-        });
-    }, 4000);
-});
-</script>
 <body>
 
 <header class="nav">
@@ -31,19 +17,39 @@ document.addEventListener("DOMContentLoaded", function () {
     <a class="brand" href="{% url 'home' %}">BRFN Marketplace</a>
 
     <nav class="nav-links">
-      <a href="{% url 'marketplace:product_list' %}" {% if request.resolver_match.url_name == 'product_list' %}class="active"{% endif %}>Products</a>
-      
+      <a href="{% url 'marketplace:product_list' %}" {% if request.resolver_match.url_name == 'product_list' %}class="active"{% endif %}>
+        Products
+      </a>
+
       {% if user.is_authenticated and user.profile.role == "ADMIN" %}
-        <a href="{% url 'accounts:admin_dashboard' %}">Admin Dashboard</a>
+        <a href="{% url 'accounts:admin_dashboard' %}" {% if request.resolver_match.url_name == 'admin_dashboard' %}class="active"{% endif %}>
+          Admin Dashboard
+        </a>
       {% endif %}
 
+      <a href="{% url 'marketplace:surplus_deals' %}" {% if request.resolver_match.url_name == 'surplus_deals' %}class="active"{% endif %}>
+        Offers
+      </a>
+
       {% if user.is_authenticated %}
+
         {% if user.profile.role == "PRODUCER" and user.profile.is_verified %}
-          <a href="{% url 'marketplace:producer_product_list' %}" {% if request.resolver_match.url_name == 'producer_product_list' or request.resolver_match.url_name == 'product_create' or request.resolver_match.url_name == 'product_update' %}class="active"{% endif %}>My Products</a>
-          <a href="{% url 'marketplace:producer_order_list' %}" {% if request.resolver_match.url_name == 'producer_order_list' or request.resolver_match.url_name == 'producer_order_detail' %}class="active"{% endif %}>Orders</a>
-          <a href="{% url 'marketplace:producer_payments' %}" {% if request.resolver_match.url_name == 'producer_payments' %}class="active"{% endif %}>Payments</a>
+          <a href="{% url 'marketplace:producer_product_list' %}" {% if request.resolver_match.url_name == 'producer_product_list' or request.resolver_match.url_name == 'product_create' or request.resolver_match.url_name == 'product_update' %}class="active"{% endif %}>
+            My Products
+          </a>
+
+          <a href="{% url 'marketplace:producer_order_list' %}" {% if request.resolver_match.url_name == 'producer_order_list' or request.resolver_match.url_name == 'producer_order_detail' %}class="active"{% endif %}>
+            Orders
+          </a>
+
+          <a href="{% url 'marketplace:producer_payments' %}" {% if request.resolver_match.url_name == 'producer_payments' %}class="active"{% endif %}>
+            Payments
+          </a>
+
         {% elif user.profile.role == "CUSTOMER" or user.profile.role == "COMMUNITY_GROUP" or user.profile.role == "RESTAURANT" %}
-          <a href="{% url 'marketplace:order_history' %}" {% if request.resolver_match.url_name == 'order_history' or request.resolver_match.url_name == 'order_detail' %}class="active"{% endif %}>My Orders</a>
+          <a href="{% url 'marketplace:order_history' %}" {% if request.resolver_match.url_name == 'order_history' or request.resolver_match.url_name == 'order_detail' %}class="active"{% endif %}>
+            My Orders
+          </a>
 
           <a href="{% url 'cart:detail' %}">
             <i class="fa-solid fa-cart-shopping" style="font-size:22px;"></i>
@@ -53,17 +59,17 @@ document.addEventListener("DOMContentLoaded", function () {
           </a>
         {% endif %}
 
-        <div class = "profile-dropdown">
-          <button class = "profile-dropdown-toggle" type="button" onclick="toggleProfileDropdown()">
+        <div class="profile-dropdown">
+          <button class="profile-dropdown-toggle" type="button" onclick="toggleProfileDropdown()" aria-label="Open profile menu">
             <i class="fa-solid fa-circle-user"></i>
           </button>
 
-          <div class = "profile-dropdown-menu" id = "profileDropdownMenu">
-            
+          <div class="profile-dropdown-menu" id="profileDropdownMenu">
             <a href="{% url 'accounts:profile' %}">My Profile</a>
             <a href="#">Settings</a>
-            {% if not user.profile.role == "PRODUCER" or user.profile.is_verified %}
-              <a href="#">messages</a>
+
+            {% if user.profile.role != "PRODUCER" or user.profile.is_verified %}
+              <a href="#">Messages</a>
             {% endif %}
 
             {% if user.profile.role == "PRODUCER" and user.profile.is_verified %}
@@ -72,28 +78,24 @@ document.addEventListener("DOMContentLoaded", function () {
               <a href="{% url 'marketplace:producer_payments' %}">Payments</a>
 
             {% elif user.profile.role == "PRODUCER" and not user.profile.is_verified %}
-              <a href="#" style="color:  red;">Account under review</a>
+              <a href="#" style="color: red;">Account under review</a>
 
-            {% elif user.profile.role == "CUSTOMER" %}
-            <a href="#">Order History</a>
-
-
-            {% elif user.profile.role == "COMMUNITY_GROUP" %}
-              <a href="#">Group Orders</a>
-
-            {% elif user.profile.role == "RESTAURANT" %}
-              <a href="#">Group Orders</a>
-              <a href="#">Order History</a>
+            {% elif user.profile.role == "CUSTOMER" or user.profile.role == "COMMUNITY_GROUP" or user.profile.role == "RESTAURANT" %}
+              <a href="{% url 'marketplace:order_history' %}">Order History</a>
             {% endif %}
 
-            
             <a href="{% url 'accounts:logout' %}">Logout</a>
-
           </div>
         </div>
+
       {% else %}
-        <a href="{% url 'accounts:login' %}" {% if request.resolver_match.url_name == 'login' %}class="active"{% endif %}>Login</a>
-        <a class="btn btn-primary" href="{% url 'accounts:register' %}">Register</a>
+        <a href="{% url 'accounts:login' %}" {% if request.resolver_match.url_name == 'login' %}class="active"{% endif %}>
+          Login
+        </a>
+
+        <a class="btn btn-primary" href="{% url 'accounts:register' %}">
+          Register
+        </a>
       {% endif %}
     </nav>
   </div>
@@ -105,39 +107,226 @@ document.addEventListener("DOMContentLoaded", function () {
       {% if request.user.profile.role == "PRODUCER" %}
         Welcome back, {{ request.user.profile.business_name|title }}!
         <span style="color: #087d73;">({{ request.user.profile.display_role }})</span>
+
       {% elif request.user.profile.role == "RESTAURANT" %}
         Welcome back, {{ request.user.profile.business_name|title }}!
         <span style="color: #087d73;">({{ request.user.profile.display_role }})</span>
+
       {% elif request.user.profile.role == "COMMUNITY_GROUP" %}
         Welcome back, {{ request.user.profile.business_name|title }}!
         <span style="color: #087d73;">({{ request.user.profile.display_role }})</span>
+
       {% elif request.user.profile.role == "ADMIN" %}
-        <div class = "admin-center">Admin Portal</div>
+        <div class="admin-center">Admin Portal</div>
+
       {% else %}
         Welcome back, {{ request.user.profile.contact_first_name|title }} {{ request.user.profile.contact_last_name|title }}!
         <span style="color: #087d73;">({{ request.user.profile.display_role }})</span>
       {% endif %}
     </div>
+
     <br>
   {% endif %}
 
-  
+  {% if user.is_authenticated %}
+    {% if request.user.profile.role == "CUSTOMER" or request.user.profile.role == "COMMUNITY_GROUP" or request.user.profile.role == "RESTAURANT" %}
+      {% if active_surplus_deal_count > 0 %}
+        {% if request.resolver_match.url_name == "product_list" or request.resolver_match.url_name == "product_detail" %}
+          <div id="surplus-popup" class="surplus-popup">
+            <button
+              class="surplus-popup-close"
+              type="button"
+              onclick="closeSurplusPopup()"
+              aria-label="Close surplus deals popup"
+            >
+              ×
+            </button>
+
+            <a href="{% url 'marketplace:surplus_deals' %}" class="surplus-popup-link">
+              <strong>
+                Hurry up and save on {{ active_surplus_deal_count }} limited deal{{ active_surplus_deal_count|pluralize }}
+              </strong>
+              <span>Enjoy our yellow-tag offers before the prices go back up.</span>
+            </a>
+          </div>
+
+          <style>
+            .surplus-popup {
+              position: fixed;
+              bottom: 24px;
+              right: 24px;
+              background: linear-gradient(135deg, #fff2a8 0%, #ffd54d 100%);
+              border: 1px solid #facc15;
+              color: #7c5200;
+              padding: 16px 18px;
+              border-radius: 14px;
+              box-shadow: 0 18px 40px rgba(124, 82, 0, 0.18);
+              z-index: 9999;
+              max-width: 360px;
+              display: none;
+              opacity: 0;
+              transform: translateY(18px);
+              transition: opacity 0.35s ease, transform 0.35s ease;
+              overflow: hidden;
+            }
+
+            .surplus-popup.show {
+              display: block;
+              opacity: 1;
+              transform: translateY(0);
+              animation: surplusPopupFloat 3.5s ease-in-out infinite;
+            }
+
+            .surplus-popup-link {
+              display: block;
+              text-decoration: none;
+              color: inherit;
+              padding-right: 24px;
+            }
+
+            .surplus-popup-link strong {
+              display: inline-flex;
+              align-items: center;
+              gap: 8px;
+              font-size: 1.05rem;
+            }
+
+            .surplus-popup-link strong::before {
+              content: "●";
+              color: #f59e0b;
+              text-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+            }
+
+            .surplus-popup-link span {
+              display: block;
+              margin-top: 8px;
+              font-size: 0.95rem;
+              line-height: 1.45;
+            }
+
+            .surplus-popup-close {
+              position: absolute;
+              top: 8px;
+              right: 10px;
+              border: none;
+              background: transparent;
+              color: #7c5200;
+              font-size: 20px;
+              font-weight: bold;
+              cursor: pointer;
+            }
+
+            @keyframes surplusPopupFloat {
+              0%, 100% {
+                transform: translateY(0);
+              }
+
+              50% {
+                transform: translateY(-4px);
+              }
+            }
+          </style>
+        {% endif %}
+      {% endif %}
+    {% endif %}
+  {% endif %}
+
+  {% if messages %}
+    <div class="stack message-container">
+      {% for message in messages %}
+        <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    </div>
+
+    <div style="height: 12px;"></div>
+  {% endif %}
 
   {% block content %}{% endblock %}
 </main>
+
 <script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const alerts = document.querySelectorAll(".message-container .alert");
+
+    if (alerts.length > 0) {
+      setTimeout(function () {
+        alerts.forEach(function (alert) {
+          alert.style.opacity = "0";
+          alert.style.transform = "translateY(-10px)";
+          alert.style.transition = "opacity 0.4s ease, transform 0.4s ease";
+
+          setTimeout(function () {
+            alert.remove();
+          }, 400);
+        });
+      }, 4000);
+    }
+  });
+
   function toggleProfileDropdown() {
-    document.getElementById("profileDropdownMenu").classList.toggle("show");
+    const dropdown = document.getElementById("profileDropdownMenu");
+
+    if (dropdown) {
+      dropdown.classList.toggle("show");
+    }
   }
 
-  window.addEventListener("click", function(event) {
+  window.addEventListener("click", function (event) {
     if (!event.target.closest(".profile-dropdown")) {
       const dropdown = document.getElementById("profileDropdownMenu");
+
       if (dropdown) {
         dropdown.classList.remove("show");
       }
     }
   });
+
+  const surplusPopup = document.getElementById("surplus-popup");
+
+  let surplusPopupShowTimer;
+  let surplusPopupHideTimer;
+  let surplusPopupLoopTimer;
+
+  function showSurplusPopup() {
+    if (!surplusPopup) return;
+
+    surplusPopup.classList.add("show");
+
+    surplusPopupHideTimer = setTimeout(function () {
+      hideSurplusPopup();
+    }, 18000);
+  }
+
+  function hideSurplusPopup() {
+    if (!surplusPopup) return;
+
+    surplusPopup.classList.remove("show");
+
+    surplusPopupLoopTimer = setTimeout(function () {
+      showSurplusPopup();
+    }, 120000);
+  }
+
+  function closeSurplusPopup() {
+    if (!surplusPopup) return;
+
+    clearTimeout(surplusPopupShowTimer);
+    clearTimeout(surplusPopupHideTimer);
+    clearTimeout(surplusPopupLoopTimer);
+
+    surplusPopup.classList.remove("show");
+    surplusPopup.style.display = "none";
+
+    sessionStorage.setItem("surplusPopupClosed", "true");
+  }
+
+  if (surplusPopup && sessionStorage.getItem("surplusPopupClosed") !== "true") {
+    surplusPopupShowTimer = setTimeout(function () {
+      showSurplusPopup();
+    }, 8000);
+  }
 </script>
 
 </body>

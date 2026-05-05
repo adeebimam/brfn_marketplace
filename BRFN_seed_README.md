@@ -52,7 +52,7 @@ DB_NAME=brfn_db
 ## Shared passwords
 
 All normal users:
-- password: `dd`
+- password: `Password123!`
 
 Admin user:
 - username: `brfn_admin`
