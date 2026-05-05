@@ -25,4 +25,3 @@ urllib3==2.6.3
 Pillow>=10.0.0
 thefuzz
 python-Levenshtein
-requests
