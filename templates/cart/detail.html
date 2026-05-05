@@ -4,16 +4,6 @@
   <div class="card stack">
     <h1>Your Cart</h1>
 
-    {% if messages %}
-      <div class="message-container">
-        {% for message in messages %}
-          <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
-            {{ message }}
-          </div>
-        {% endfor %}
-      </div>
-    {% endif %}
-
     {% if cart_items %}
 
       <!-- Order Total Summary on top -->
@@ -123,7 +113,6 @@
         clearTimeout(t);
         t = setTimeout(() => input.closest('form').submit(), 400);
       });
-      input.addEventListener('change', () => input.closest('form').submit());
     });
   </script>
 
