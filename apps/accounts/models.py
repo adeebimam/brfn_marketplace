@@ -21,7 +21,7 @@ class Profile(models.Model):
     class VerificationStatus(models.TextChoices):
         PENDING = "PENDING", "Pending"
         APPROVED = "APPROVED", "Approved"
-        REJECTED = "REJECTED", "Rejected"
+        DECLINED = "DECLINED", "Declined"
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
 
@@ -48,6 +48,7 @@ class Profile(models.Model):
         choices=VerificationStatus.choices,
         default=VerificationStatus.APPROVED,
     )
+
     is_verified = models.BooleanField(default=True)
     verification_notes = models.TextField(blank=True)
 

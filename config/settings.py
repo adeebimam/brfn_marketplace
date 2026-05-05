@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'apps.accounts.apps.AccountsConfig',
     'apps.marketplace.apps.MarketplaceConfig',
     "apps.cart.apps.CartConfig",
+    "apps.message.apps.MessageConfig",
 ]
 
 MIDDLEWARE = [

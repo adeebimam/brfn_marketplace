@@ -1,10 +1,11 @@
 import logging
+import csv
 from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import redirect, render
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from .forms import CustomerRegisterForm, ProducerRegisterForm
 from .models import Profile
@@ -12,6 +13,8 @@ from apps.marketplace.models import Order, ProducerOrder, Product
 from django.utils.dateparse import parse_date
 from datetime import timedelta
 from django.utils import timezone
+from apps.message.models import MessageThread, Message
+
 
 
 security_logger = logging.getLogger("security")
@@ -21,14 +24,30 @@ def producer_register_view(request):
     if request.method == "POST":
         form = ProducerRegisterForm(request.POST)
         if form.is_valid():
-            form.save()  # Form will handle user + profile creation
+            user = form.save()
 
-            messages.success(request, "Your Producer account is under review. You will be able to access Producer features once an admin approves your account. ")
+            profile = user.profile
+            profile.role = Profile.Role.PRODUCER
+            profile.is_verified = False
+            profile.verification_status = Profile.VerificationStatus.PENDING
+            profile.verification_notes = ""
+            profile.save(update_fields=[
+                "role",
+                "is_verified",
+                "verification_status",
+                "verification_notes",
+            ])
+
+            messages.success(
+                request,
+                "Your Producer account is under review. You will be able to access Producer features once an admin approves your account."
+            )
             return redirect("accounts:login")
     else:
         form = ProducerRegisterForm()
 
     return render(request, "accounts/producer_register.html", {"form": form})
+
 
 def register_view(request):
     if request.method == "POST":
@@ -148,10 +167,13 @@ def admin_dashboard(request):
         return HttpResponseForbidden("Admin access only.")
 
     context = {
-        "pending_producers_count": Profile.objects.filter(
-            role=Profile.Role.PRODUCER,
-            is_verified=False,
-        ).count(),
+       "pending_producers_count": Profile.objects.filter(
+        role=Profile.Role.PRODUCER,
+        verification_status__in=[
+            Profile.VerificationStatus.PENDING,
+            Profile.VerificationStatus.DECLINED,
+                ],
+            ).count(),
         "total_orders": Order.objects.count(),
         "pending_orders": ProducerOrder.objects.filter(
             status=ProducerOrder.Status.PENDING,
@@ -168,15 +190,21 @@ def admin_producer_approvals(request):
     if not _require_admin(request):
         return HttpResponseForbidden("Admin access only.")
 
-    pending_producers = (
+    producers = (
         Profile.objects
-        .filter(role=Profile.Role.PRODUCER, is_verified=False)
+        .filter(
+            role=Profile.Role.PRODUCER,
+            verification_status__in=[
+                Profile.VerificationStatus.PENDING,
+                Profile.VerificationStatus.DECLINED,
+            ],
+        )
         .select_related("user")
         .order_by("-id")
     )
 
     return render(request, "accounts/admin_producer_approvals.html", {
-        "pending_producers": pending_producers,
+        "producers": producers,
     })
 
 
@@ -192,12 +220,29 @@ def admin_approve_producer(request, profile_id):
     )
 
     profile.is_verified = True
+    profile.verification_status = Profile.VerificationStatus.APPROVED
     profile.verification_notes = "Approved by admin"
-    profile.save(update_fields=["is_verified", "verification_notes"])
+    profile.save(update_fields=[
+        "is_verified",
+        "verification_status",
+        "verification_notes",
+    ])
+
+    thread = MessageThread.objects.create(
+        subject="Producer account approved",
+        created_by=request.user,
+    )
+
+    thread.participants.add(request.user, profile.user)
+
+    Message.objects.create(
+        thread=thread,
+        sender=request.user,
+        body="Your producer account has been approved. You can now access producer features.",
+    )
 
     messages.success(request, f"{profile.user.username} has been approved.")
     return redirect("accounts:admin_producer_approvals")
-
 
 @login_required
 def admin_reject_producer(request, profile_id):
@@ -210,39 +255,133 @@ def admin_reject_producer(request, profile_id):
         role=Profile.Role.PRODUCER,
     )
 
-    note = request.POST.get("verification_notes", "Rejected by admin")
-    profile.verification_notes = note
-    profile.save(update_fields=["verification_notes"])
+    if request.method == "POST":
+        note = request.POST.get("verification_notes", "").strip()
 
-    messages.warning(request, f"{profile.user.username} has been rejected.")
+        if not note:
+            messages.error(request, "Please provide a reason for declining this producer.")
+            return redirect("accounts:admin_producer_approvals")
+
+        profile.is_verified = False
+        profile.verification_status = Profile.VerificationStatus.DECLINED
+        profile.verification_notes = note
+        profile.save(update_fields=[
+            "is_verified",
+            "verification_status",
+            "verification_notes",
+        ])
+
+        thread = MessageThread.objects.create(
+            sender=request.user,
+            receiver=profile.user,
+            subject="Producer account declined - more information required",
+        )
+
+        Message.objects.create(
+            thread=thread,
+            sender=request.user,
+            body=(
+                "Your producer account has been declined for now.\n\n"
+                f"Reason:\n{note}\n\n"
+                "Please reply to this message with any extra information or evidence. "
+                "The admin can review your response and approve your account later."
+            ),
+        )
+
+        messages.warning(
+            request,
+            f"{profile.user.username} has been declined and a message has been sent."
+        )
+
     return redirect("accounts:admin_producer_approvals")
+
 
 @login_required
 def producer_approvals(request):
-    if request.user.profile.role != "ADMIN":
+    if request.user.profile.role != Profile.Role.ADMIN:
         return HttpResponseForbidden("Admin only")
 
     if request.method == "POST":
         profile_id = request.POST.get("profile_id")
         action = request.POST.get("action")
+        note = request.POST.get("verification_notes", "").strip()
 
-        profile = get_object_or_404(Profile, id=profile_id, role=Profile.Role.PRODUCER)
+        profile = get_object_or_404(
+            Profile,
+            id=profile_id,
+            role=Profile.Role.PRODUCER
+        )
 
         if action == "approve":
             profile.is_verified = True
+            profile.verification_status = Profile.VerificationStatus.APPROVED
             profile.verification_notes = "Approved by admin"
-            profile.save(update_fields=["is_verified", "verification_notes"])
+            profile.save(update_fields=[
+                "is_verified",
+                "verification_status",
+                "verification_notes",
+            ])
+
+            thread = MessageThread.objects.create(
+                subject = "Producer account approved",
+                created_by = request.user,
+                
+            )
+
+            thread.participants.add(request.user, profile.user)
+
+            Message.objects.create(
+                thread=thread,
+                sender=request.user,
+                body="Your producer account has been approved. You can now access producer features.",
+            )
+
+            messages.success(request, f"{profile.user.username} has been approved.")
 
         elif action == "reject":
+            if not note:
+                messages.error(request, "Please provide a reason for declining this producer.")
+                return redirect("accounts:admin_producer_approvals")
+
             profile.is_verified = False
-            profile.verification_notes = "Rejected by admin"
-            profile.save(update_fields=["is_verified", "verification_notes"])
+            profile.verification_status = Profile.VerificationStatus.DECLINED
+            profile.verification_notes = note
+            profile.save(update_fields=[
+                "is_verified",
+                "verification_status",
+                "verification_notes",
+            ])
+
+            thread = MessageThread.objects.create(
+                subject="Producer account declined - more information required",
+                created_by = request.user,
+            )
+            thread.participants.add(request.user, profile.user)
+
+            Message.objects.create(
+                thread=thread,
+                sender=request.user,
+                body=(
+                    "Your producer account has been declined for now.\n\n"
+                    f"Reason:\n{note}\n\n"
+                    "Please reply to this message with any extra information or evidence. "
+                    "The admin can review your response and approve your account later."
+                ),
+            )
+
+            messages.warning(
+                request,
+                f"{profile.user.username} has been declined and a message has been sent."
+            )
 
         return redirect("accounts:admin_producer_approvals")
 
     producers = Profile.objects.filter(
         role=Profile.Role.PRODUCER,
-        is_verified=False
+        verification_status__in=[
+            Profile.VerificationStatus.PENDING,
+            Profile.VerificationStatus.DECLINED,
+        ],
     ).select_related("user")
 
     return render(request, "accounts/admin_producer_approvals.html", {
@@ -542,3 +681,50 @@ def admin_financial_report(request):
     }
 
     return render(request, "accounts/admin_financial_report.html", context)
+
+def is_admin(user):
+    return (
+        user.is_authenticated
+        and hasattr(user, "profile")
+        and user.profile.role == "ADMIN"
+    )
+
+@login_required
+@user_passes_test(is_admin)
+def export_financial_report_csv(request):
+    start_date = request.GET.get("start_date")
+    end_date = request.GET.get("end_date")
+
+    orders = Order.objects.all()
+
+    if start_date:
+        orders = orders.filter(created_at__date__gte=start_date)
+
+    if end_date:
+        orders = orders.filter(created_at__date__lte=end_date)
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="financial_report.csv"'
+
+    writer = csv.writer(response)
+
+    writer.writerow([
+        "Order ID",
+        "Order Total",
+        "Commission (5%)",
+        "Producer Payment (95%)",
+    ])
+
+    for order in orders:
+        total = order.total_amount or 0  # or order.total
+        commission = (total * Decimal(0.05)).quantize(Decimal("0.01"))
+        producer_payment = (total - commission).quantize(Decimal("0.01"))
+
+        writer.writerow([
+            order.id,
+            total,
+            commission,
+            producer_payment,
+        ])
+
+    return response

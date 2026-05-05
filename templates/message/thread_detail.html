@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card message-page">
+  <div class="message-header">
+    <div>
+      <h1>{{ thread.subject }}</h1>
+    </div>
+  </div>
+
+  <div class="chat-box">
+    {% for message in messages %}
+      <div class="chat-row {% if message.sender == request.user %}chat-row-right{% else %}chat-row-left{% endif %}">
+        <div class="chat-bubble {% if message.sender == request.user %}sent{% else %}received{% endif %}">
+          <div class="chat-sender">
+            {{ message.sender.get_full_name|default:message.sender.username }}
+          </div>
+
+          <p>{{ message.body }}</p>
+
+          <small>
+            {{ message.created_at|date:"d M Y, H:i" }}
+          </small>
+        </div>
+      </div>
+    {% empty %}
+      <p>No messages yet.</p>
+    {% endfor %}
+  </div>
+
+  <form method="post" class="chat-reply-form">
+    {% csrf_token %}
+    {{ form.body }}
+
+    <button class="btn save-btn" type="submit">
+      Send
+    </button>
+  </form>
+</div>
+
+<a class="a-text" href="{% url 'message:inbox' %}">Back to Inbox</a>
+
+{% endblock %}

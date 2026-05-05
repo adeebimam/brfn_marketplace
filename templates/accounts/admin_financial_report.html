@@ -6,10 +6,10 @@
 
   <form method="get" class="admin-filter-form">
     <label>From:</label>
-    <input type="date" name="start_date" value="{{ start_date }}">
+    <input type="date" name="start_date" value="{{ start_date|date:'Y-m-d' }}">
 
     <label>To:</label>
-    <input type="date" name="end_date" value="{{ end_date }}">
+    <input type="date" name="end_date" value="{{ end_date|date:'Y-m-d' }}">
 
     <button class="btn-uniform btn-admin">Filter</button>
   </form>
@@ -35,6 +35,12 @@
       <p>{{ orders|length }}</p>
     </div>
   </div>
+
+  <br>
+
+    <a href="{% url 'accounts:export_financial_report_csv' %}?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}" class="btn-uniform btn-admin">
+      Export CSV
+    </a>
 
   <h2>Order Breakdown</h2>
 

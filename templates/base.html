@@ -49,9 +49,7 @@
             
             <a href="{% url 'accounts:profile' %}">My Profile</a>
             <a href="#">Settings</a>
-            {% if not user.profile.role == "PRODUCER" or user.profile.is_verified %}
-              <a href="#">messages</a>
-            {% endif %}
+            <a href="{% url 'message:inbox' %}">Messages</a>
 
             {% if user.profile.role == "PRODUCER" and user.profile.is_verified %}
               <a href="{% url 'marketplace:producer_product_list' %}">My Products</a>
@@ -108,7 +106,7 @@
     <br>
   {% endif %}
 
-  {% if messages %}
+  {% if messages and request.resolver_match.app_name != "message" %}
     <div class="stack">
       {% for message in messages %}
         <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">

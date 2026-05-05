@@ -24,6 +24,18 @@
               </p>
             {% endif %}
 
+            <p>
+              <strong>Status:</strong>
+              {{ producer.get_verification_status_display }}
+            </p>
+
+            {% if producer.verification_notes %}
+              <p>
+                <strong>Last Admin Note:</strong>
+                {{ producer.verification_notes }}
+              </p>
+            {% endif %}
+
             <div class="producer-details" style="display: none;">
               <p><strong>Email:</strong> {{ producer.user.email|default:"-" }}</p>
               <p><strong>Address:</strong> {{ producer.address|default:"-" }}</p>
@@ -46,12 +58,14 @@
               </button>
             </form>
 
-            <form method="post" style="display:inline;">
+            <form method="post" style="display:inline;" onsubmit="return addDeclineReason(this);">
               {% csrf_token %}
               <input type="hidden" name="profile_id" value="{{ producer.id }}">
               <input type="hidden" name="action" value="reject">
+              <input type="hidden" name="verification_notes">
+
               <button type="submit" class="btn btn-admin-danger btn-uniform">
-                Reject
+                Decline
               </button>
             </form>
           </div>
@@ -61,7 +75,7 @@
 
     </div>
   {% else %}
-    <p>No pending producer approvals.</p>
+    <p>No pending or declined producer approvals.</p>
   {% endif %}
 
   <p>
@@ -88,5 +102,17 @@
       });
     });
   });
+
+  function addDeclineReason(form) {
+    const reason = prompt("Why are you declining this producer account?");
+
+    if (!reason || reason.trim() === "") {
+      alert("You must provide a reason before declining.");
+      return false;
+    }
+
+    form.querySelector("input[name='verification_notes']").value = reason.trim();
+    return true;
+  }
 </script>
 {% endblock %}
