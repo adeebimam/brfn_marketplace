@@ -41,7 +41,7 @@
     <p>Order Date: {{ order.order_date }}</p>
     <p>Delivery Date: {{ order.delivery_date }}</p>
     <p>Total: £{{ order.total|floatformat:2 }}</p>
-    <p>Status: Completed</p>
+    <p><strong>Status:</strong> {{ order.status|default:"Pending"|title }}</p>
 
     <p><strong>Producers:</strong></p>
     <ul>
@@ -71,9 +71,16 @@
       <a class="btn" href="{% url 'marketplace:download_receipt' order.order_number %}">
         Download Receipt
       </a>
-      <a href="{% url 'marketplace:request_refund' order.order_number %}" class="btn" style="background:#dc2626; color:white;">
-        Request Refund
-      </a>
+        {% if order.refund %}
+            <div style="background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; padding:8px 14px; display:inline-block;">
+              <strong>Refund {{ order.refund.get_status_display }}</strong>
+              <span style="color:#555; margin-left:6px; font-size:0.85rem;">{{ order.refund.created_at|date:"Y-m-d" }}</span>
+            </div>
+          {% elif order.status != "Cancelled" %}
+            <a href="{% url 'marketplace:request_refund' order.order_number %}" class="btn" style="background:#dc2626; color:white;">
+              Request Refund
+            </a>
+        {% endif %}
     </div>
 
   </div>

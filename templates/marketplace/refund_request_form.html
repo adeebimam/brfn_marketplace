@@ -6,7 +6,12 @@
 
   <div style="background:#fef3c7; border:1px solid #fcd34d; border-radius:10px; padding:16px; margin-bottom:20px;">
     <strong>⚠️ Refund Policy</strong>
-    <p style="margin:8px 0 0;">If approved, you will receive a full refund of £{{ order.total|floatformat:2 }} including all commission charges. The producer will be notified and an administrator will make the final decision.</p>
+    <ul style="margin:8px 0 0; padding-left:20px;">
+      <li>Refunds can be requested on <strong>Pending</strong> or <strong>Confirmed</strong> orders at any time.</li>
+      <li>For <strong>Delivered</strong> orders, refunds must be requested within <strong>7 days</strong> of delivery.</li>
+      <li>If approved, you will receive a full refund of <strong>£{{ order.total|floatformat:2 }}</strong> including all commission charges.</li>
+      <li>The producer will be notified and an administrator will make the final decision.</li>
+    </ul>
   </div>
 
   <form method="POST">

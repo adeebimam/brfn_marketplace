@@ -87,17 +87,30 @@ def _anonymise_customer(customer):
 def _get_customer_order_history(user):
     records = CustomerOrderHistory.objects.filter(customer=user).order_by("-id")
     result = []
+
     for record in records:
         data = record.order_data.copy()
+
         try:
             order_pk = str(record.order_number).replace("BRFN-", "")
             live_order = Order.objects.get(pk=order_pk)
             data["status"] = live_order.get_status_display()
         except (Order.DoesNotExist, ValueError):
             data["status"] = data.get("status", "Pending").title()
-        result.append(data)
-    return result
 
+        # Ensure product_id exists for reorder functionality
+        for producer, items in data.get("producers", {}).items():
+            for item in items:
+                if "product_id" not in item:
+                    try:
+                        product = Product.objects.get(name=item.get("name"))
+                        item["product_id"] = product.id
+                    except Product.DoesNotExist:
+                        item["product_id"] = None
+
+        result.append(data)
+
+    return result
 
 def _parse_date(value):
     if not value:
@@ -777,13 +790,18 @@ def producer_order_list(request):
     orders = list(orders)
     _attach_producer_order_context(orders)
 
+    refund_requests = RefundRequest.objects.filter(
+        order__producer_orders__producer=request.user,
+        status__in=[RefundRequest.Status.PENDING, RefundRequest.Status.PRODUCER_RESPONDED],
+    ).select_related("order", "customer").distinct()
+
     return render(request, "marketplace/producer_order_list.html", {
         "orders": orders,
         "selected_status": status,
         "sort": sort,
         "status_choices": ProducerOrder.Status.choices,
+        "refund_requests": refund_requests,
     })
-
 
 @login_required
 def producer_order_detail(request, pk):
@@ -1060,6 +1078,15 @@ def order_history(request):
             if producer.lower() in [p.lower() for p in order.get("producers", {}).keys()]
         ]
 
+    # Attach refund info to each order
+    for order in orders:
+        order_pk = str(order.get("order_number", "")).replace("BRFN-", "")
+        try:
+            live_order = Order.objects.get(pk=order_pk)
+            order["refund"] = RefundRequest.objects.filter(order=live_order).first()
+        except (Order.DoesNotExist, ValueError):
+            order["refund"] = None
+
     return render(request, "orders/history.html", {
         "orders": orders, "start": start, "end": end, "producer": producer,
     })
@@ -1079,9 +1106,19 @@ def order_detail(request, order_id):
         order_number=order_id
     ).order_by("-created_at")
 
+    # Check if refund already exists
+    order_pk = str(order_id).replace("BRFN-", "")
+    existing_refund = None
+    try:
+        live_order = Order.objects.get(pk=order_pk, customer=request.user)
+        existing_refund = RefundRequest.objects.filter(order=live_order).first()
+    except Order.DoesNotExist:
+        pass
+
     return render(request, "orders/order_detail.html", {
         "order": order,
         "purchase_reviews": purchase_reviews,
+        "existing_refund": existing_refund,
     })
 
 
@@ -1100,37 +1137,51 @@ def reorder(request, order_id):
 
     for producer, items in order.get("producers", {}).items():
         for item in items:
-            try:
-                product = Product.objects.get(id=item["id"], is_active=True)
-            except Product.DoesNotExist:
-                product = None
+            product = item.get("product")
 
-            if not product or product.stock_quantity <= 0:
-                unavailable_items.append(item["name"])
+            if not product:
+                product_name = item.get("name", "Unknown item")
+                unavailable_items.append(product_name)
+                continue
+
+            if not product.is_active or product.stock_quantity <= 0:
+                unavailable_items.append(product.name)
                 continue
 
             old_price = Decimal(str(item.get("price", product.price)))
             new_price = product.price
-            if old_price != new_price:
-                price_changed_items.append(f"{product.name}: was £{old_price}, now £{new_price}")
 
-            cart_item, created = CartItem.objects.get_or_create(cart=cart, product=product)
-            qty = int(item.get("qty", 1))
-            if created:
-                cart_item.quantity = qty
-            else:
+            if old_price != new_price:
+                price_changed_items.append(
+                    f"{product.name}: was £{old_price}, now £{new_price}"
+                )
+
+            qty = int(item.get("qty", item.get("quantity", 1)))
+
+            cart_item, created = CartItem.objects.get_or_create(
+                cart=cart,
+                product=product,
+                defaults={"quantity": qty},
+            )
+
+            if not created:
                 cart_item.quantity += qty
-            cart_item.save()
+                cart_item.save()
 
     if price_changed_items:
-        messages.warning(request, "Price changes detected: " + "; ".join(price_changed_items))
+        messages.warning(
+            request,
+            "Price changes detected: " + "; ".join(price_changed_items)
+        )
 
     if unavailable_items:
-        messages.error(request, "Some items unavailable: " + ", ".join(unavailable_items))
+        messages.error(
+            request,
+            "Some items unavailable: " + ", ".join(unavailable_items)
+        )
 
     messages.success(request, "Items added to cart with latest prices.")
     return redirect("cart:detail")
-
 
 @login_required
 def download_receipt(request, order_id):
@@ -1302,12 +1353,35 @@ def request_refund(request, order_id):
         messages.error(request, "Order not found.")
         return redirect("marketplace:order_history")
 
-    # Check if refund already exists
+# Check if refund already exists
     existing = RefundRequest.objects.filter(order=order).first()
     if existing:
         messages.warning(request, "A refund request already exists for this order.")
         return redirect("marketplace:order_detail", order_id=order_id)
 
+    # Check refund eligibility based on order status and time
+    if order.status == Order.Status.CANCELLED:
+        messages.error(request, "This order has already been cancelled.")
+        return redirect("marketplace:order_detail", order_id=order_id)
+
+    if order.status == Order.Status.DELIVERED:
+        days_since_order = (timezone.now().date() - order.created_at.date()).days
+        if days_since_order > 7:
+            messages.error(
+                request,
+                "Refunds can only be requested within 7 days of delivery. "
+                "This order is no longer eligible for a refund."
+            )
+            return redirect("marketplace:order_detail", order_id=order_id)
+
+    if order.status not in [
+        Order.Status.PENDING,
+        Order.Status.CONFIRMED,
+        Order.Status.DELIVERED,
+    ]:
+        messages.error(request, "This order is not eligible for a refund.")
+        return redirect("marketplace:order_detail", order_id=order_id)
+    
     if request.method == "POST":
         reason = request.POST.get("reason", "").strip()
         if not reason:
@@ -1438,11 +1512,14 @@ def admin_refund_decision(request, refund_id):
                 # Update order status to cancelled
                 refund.order.status = Order.Status.CANCELLED
                 refund.order.save()
+                for producer_order in refund.order.producer_orders.all():
+                    producer_order.status = ProducerOrder.Status.CANCELLED
+                    producer_order.save()
                 notification_body = (
                     f"Dear {refund.customer.username},\n\n"
                     f"Your refund request for Order #{refund.order.id} has been APPROVED.\n\n"
                     f"Refund Amount: £{refund.refund_amount}\n\n"
-                    f"Admin note: {admin_note or 'N/A'}\n\n"
+                    f"Admin note: {admin_note}\n\n"
                     f"The full amount will be returned to you. "
                     f"Thank you for your patience."
                 )
@@ -1493,16 +1570,8 @@ def refund_list(request):
     if status_filter:
         refunds = refunds.filter(status=status_filter)
 
-    
-    refund_requests = RefundRequest.objects.filter(
-        order__producer_orders__producer=request.user,
-        status=RefundRequest.Status.PENDING,
-    ).select_related("order", "customer").distinct()
-
-    return render(request, "marketplace/producer_order_list.html", {
-        "orders": orders,
-        "selected_status": status,
-        "sort": sort,
-        "status_choices": ProducerOrder.Status.choices,
-        "refund_requests": refund_requests,
+    return render(request, "marketplace/refund_list.html", {
+        "refunds": refunds,
+        "status_filter": status_filter,
+        "statuses": RefundRequest.Status.choices,
     })
