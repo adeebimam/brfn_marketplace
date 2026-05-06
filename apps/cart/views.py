@@ -13,6 +13,7 @@ from apps.marketplace.services import expire_surplus_deals
 from .models import Cart, CartItem
 
 
+
 BUYER_ROLES = {"CUSTOMER", "COMMUNITY_GROUP", "RESTAURANT"}
 
 
@@ -81,7 +82,12 @@ def cart_detail(request):
 
     cart, _ = Cart.objects.get_or_create(user=request.user)
 
-    items = cart.items.select_related("product", "product__producer")
+    items = cart.items.select_related(
+        "product",
+        "product__producer",
+        "product__category",
+    )
+
     cart_items = []
     total = Decimal("0.00")
     total_food_miles = Decimal("0.00")
@@ -119,6 +125,84 @@ def cart_detail(request):
         priced_item["unit_price"] = priced_item.get("normal_unit_price", item.product.price)
         cart_items.append(priced_item)
 
+    # Suggestions like Amazon:
+    # 1. First suggest other products from the same producers
+    # 2. If not enough, suggest products from similar categories
+    cart_product_ids = [item["product"].id for item in cart_items]
+    cart_producer_ids = [item["product"].producer.id for item in cart_items]
+    cart_category_ids = [
+        item["product"].category.id
+        for item in cart_items
+        if item["product"].category
+    ]
+
+    suggested_products = Product.objects.none()
+
+    if cart_items:
+        suggested_products = (
+            Product.objects
+            .filter(
+                is_active=True,
+                stock_quantity__gt=0,
+                producer_id__in=cart_producer_ids,
+            )
+            .exclude(id__in=cart_product_ids)
+            .select_related("producer", "category")
+            .order_by("name")[:4]
+        )
+
+        if not suggested_products.exists() and cart_category_ids:
+            suggested_products = (
+                Product.objects
+                .filter(
+                    is_active=True,
+                    stock_quantity__gt=0,
+                    category_id__in=cart_category_ids,
+                )
+                .exclude(id__in=cart_product_ids)
+                .select_related("producer", "category")
+                .order_by("name")[:4]
+            )
+
+    # Suggestions like Amazon:
+    # 1. First suggest other products from the same producers
+    # 2. If not enough, suggest products from similar categories
+    cart_product_ids = [item["product"].id for item in cart_items]
+    cart_producer_ids = [item["product"].producer.id for item in cart_items]
+    cart_category_ids = [
+        item["product"].category.id
+        for item in cart_items
+        if item["product"].category
+    ]
+
+    suggested_products = Product.objects.none()
+
+    if cart_items:
+        suggested_products = (
+            Product.objects
+            .filter(
+                is_active=True,
+                stock_quantity__gt=0,
+                producer_id__in=cart_producer_ids,
+            )
+            .exclude(id__in=cart_product_ids)
+            .select_related("producer", "category")
+            .order_by("name")[:4]
+        )
+
+        if not suggested_products.exists() and cart_category_ids:
+            suggested_products = (
+                Product.objects
+                .filter(
+                    is_active=True,
+                    stock_quantity__gt=0,
+                    category_id__in=cart_category_ids,
+                )
+                .exclude(id__in=cart_product_ids)
+                .select_related("producer", "category")
+                .order_by("name")[:4]
+            )
+
     _sync_session_cart(request, cart)
 
     is_bulk_buyer = (
@@ -135,6 +219,7 @@ def cart_detail(request):
         "discounted_total": discounted_total,
         "is_bulk_buyer": is_bulk_buyer,
         "total_food_miles": round(float(total_food_miles), 1),
+        "suggested_products": suggested_products,
     })
 
 
@@ -160,7 +245,7 @@ def cart_add(request, product_id):
     cart, _ = Cart.objects.get_or_create(user=request.user)
 
     try:
-        qty = int(request.POST.get("qty") or request.POST.get("quantity") or 1)
+        qty = int(request.POST.get("qty", 1) or request.POST.get("quantity") or 1)
     except (TypeError, ValueError):
         qty = 1
 
@@ -216,6 +301,7 @@ def cart_add(request, product_id):
     item, created = CartItem.objects.get_or_create(cart=cart, product=product)
     item.quantity = new_quantity
     item.save()
+
     _sync_session_cart(request, cart)
 
     pricing = product.calculate_price_for_quantity(new_quantity)
@@ -224,6 +310,7 @@ def cart_add(request, product_id):
     else:
         messages.success(request, f"Added {qty} {product.name} to your cart.")
     return redirect("cart:detail")
+
 
 @require_POST
 @login_required
@@ -253,7 +340,10 @@ def cart_update(request, product_id):
             and request.user.profile.role in {"COMMUNITY_GROUP", "RESTAURANT"}
         )
         if qty > product.stock_quantity and not is_bulk_buyer:
-            messages.error(request, f"Cannot add more than available stock ({product.stock_quantity}) for {product.name}.")
+            messages.error(
+                request,
+                f"Cannot add more than available stock ({product.stock_quantity}) for {product.name}."
+            )
             qty = product.stock_quantity
         elif qty > product.stock_quantity and is_bulk_buyer:
             messages.warning(
@@ -262,6 +352,7 @@ def cart_update(request, product_id):
                 f"but only {product.stock_quantity} are currently in stock. "
                 f"Your order will be placed and the producer will arrange the remainder."
             )
+
         item.quantity = qty
         item.save()
 
@@ -304,6 +395,7 @@ def checkout(request):
         return redirect("cart:detail")
 
     items = cart.items.select_related("product", "product__producer")
+
     producers = {}
     subtotal = Decimal("0.00")
     cart_items = []
@@ -312,24 +404,33 @@ def checkout(request):
         priced_item = _build_cart_pricing(item)
         line_total = priced_item["line_total"]
         subtotal += line_total
-        producer_name = item.product.producer.name if hasattr(item.product.producer, 'name') else str(item.product.producer)
-        lead_time = getattr(item.product.producer, 'lead_time', 2)
+
+        producer_name = item.product.producer.username
+        lead_time = getattr(item.product.producer, "lead_time", 2)
+
         if producer_name not in producers:
             producers[producer_name] = []
+
         producers[producer_name].append({
             "name": item.product.name,
+            "id": item.product.id,
+            "price": float(item.product.price),
             "qty": item.quantity,
             "unit_price": str(priced_item.get("normal_unit_price", item.product.price)),
             "discounted_unit_price": str(priced_item.get("discounted_unit_price", item.product.price)),
             "discounted_qty": priced_item.get("discounted_qty", 0),
             "normal_qty": priced_item.get("normal_qty", item.quantity),
-            "total": str(line_total),
+            "total": float(line_total),
             "warning": priced_item.get("warning", ""),
             "lead_time": lead_time,
         })
+
         cart_items.append({
-            "product": {"name": item.product.name, "id": item.product.id},
-            "qty": item.quantity,
+            "product": {
+                "name": item.product.name,
+                "id": item.product.id,
+            },
+            "qty": item.quantity,,
             "total": str(line_total),
         })
 
@@ -348,12 +449,13 @@ def checkout(request):
     # Determine initial postcode for food miles display
     initial_postcode = None
     initial = {}
-    if hasattr(request.user, 'profile'):
-        if request.user.profile.delivery_address:
-            initial['delivery_address'] = request.user.profile.delivery_address
-        if request.user.profile.delivery_postcode:
-            initial['delivery_postcode'] = request.user.profile.delivery_postcode
-            initial_postcode = request.user.profile.delivery_postcode
+
+    if hasattr(request.user, "profile"):
+        if getattr(request.user.profile, "delivery_address", None):
+            initial["delivery_address"] = request.user.profile.delivery_address
+
+        if getattr(request.user.profile, "delivery_postcode", None):
+            initial["delivery_postcode"] = request.user.profile.delivery_postcode
 
     form = CheckoutForm(initial=initial)
 
@@ -362,24 +464,36 @@ def checkout(request):
 
     if request.method == "POST":
         form = CheckoutForm(request.POST)
+
         if form.is_valid():
-            request.session['order_total'] = str(total)
-            request.session['cart_items'] = cart_items
-            request.session['delivery_address'] = form.cleaned_data.get('delivery_address', '')
-            request.session['delivery_postcode'] = form.cleaned_data.get('delivery_postcode', '')
-            delivery_date = form.cleaned_data.get('delivery_date', '')
-            if hasattr(delivery_date, 'isoformat'):
+            delivery_date = form.cleaned_data.get("delivery_date", "")
+
+            if hasattr(delivery_date, "isoformat"):
                 delivery_date = delivery_date.isoformat()
-            request.session['delivery_date'] = delivery_date
-            request.session['payment_method'] = form.cleaned_data.get('payment_method', '')
-            request.session['producers'] = producers
-            request.session['subtotal'] = str(subtotal)
-            request.session['special_instructions'] = form.cleaned_data.get('special_instructions', '')
-            request.session['commission'] = str(commission)
-            request.session['bulk_discount'] = str(bulk_discount)
-            request.session['discounted_subtotal'] = str(discounted_subtotal)
-            request.session['is_bulk_buyer'] = is_bulk_buyer
-            return redirect("orders:payment")
+
+            request.session["order"] = {
+                "address": form.cleaned_data.get("delivery_address", ""),
+                "postcode": form.cleaned_data.get("delivery_postcode", ""),
+                "date": delivery_date,
+                "payment": form.cleaned_data.get("payment_method", ""),
+                "subtotal": float(subtotal),
+                "commission": float(commission),
+                "total": float(total),
+                "producers": producers,
+            }
+
+            request.session["order_total"] = str(total)
+            request.session["cart_items"] = cart_items
+            request.session["delivery_address"] = form.cleaned_data.get("delivery_address", "")
+            request.session["delivery_postcode"] = form.cleaned_data.get("delivery_postcode", "")
+            request.session["delivery_date"] = delivery_date
+            request.session["payment_method"] = form.cleaned_data.get("payment_method", "")
+            request.session["producers"] = producers
+            request.session["subtotal"] = str(subtotal)
+            request.session["commission"] = str(commission)
+            request.session.modified = True
+
+            return redirect("marketplace:payment")
 
     return render(request, "cart/checkout.html", {
         "form": form,

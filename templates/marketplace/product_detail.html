@@ -41,6 +41,15 @@
           Available: {{ product.season_label }}
         </span>
       </p>
+    {% else %}
+      <p style="font-size:0.9rem;">
+        <span style="display:inline-block; color:#b45309; background:#fef3c7; padding:2px 10px; border-radius:4px; font-weight:600;">
+          Out of Season
+        </span>
+        <span style="color:#6b7280; margin-left:0.5rem;">
+          Available: {{ product.season_label }}
+        </span>
+      </p>
     {% endif %}
 
     <p class="muted">
@@ -139,40 +148,67 @@
     {% if product.stock_quantity > 0 %}
       {% if user.is_authenticated %}
         {% if user.profile.role == "CUSTOMER" or user.profile.role == "COMMUNITY_GROUP" or user.profile.role == "RESTAURANT" %}
-          <form method="post" action="{% url 'cart:add' product.id %}" class="add-to-cart">
-            {% csrf_token %}
+      {% if product.stock_quantity > 0 and product.is_in_season %}
+    <form method="post" action="{% url 'cart:add' product.id %}" class="add-to-cart">
+          {% csrf_token %}
 
-            <div class="qty-row">
-              <label for="qty" class="muted">Quantity</label>
-              <input
-                type="number"
-                id="qty"
-                name="qty"
-                value="{% if is_bulk_buyer %}5{% else %}1{% endif %}"
-                min="{% if is_bulk_buyer %}5{% else %}1{% endif %}"
-                {% if not is_bulk_buyer %}max="{{ product.stock_quantity }}"{% endif %}
-                class="qty-input"
-                style="width:70px; margin-right:10px;"
-              >
-            </div>
-
-            <button type="submit" class="btn" style="font-size:14px; display:block; width:100%;">
-              Add to Cart
-            </button>
-          </form>
+      <div style="margin: 16px 0;">
+        {% if product.stock_quantity <= 5 %}
+          <p style="color:#b45309; font-weight:600; margin-bottom:8px;">
+            Only {{ product.stock_quantity }} left in stock
+          </p>
         {% else %}
-          <div class="muted">
-            Customer checkout preview is hidden for producer accounts.
-          </div>
+          <p style="color:#15803d; font-weight:600; margin-bottom:8px;">
+            In stock
+          </p>
         {% endif %}
-      {% else %}
-        <a class="btn btn-primary" href="{% url 'accounts:login' %}?next={{ request.path }}">
-          Login to add to cart
-        </a>
-      {% endif %}
-    {% else %}
-      <div class="muted" style="margin-top:10px; color:#b91c1c; font-weight:600;">
-        Out of stock
+
+        <label for="qty" class="muted">Quantity</label>
+
+        <select id="qty" name="qty" class="qty-input" style="width:90px; margin-left:10px;">
+          {% for i in stock_range %}
+            <option value="{{ i }}">{{ i }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <button type="submit" class="btn" style="font-size:14px; display:block; width:100%;">
+        Add to Cart
+      </button>
+    </form>
+  {% else %}
+    <div style="background:#fee2e2; border:1px solid #fca5a5; padding:16px; border-radius:12px; margin:20px 0;">
+      <strong>Currently unavailable</strong>
+      <p style="margin-bottom:0;">This product is out of stock or not currently in season.</p>
+    </div>
+  {% endif %}
+{% else %}
+  <a class="btn btn-primary" href="{% url 'accounts:login' %}?next={{ request.path }}">
+    Login to add to cart
+  </a>
+{% endif %}
+
+    {% if suggestions %}
+      <div style="margin-top:30px;">
+        <h3>Similar products you may like</h3>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px;">
+          {% for suggestion in suggestions %}
+            <div style="border:1px solid #ddd; border-radius:14px; padding:16px; background:#fff;">
+              <h4>{{ suggestion.name }}</h4>
+
+              <p style="color:#555;">
+                Sold by {{ suggestion.producer.username }}
+              </p>
+
+              <p><strong>£{{ suggestion.price|floatformat:2 }}</strong></p>
+
+              <a class="btn btn-primary" href="{% url 'marketplace:product_detail' suggestion.id %}">
+                View Product
+              </a>
+            </div>
+          {% endfor %}
+        </div>
       </div>
     {% endif %}
 
@@ -180,7 +216,7 @@
   </div>
 
   <div class="card stack" style="margin-top:20px;">
-    <h2>Customer Reviews</h2>
+    <h2>Product Reviews</h2>
 
     {% for review in reviews %}
       <div style="border:1px solid #ddd; border-radius:10px; padding:14px; margin-bottom:15px; background:#fff;">
