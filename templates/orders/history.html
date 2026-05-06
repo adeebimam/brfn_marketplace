@@ -25,35 +25,24 @@
 </form>
 
 {% for order in orders %}
-  <div style="border:1px solid #ddd; border-radius:10px; padding:16px; margin-bottom:20px; background:#fff;">
+  <div style="border:1px solid #ddd; border-radius:10px; padding:16px; margin-bottom:15px; background:#fff;">
+    <h3>Order ORD-{{ order.id }}</h3>
 
-    <p><strong>Order #{{ order.order_number }}</strong></p>
-    <p>Order Date: {{ order.order_date }}</p>
-    <p>Delivery Date: {{ order.delivery_date }}</p>
-    <p>Total: £{{ order.total|floatformat:2 }}</p>
-    <p>Status: Completed</p>
+    <p><strong>Order Date:</strong> {{ order.created_at|date:"Y-m-d" }}</p>
+    <p><strong>Total:</strong> £{{ order.total_amount|floatformat:2 }}</p>
+    <p><strong>Status:</strong> {{ order.get_status_display }}</p>
 
-    <p><strong>Producers:</strong></p>
-    <ul>
-      {% for producer, items in order.producers.items %}
-        <li>{{ producer }}</li>
-      {% endfor %}
-    </ul>
+    <a href="{% url 'marketplace:order_detail' order.id %}" class="btn btn-primary">
+    View Details
+    </a>
 
-    <div style="margin-top:10px;">
-      <a class="btn" href="{% url 'marketplace:order_detail' order.order_number %}">
-        View Details
-      </a>
+    <a class="btn btn-primary" href="{% url 'marketplace:reorder' order.id %}">
+      Reorder
+    </a>
 
-      <a class="btn btn-primary" href="{% url 'marketplace:reorder' order.order_number %}">
-        Reorder
-      </a>
-
-      <a class="btn" href="{% url 'marketplace:download_receipt' order.order_number %}">
-        Download Receipt
-      </a>
-    </div>
-
+    <a class="btn" href="{% url 'marketplace:download_receipt' order.id %}">
+      Download Receipt
+    </a>
   </div>
 {% empty %}
   <p>No orders found.</p>

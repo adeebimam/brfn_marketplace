@@ -1,18 +1,46 @@
 {% extends "base.html" %}
 {% block content %}
 
-
   <div class="card stack">
     <h1>Your Cart</h1>
+
     {% if messages %}
-  <div class="message-container">
-    {% for message in messages %}
-      <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
-        {{ message }}
+      <div class="message-container">
+        {% for message in messages %}
+          <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
       </div>
-    {% endfor %}
-  </div>
-{% endif %}
+    {% endif %}
+
+    {% if request.session.reorder_suggestions %}
+      <div style="border:1px solid #fcd34d; background:#fef3c7; padding:18px; border-radius:14px; margin-bottom:20px;">
+        <h3 style="margin-top:0;">Suggested Alternatives</h3>
+        <p>Some reordered items were unavailable. You may like these alternatives:</p>
+
+        {% for suggestion in request.session.reorder_suggestions %}
+          <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid #fbbf24; padding:12px 0; gap:16px;">
+            <div>
+              <strong>{{ suggestion.name }}</strong>
+              <p style="margin:4px 0; color:#555;">
+                Alternative for {{ suggestion.original }}<br>
+                Producer: {{ suggestion.producer }} | £{{ suggestion.price|floatformat:2 }}
+              </p>
+            </div>
+
+            <form method="post" action="{% url 'cart:add' suggestion.id %}">
+              {% csrf_token %}
+              <input type="hidden" name="qty" value="1">
+              <button class="btn btn-primary" type="submit">
+                Add to Cart
+              </button>
+            </form>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
     {% if cart_items %}
       <div class="cart-layout">
 
@@ -25,7 +53,6 @@
                 <th>Unit</th>
                 <th style="width:160px;">Qty</th>
                 <th>Total</th>
-                
               </tr>
             </thead>
 
@@ -45,7 +72,8 @@
                       {{ item.product.producer.username }}
                     {% endif %}
                   </td>
-                  <td>£{{ item.product.price }}</td>
+
+                  <td>£{{ item.product.price|floatformat:2 }}</td>
 
                   <!-- Auto-submit qty form on change -->
                   <td>
@@ -55,7 +83,7 @@
                     </form>
                   </td>
 
-                  <td>£{{ item.line_total }}</td>
+                  <td>£{{ item.line_total|floatformat:2 }}</td>
 
                   <!-- Remove items -->
                   <td>
@@ -70,8 +98,49 @@
               {% endfor %}
             </tbody>
           </table>
+
+          {% if suggested_products %}
+            <div style="margin-top:30px; margin-bottom:25px;">
+              <h3>You may also like</h3>
+              <p style="color:#555;">Suggested from the same producers or similar categories.</p>
+
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:16px;">
+                {% for product in suggested_products %}
+                  <div style="border:1px solid #ddd; border-radius:14px; padding:16px; background:#fff;">
+                    <h4 style="margin-top:0;">{{ product.name }}</h4>
+
+                    <p style="color:#555; margin-bottom:6px;">
+                      Producer:
+                      {% if product.producer.profile.business_name %}
+                        {{ product.producer.profile.business_name }}
+                      {% else %}
+                        {{ product.producer.username }}
+                      {% endif %}
+                    </p>
+
+                    <p><strong>£{{ product.price|floatformat:2 }}</strong></p>
+
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                      <a class="btn" href="{% url 'marketplace:product_detail' product.id %}">
+                        View
+                      </a>
+
+                      <form method="post" action="{% url 'cart:add' product.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="qty" value="1">
+                        <button class="btn btn-primary" type="submit">
+                          Add
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
         </div>
-           <!-- Total summary -->
+
+        <!-- Total summary -->
         <aside class="cart-aside">
           <div class="card stack cart-summary">
             <h3>Order Total</h3>
@@ -79,7 +148,7 @@
             <div>
               <div style="display:flex; justify-content:space-between;">
                 <span>Total</span>
-                <strong>£{{ cart_total }}</strong>
+                <strong>£{{ cart_total|floatformat:2 }}</strong>
               </div>
             </div>
 
@@ -96,7 +165,7 @@
 
   </div>
 
-  <!-- Auto update quanity JavaScript -->
+  <!-- Auto update quantity JavaScript -->
   <script>
     document.querySelectorAll('.qty-form input[name="qty"]').forEach((input) => {
       let t;

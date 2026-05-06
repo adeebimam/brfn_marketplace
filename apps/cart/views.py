@@ -9,6 +9,7 @@ from apps.marketplace.models import Product
 from apps.marketplace.forms import CheckoutForm
 from .models import Cart, CartItem
 
+
 def _sync_session_cart(request, cart):
     """
     Keep the session cart in sync with the DB cart so existing checkout
@@ -27,7 +28,12 @@ def _sync_session_cart(request, cart):
 def cart_detail(request):
     cart, _ = Cart.objects.get_or_create(user=request.user)
 
-    items = cart.items.select_related("product", "product__producer")
+    items = cart.items.select_related(
+        "product",
+        "product__producer",
+        "product__category",
+    )
+
     cart_items = []
     total = Decimal("0.00")
 
@@ -43,11 +49,51 @@ def cart_detail(request):
             "producer": item.product.producer,
         })
 
+    # Suggestions like Amazon:
+    # 1. First suggest other products from the same producers
+    # 2. If not enough, suggest products from similar categories
+    cart_product_ids = [item["product"].id for item in cart_items]
+    cart_producer_ids = [item["product"].producer.id for item in cart_items]
+    cart_category_ids = [
+        item["product"].category.id
+        for item in cart_items
+        if item["product"].category
+    ]
+
+    suggested_products = Product.objects.none()
+
+    if cart_items:
+        suggested_products = (
+            Product.objects
+            .filter(
+                is_active=True,
+                stock_quantity__gt=0,
+                producer_id__in=cart_producer_ids,
+            )
+            .exclude(id__in=cart_product_ids)
+            .select_related("producer", "category")
+            .order_by("name")[:4]
+        )
+
+        if not suggested_products.exists() and cart_category_ids:
+            suggested_products = (
+                Product.objects
+                .filter(
+                    is_active=True,
+                    stock_quantity__gt=0,
+                    category_id__in=cart_category_ids,
+                )
+                .exclude(id__in=cart_product_ids)
+                .select_related("producer", "category")
+                .order_by("name")[:4]
+            )
+
     _sync_session_cart(request, cart)
 
     return render(request, "cart/detail.html", {
         "cart_items": cart_items,
         "cart_total": total.quantize(Decimal("0.01")),
+        "suggested_products": suggested_products,
     })
 
 
@@ -73,7 +119,7 @@ def cart_add(request, product_id):
     cart, _ = Cart.objects.get_or_create(user=request.user)
 
     try:
-        qty = int(request.POST.get("qty"))
+        qty = int(request.POST.get("qty", 1))
     except (TypeError, ValueError):
         qty = 1
 
@@ -93,10 +139,12 @@ def cart_add(request, product_id):
 
     item.quantity = new_quantity
     item.save()
+
     _sync_session_cart(request, cart)
 
     messages.success(request, f"Added {qty} {product.name} to your cart.")
     return redirect("cart:detail")
+
 
 @require_POST
 @login_required
@@ -120,8 +168,12 @@ def cart_update(request, product_id):
         messages.info(request, f"Removed {product_name} from your cart.")
     else:
         if qty > product.stock_quantity:
-            messages.error(request, f"Cannot add more than available stock ({product.stock_quantity}) for {product.name}.")
+            messages.error(
+                request,
+                f"Cannot add more than available stock ({product.stock_quantity}) for {product.name}."
+            )
             qty = product.stock_quantity
+
         item.quantity = qty
         item.save()
         messages.success(request, f"Updated {product.name} to {qty}.")
@@ -158,6 +210,7 @@ def checkout(request):
         return redirect("cart:detail")
 
     items = cart.items.select_related("product", "product__producer")
+
     producers = {}
     subtotal = Decimal("0.00")
     cart_items = []
@@ -165,20 +218,29 @@ def checkout(request):
     for item in items:
         line_total = (item.product.price * item.quantity).quantize(Decimal("0.01"))
         subtotal += line_total
-        producer_name = item.product.producer.name if hasattr(item.product.producer, 'name') else str(item.product.producer)
-        lead_time = getattr(item.product.producer, 'lead_time', 2)
+
+        producer_name = item.product.producer.username
+        lead_time = getattr(item.product.producer, "lead_time", 2)
+
         if producer_name not in producers:
             producers[producer_name] = []
+
         producers[producer_name].append({
             "name": item.product.name,
+            "id": item.product.id,
+            "price": float(item.product.price),
             "qty": item.quantity,
             "unit_price": str(item.product.price),
-            "total": str(line_total),
+            "total": float(line_total),
             "lead_time": lead_time,
         })
+
         cart_items.append({
-            "product": {"name": item.product.name, "id": item.product.id},
-            "qty": item.quantity
+            "product": {
+                "name": item.product.name,
+                "id": item.product.id,
+            },
+            "qty": item.quantity,
         })
 
     commission = (subtotal * Decimal("0.05")).quantize(Decimal("0.01"))
@@ -187,30 +249,48 @@ def checkout(request):
     _sync_session_cart(request, cart)
 
     initial = {}
-    if hasattr(request.user, 'profile'):  
-        if request.user.profile.delivery_address:
-                initial['delivery_address'] = request.user.profile.delivery_address
-        if request.user.profile.delivery_postcode:
-            initial['delivery_postcode'] = request.user.profile.delivery_postcode
+
+    if hasattr(request.user, "profile"):
+        if getattr(request.user.profile, "delivery_address", None):
+            initial["delivery_address"] = request.user.profile.delivery_address
+
+        if getattr(request.user.profile, "delivery_postcode", None):
+            initial["delivery_postcode"] = request.user.profile.delivery_postcode
+
     form = CheckoutForm(initial=initial)
 
     if request.method == "POST":
         form = CheckoutForm(request.POST)
+
         if form.is_valid():
-            request.session['order_total'] = str(total)
-            request.session['cart_items'] = cart_items
-            request.session['delivery_address'] = form.cleaned_data.get('delivery_address', '')
-            request.session['delivery_postcode'] = form.cleaned_data.get('delivery_postcode', '')
-            # Convert delivery_date to string for session storage
-            delivery_date = form.cleaned_data.get('delivery_date', '')
-            if hasattr(delivery_date, 'isoformat'):
+            delivery_date = form.cleaned_data.get("delivery_date", "")
+
+            if hasattr(delivery_date, "isoformat"):
                 delivery_date = delivery_date.isoformat()
-            request.session['delivery_date'] = delivery_date
-            request.session['payment_method'] = form.cleaned_data.get('payment_method', '')
-            request.session['producers'] = producers
-            request.session['subtotal'] = str(subtotal)
-            request.session['commission'] = str(commission)
-            return redirect("orders:payment")
+
+            request.session["order"] = {
+                "address": form.cleaned_data.get("delivery_address", ""),
+                "postcode": form.cleaned_data.get("delivery_postcode", ""),
+                "date": delivery_date,
+                "payment": form.cleaned_data.get("payment_method", ""),
+                "subtotal": float(subtotal),
+                "commission": float(commission),
+                "total": float(total),
+                "producers": producers,
+            }
+
+            request.session["order_total"] = str(total)
+            request.session["cart_items"] = cart_items
+            request.session["delivery_address"] = form.cleaned_data.get("delivery_address", "")
+            request.session["delivery_postcode"] = form.cleaned_data.get("delivery_postcode", "")
+            request.session["delivery_date"] = delivery_date
+            request.session["payment_method"] = form.cleaned_data.get("payment_method", "")
+            request.session["producers"] = producers
+            request.session["subtotal"] = str(subtotal)
+            request.session["commission"] = str(commission)
+            request.session.modified = True
+
+            return redirect("marketplace:payment")
 
     return render(request, "cart/checkout.html", {
         "form": form,
