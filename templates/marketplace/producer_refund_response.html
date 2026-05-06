@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="max-width:600px; margin:0 auto;">
+  <h1>Respond to Refund Request</h1>
+
+  <div style="border:1px solid #ddd; border-radius:10px; padding:16px; margin-bottom:20px; background:#f8fafc;">
+    <p><strong>Order:</strong> #{{ refund.order.id }}</p>
+    <p><strong>Customer:</strong> {{ refund.customer.username }}</p>
+    <p><strong>Refund Amount:</strong> £{{ refund.refund_amount|floatformat:2 }}</p>
+    <p><strong>Customer Reason:</strong> {{ refund.reason }}</p>
+    <p><strong>Status:</strong> {{ refund.get_status_display }}</p>
+  </div>
+
+  <form method="POST">
+    {% csrf_token %}
+    <div style="margin-bottom:18px;">
+      <label><strong>Your Response</strong></label>
+      <p class="muted">Provide any relevant information about this order that may help the administrator make a decision.</p>
+      <textarea
+        name="producer_note"
+        rows="5"
+        required
+        placeholder="e.g. Item was delivered in good condition, customer confirmed receipt..."
+        style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; margin-top:8px; font-size:14px;"
+      ></textarea>
+    </div>
+    <div style="display:flex; gap:10px;">
+      <button type="submit" class="btn btn-primary">Submit Response</button>
+      <a href="{% url 'marketplace:producer_order_list' %}" class="btn">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
