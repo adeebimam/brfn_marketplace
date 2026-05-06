@@ -3,23 +3,23 @@ import random
 from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
-<<<<<<< Updated upstream
-=======
+
+
 
 
 from .forms import CheckoutForm, ProductForm, ProducerOrderStatusForm, ReviewForm
 
->>>>>>> Stashed changes
+
 from decimal import Decimal, ROUND_HALF_UP
 from tracemalloc import start
 from urllib import request
 from .forms import CheckoutForm, ProductForm, ProducerOrderStatusForm, PurchaseReviewForm, ReviewForm
 from .models import PurchaseReview
 from .models import CustomerOrderHistory
-<<<<<<< Updated upstream
-=======
 
->>>>>>> Stashed changes
+
+
+
 from .services import update_producer_order_status
 
 from django.contrib import messages
@@ -191,8 +191,8 @@ def product_detail(request, pk):
 def create_review(request, product_id):
     product = get_object_or_404(Product, id=product_id)
 
-<<<<<<< Updated upstream
-=======
+
+
 
     order_history = [
         record.order_data
@@ -210,7 +210,7 @@ def create_review(request, product_id):
                 break
         if has_purchased:
             break
->>>>>>> Stashed changes
+
     # Check purchased product from database order history
     order_records = CustomerOrderHistory.objects.filter(customer=request.user)
 
@@ -219,10 +219,10 @@ def create_review(request, product_id):
     for record in order_records:
         order = record.order_data
 
-<<<<<<< Updated upstream
-=======
 
->>>>>>> Stashed changes
+
+
+
         for producer, items in order.get("producers", {}).items():
             for item in items:
                 if str(item.get("id")) == str(product_id):
@@ -239,8 +239,8 @@ def create_review(request, product_id):
         messages.error(request, "You can only review products you have purchased.")
         return redirect("marketplace:product_detail", pk=product_id)
 
-<<<<<<< Updated upstream
-=======
+
+
 
     existing_review = Review.objects.filter(product=product, customer=request.user).first()
 
@@ -250,7 +250,7 @@ def create_review(request, product_id):
 
 
 
->>>>>>> Stashed changes
+
     if request.method == "POST":
         form = ReviewForm(request.POST)
 
@@ -260,17 +260,17 @@ def create_review(request, product_id):
             review.customer = request.user
             review.verified_purchase = True
             review.save()
-<<<<<<< Updated upstream
+
 
             messages.success(request, "Product review submitted successfully.")
-=======
+
 
             messages.success(request, "Review submitted successfully.")
 
 
             messages.success(request, "Product review submitted successfully.")
 
->>>>>>> Stashed changes
+
             return redirect("marketplace:product_detail", pk=product_id)
     else:
         form = ReviewForm()
@@ -428,18 +428,18 @@ def checkout(request):
 
     if request.method == "POST":
         form = CheckoutForm(request.POST)
-<<<<<<< Updated upstream
-        print("CHECKOUT POST:", request.POST)
-        print("FORM ERRORS:", form.errors)
-
-=======
-
 
         print("CHECKOUT POST:", request.POST)
         print("FORM ERRORS:", form.errors)
 
 
->>>>>>> Stashed changes
+
+
+        print("CHECKOUT POST:", request.POST)
+        print("FORM ERRORS:", form.errors)
+
+
+
         if form.is_valid():
             delivery_address = form.cleaned_data["delivery_address"]
             delivery_date = request.POST.get("delivery_1")
@@ -597,10 +597,10 @@ def payment(request):
                     Decimal("0.01"),
                     rounding=ROUND_HALF_UP
                 )
-<<<<<<< Updated upstream
-=======
 
->>>>>>> Stashed changes
+
+
+
                 producer_order.save()
                 debug_info.append(f"Saved ProducerOrder with total_value: {total_value}")
             print("DEBUG INFO:", debug_info)
@@ -609,12 +609,12 @@ def payment(request):
             error_message = f"Order creation failed: {e}"
             print(error_message)
             print(traceback.format_exc())
-<<<<<<< Updated upstream
-=======
+
+
 
             return render(request, "payment.html", {"order": order, "error_message": error_message})
 
->>>>>>> Stashed changes
+
             return render(request, "orders/payment.html", {
                 "order": order,
                 "error_message": error_message,
@@ -622,10 +622,6 @@ def payment(request):
             })
 
         order_history = request.session.get("order_history", [])
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
 
         order_data = {
             "order_number": order_number,
@@ -1096,24 +1092,18 @@ def order_detail(request, order_id):
         for record in CustomerOrderHistory.objects.filter(customer=request.user)
     ]
 
-<<<<<<< Updated upstream
-=======
 
 
 
->>>>>>> Stashed changes
     order = next((o for o in orders if str(o.get("order_number")) == str(order_id)), None)
 
     if not order:
         messages.error(request, "Order not found")
         return redirect("marketplace:order_history")
 
-<<<<<<< Updated upstream
-=======
 
     return render(request, "orders/order_detail.html", {"order": order})
 
->>>>>>> Stashed changes
     purchase_reviews = PurchaseReview.objects.filter(
         customer=request.user,
         order_number=order_id
@@ -1123,10 +1113,6 @@ def order_detail(request, order_id):
         "order": order,
         "purchase_reviews": purchase_reviews,
     })
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
 
 
 @login_required
@@ -1223,8 +1209,6 @@ def download_receipt(request, order_id):
     response = HttpResponse(content, content_type="text/plain")
     response["Content-Disposition"] = f'attachment; filename="receipt_{order_id}.txt"'
     return response
-<<<<<<< Updated upstream
-=======
 
 
 
@@ -1250,7 +1234,6 @@ def stock_notifications(request):
         "active_notifications": active_notifications,
         "resolved_notifications": resolved_notifications,
 
->>>>>>> Stashed changes
 @login_required
 def create_purchase_review(request, order_id):
     order_record = CustomerOrderHistory.objects.filter(
@@ -1281,8 +1264,4 @@ def create_purchase_review(request, order_id):
     return render(request, "marketplace/purchase_review_form.html", {
         "form": form,
         "order": order_record.order_data,
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
     })
