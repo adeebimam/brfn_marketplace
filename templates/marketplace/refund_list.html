@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+  <h1>Refund Requests</h1>
+
+  <form method="get" style="margin-bottom:20px; display:flex; gap:10px; align-items:center;">
+    <label for="status">Status:</label>
+
+    <select id="status" name="status" style="padding:8px 12px; border:1px solid #ddd; border-radius:8px; height:42px; min-width:180px;">
+      <option value="">All statuses</option>
+      {% for value, label in statuses %}
+        <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>
+          {{ label }}
+        </option>
+      {% endfor %}
+    </select>
+
+    <button type="submit" class="btn btn-primary">Filter</button>
+  </form>
+
+  {% if refunds %}
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Refund #</th>
+          <th>Order</th>
+          <th>Customer</th>
+          <th>Amount</th>
+          <th>Status</th>
+          <th>Requested</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for refund in refunds %}
+          <tr>
+            <td>#{{ refund.id }}</td>
+            <td>#{{ refund.order.id }}</td>
+            <td>{{ refund.customer.username }}</td>
+            <td>£{{ refund.refund_amount|floatformat:2 }}</td>
+
+            <td>
+              <span style="
+                padding:3px 10px;
+                border-radius:20px;
+                font-size:0.8rem;
+                font-weight:600;
+
+                
+              ">
+                {{ refund.get_status_display }}
+              </span>
+            </td>
+
+            <td>{{ refund.created_at|date:"Y-m-d" }}</td>
+
+            <td>
+              {% if refund.status == 'PENDING' or refund.status == 'PRODUCER_RESPONDED' %}
+                <a href="{% url 'marketplace:admin_refund_decision' refund.id %}" class="btn btn-primary" style="font-size:0.85rem;">
+                  Review
+                </a>
+              {% else %}
+                <span class="muted">Resolved</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="card empty-state">
+      <h2>No refund requests</h2>
+      <p class="muted">No refund requests match the current filter.</p>
+    </div>
+  {% endif %}
+
+  <a href="{% url 'accounts:admin_dashboard' %}" class="admin-back-link" style="margin-top:20px; display:inline-block;">
+    Back to Dashboard
+  </a>
+</div>
+{% endblock %}

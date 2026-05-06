@@ -73,6 +73,83 @@ def _anonymise_customer(customer):
         'name': f"Customer {customer.id}",
         'email': f"customer{customer.id}@anon.com",
     }
+    if not customer:
+        return "Unknown customer"
+    full_name = customer.get_full_name().strip()
+    if full_name:
+        parts = full_name.split()
+        if len(parts) == 1:
+            return parts[0]
+        return f"{parts[0]} {parts[-1][0]}."
+    return customer.username
+
+
+def _get_customer_order_history(user):
+    records = CustomerOrderHistory.objects.filter(customer=user).order_by("-id")
+    result = []
+
+    for record in records:
+        data = record.order_data.copy()
+
+        try:
+            order_pk = str(record.order_number).replace("BRFN-", "")
+            live_order = Order.objects.get(pk=order_pk)
+            data["status"] = live_order.get_status_display()
+        except (Order.DoesNotExist, ValueError):
+            data["status"] = data.get("status", "Pending").title()
+
+        # Ensure product_id exists for reorder functionality
+        for producer, items in data.get("producers", {}).items():
+            for item in items:
+                if "product_id" not in item:
+                    try:
+                        product = Product.objects.get(name=item.get("name"))
+                        item["product_id"] = product.id
+                    except Product.DoesNotExist:
+                        item["product_id"] = None
+
+        result.append(data)
+
+    return result
+
+def _parse_date(value):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def _has_purchased_product(order_history, product_id):
+    for order in order_history:
+        for producer, items in order.get("producers", {}).items():
+            for item in items:
+                if str(item.get("id")) == str(product_id):
+                    return True
+    return False
+
+
+def _get_product_unit_price(product):
+    if product.is_active_surplus_deal and product.discounted_price is not None:
+        return product.discounted_price
+    return product.price
+
+
+def _attach_producer_order_context(producer_orders):
+    for producer_order in producer_orders:
+        order_date = timezone.localtime(producer_order.order.created_at).date()
+        if producer_order.delivery_date:
+            producer_order.lead_time_days = max(
+                (producer_order.delivery_date - order_date).days, 0,
+            )
+        else:
+            producer_order.lead_time_days = 0
+        producer_order.item_summary = ", ".join(
+            f"{item.product.name} x{item.quantity}"
+            for item in producer_order.items.all()
+        )
+    return producer_orders
 
 
 # -----------------------------
@@ -794,13 +871,18 @@ def producer_order_list(request):
     orders = list(orders)
     _attach_producer_order_context(orders)
 
+    refund_requests = RefundRequest.objects.filter(
+        order__producer_orders__producer=request.user,
+        status__in=[RefundRequest.Status.PENDING, RefundRequest.Status.PRODUCER_RESPONDED],
+    ).select_related("order", "customer").distinct()
+
     return render(request, "marketplace/producer_order_list.html", {
         "orders": orders,
         "selected_status": status,
         "sort": sort,
         "status_choices": ProducerOrder.Status.choices,
+        "refund_requests": refund_requests,
     })
-
 
 @login_required
 def producer_order_detail(request, pk):
@@ -1078,6 +1160,15 @@ def order_history(request):
             producer_orders__producer__username__icontains=producer
         ).distinct()
 
+    # Attach refund info to each order
+    for order in orders:
+        order_pk = str(order.get("order_number", "")).replace("BRFN-", "")
+        try:
+            live_order = Order.objects.get(pk=order_pk)
+            order["refund"] = RefundRequest.objects.filter(order=live_order).first()
+        except (Order.DoesNotExist, ValueError):
+            order["refund"] = None
+
     return render(request, "orders/history.html", {
         "orders": orders, "start": start, "end": end, "producer": producer,
     })
@@ -1103,11 +1194,22 @@ def order_detail(request, order_id):
         order_number=f"ORD-{order.id}"
     ).order_by("-created_at")
 
+    # Check if refund already exists
+    order_pk = str(order_id).replace("BRFN-", "")
+    existing_refund = None
+    try:
+        live_order = Order.objects.get(pk=order_pk, customer=request.user)
+        existing_refund = RefundRequest.objects.filter(order=live_order).first()
+    except Order.DoesNotExist:
+        pass
+
     return render(request, "orders/order_detail.html", {
     "order": order,
     "order_id": order.id,
     "purchase_reviews": purchase_reviews,
+    "existing_refund": existing_refund,
 })
+
 
 
 @login_required
@@ -1175,7 +1277,10 @@ def reorder(request, order_id):
     request.session.modified = True
 
     if price_changed_items:
-        messages.warning(request, "Price changes detected: " + "; ".join(price_changed_items))
+        messages.warning(
+            request,
+            "Price changes detected: " + "; ".join(price_changed_items)
+        )
 
     if unavailable_items:
         messages.error(request, "Some items are unavailable: " + ", ".join(unavailable_items))
@@ -1293,3 +1398,226 @@ def product_search_suggestions(request):
     ]
 
     return JsonResponse({"suggestions": suggestions})
+# Check if refund already exists
+
+existing = RefundRequest.objects.filter(order=order).first()
+    if existing:
+        messages.warning(request, "A refund request already exists for this order.")
+        return redirect("marketplace:order_detail", order_id=order_id)
+
+    # Check refund eligibility based on order status and time
+    if order.status == Order.Status.CANCELLED:
+        messages.error(request, "This order has already been cancelled.")
+        return redirect("marketplace:order_detail", order_id=order_id)
+
+    if order.status == Order.Status.DELIVERED:
+        days_since_order = (timezone.now().date() - order.created_at.date()).days
+        if days_since_order > 7:
+            messages.error(
+                request,
+                "Refunds can only be requested within 7 days of delivery. "
+                "This order is no longer eligible for a refund."
+            )
+            return redirect("marketplace:order_detail", order_id=order_id)
+
+    if order.status not in [
+        Order.Status.PENDING,
+        Order.Status.CONFIRMED,
+        Order.Status.DELIVERED,
+    ]:
+        messages.error(request, "This order is not eligible for a refund.")
+        return redirect("marketplace:order_detail", order_id=order_id)
+    
+    if request.method == "POST":
+        reason = request.POST.get("reason", "").strip()
+        if not reason:
+            messages.error(request, "Please provide a reason for the refund.")
+        else:
+            refund = RefundRequest.objects.create(
+                order=order,
+                customer=request.user,
+                reason=reason,
+                refund_amount=order.total_amount,
+                status=RefundRequest.Status.PENDING,
+            )
+
+            # Notify producers via messages
+            from apps.message.models import MessageThread, Message
+            for producer_order in order.producer_orders.all():
+                thread = MessageThread.objects.create(
+                    subject=f"Refund Request for Order #{order.id}",
+                    created_by=request.user,
+                    related_order=order,
+                    related_producer_order=producer_order,
+                )
+                thread.participants.add(request.user, producer_order.producer)
+                Message.objects.create(
+                    thread=thread,
+                    sender=request.user,
+                    body=(
+                        f"Dear {producer_order.producer.username},\n\n"
+                        f"A refund request has been raised for Order #{order.id}.\n\n"
+                        f"Reason: {reason}\n\n"
+                        f"Refund Amount: £{order.total_amount}\n\n"
+                        f"Please log in to provide your response. "
+                        f"The final decision will be made by an administrator.\n\n"
+                        f"Thank you."
+                    ),
+                )
+
+            messages.success(request, "Refund request submitted successfully.")
+            return redirect("marketplace:order_detail", order_id=order_id)
+
+    return render(request, "marketplace/refund_request_form.html", {
+        "order": order_data,
+        "order_obj": order,
+    })
+
+
+@login_required
+def producer_refund_response(request, refund_id):
+    """Producer adds a note to a refund request."""
+    refund = get_object_or_404(RefundRequest, pk=refund_id)
+
+    # Check producer is involved in this order
+    is_involved = refund.order.producer_orders.filter(
+        producer=request.user
+    ).exists()
+
+    if not is_involved:
+        return HttpResponseForbidden("You are not involved in this order.")
+
+    if refund.status not in [RefundRequest.Status.PENDING]:
+        messages.warning(request, "This refund has already been processed.")
+        return redirect("marketplace:producer_order_list")
+
+    if request.method == "POST":
+        producer_note = request.POST.get("producer_note", "").strip()
+        if not producer_note:
+            messages.error(request, "Please provide a response.")
+        else:
+            refund.producer_note = producer_note
+            refund.status = RefundRequest.Status.PRODUCER_RESPONDED
+            refund.save()
+
+            # Notify admin via message
+            from apps.message.models import MessageThread, Message
+            from django.contrib.auth.models import User
+            admins = User.objects.filter(profile__role=Profile.Role.ADMIN)
+            if admins.exists():
+                thread = MessageThread.objects.create(
+                    subject=f"Producer Response — Refund #{refund.id} for Order #{refund.order.id}",
+                    created_by=request.user,
+                    related_order=refund.order,
+                )
+                thread.participants.add(request.user, *admins)
+                Message.objects.create(
+                    thread=thread,
+                    sender=request.user,
+                    body=(
+                        f"Producer {request.user.username} has responded to "
+                        f"Refund Request #{refund.id} for Order #{refund.order.id}.\n\n"
+                        f"Producer note: {producer_note}\n\n"
+                        f"Please review and make a final decision."
+                    ),
+                )
+
+            messages.success(request, "Your response has been submitted.")
+            return redirect("marketplace:producer_order_list")
+
+    return render(request, "marketplace/producer_refund_response.html", {
+        "refund": refund,
+    })
+
+
+@login_required
+def admin_refund_decision(request, refund_id):
+    """Admin approves or rejects a refund request."""
+    if not hasattr(request.user, "profile") or request.user.profile.role != Profile.Role.ADMIN:
+        return HttpResponseForbidden("Admin access required.")
+
+    refund = get_object_or_404(RefundRequest, pk=refund_id)
+
+    if refund.status in [RefundRequest.Status.APPROVED, RefundRequest.Status.REJECTED]:
+        messages.warning(request, "This refund has already been resolved.")
+        return redirect("accounts:admin_dashboard")
+
+    if request.method == "POST":
+        decision = request.POST.get("decision")
+        admin_note = request.POST.get("admin_note", "").strip()
+
+        if decision not in ["approve", "reject"]:
+            messages.error(request, "Invalid decision.")
+        else:
+            refund.admin_note = admin_note
+            refund.resolved_by = request.user
+            refund.resolved_at = timezone.now()
+
+            if decision == "approve":
+                refund.status = RefundRequest.Status.APPROVED
+                # Update order status to cancelled
+                refund.order.status = Order.Status.CANCELLED
+                refund.order.save()
+                for producer_order in refund.order.producer_orders.all():
+                    producer_order.status = ProducerOrder.Status.CANCELLED
+                    producer_order.save()
+                notification_body = (
+                    f"Dear {refund.customer.username},\n\n"
+                    f"Your refund request for Order #{refund.order.id} has been APPROVED.\n\n"
+                    f"Refund Amount: £{refund.refund_amount}\n\n"
+                    f"Admin note: {admin_note}\n\n"
+                    f"The full amount will be returned to you. "
+                    f"Thank you for your patience."
+                )
+            else:
+                refund.status = RefundRequest.Status.REJECTED
+                notification_body = (
+                    f"Dear {refund.customer.username},\n\n"
+                    f"Your refund request for Order #{refund.order.id} has been REJECTED.\n\n"
+                    f"Admin note: {admin_note or 'N/A'}\n\n"
+                    f"If you have further concerns please contact us."
+                )
+
+            refund.save()
+
+            # Notify customer
+            from apps.message.models import MessageThread, Message
+            thread = MessageThread.objects.create(
+                subject=f"Refund Request #{refund.id} — {refund.get_status_display()}",
+                created_by=request.user,
+                related_order=refund.order,
+            )
+            thread.participants.add(request.user, refund.customer)
+            Message.objects.create(
+                thread=thread,
+                sender=request.user,
+                body=notification_body,
+            )
+
+            messages.success(request, f"Refund {refund.get_status_display()} successfully.")
+            return redirect("accounts:admin_dashboard")
+
+    return render(request, "marketplace/admin_refund_decision.html", {
+        "refund": refund,
+    })
+
+
+@login_required
+def refund_list(request):
+    """Admin view of all refund requests."""
+    if not hasattr(request.user, "profile") or request.user.profile.role != Profile.Role.ADMIN:
+        return HttpResponseForbidden("Admin access required.")
+
+    refunds = RefundRequest.objects.select_related(
+        "order", "customer", "resolved_by"
+    ).all()
+
+    status_filter = request.GET.get("status", "")
+    if status_filter:
+        refunds = refunds.filter(status=status_filter)
+
+    return render(request, "marketplace/refund_list.html", {
+        "refunds": refunds,
+        "status_filter": status_filter,
+        "statuses": RefundRequest.Status.choices,
+    })

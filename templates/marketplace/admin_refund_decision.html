@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="max-width:700px; margin:0 auto;">
+  <h1>Refund Decision</h1>
+  <p class="muted">Refund Request #{{ refund.id }} for Order #{{ refund.order.id }}</p>
+
+  <div style="border:1px solid #ddd; border-radius:10px; padding:16px; margin-bottom:20px; background:#f8fafc;">
+    <p><strong>Customer:</strong> {{ refund.customer.username }}</p>
+    <p><strong>Order Total:</strong> £{{ refund.order.total_amount|floatformat:2 }}</p>
+    <p><strong>Refund Amount:</strong> £{{ refund.refund_amount|floatformat:2 }}</p>
+    <p><strong>Status:</strong> {{ refund.get_status_display }}</p>
+    <p><strong>Requested:</strong> {{ refund.created_at|date:"Y-m-d H:i" }}</p>
+  </div>
+
+  <div style="border:1px solid #ddd; border-radius:10px; padding:16px; margin-bottom:20px; background:#fff;">
+    <h3>Customer Reason</h3>
+    <p>{{ refund.reason }}</p>
+  </div>
+
+  {% if refund.producer_note %}
+    <div style="border:1px solid #ddd; border-radius:10px; padding:16px; margin-bottom:20px; background:#fff;">
+      <h3>Producer Response</h3>
+      <p>{{ refund.producer_note }}</p>
+    </div>
+  {% else %}
+    <div style="background:#fef3c7; border:1px solid #fcd34d; border-radius:10px; padding:16px; margin-bottom:20px;">
+      <p>⚠️ Producer has not yet responded.</p>
+    </div>
+  {% endif %}
+
+  <form method="POST">
+    {% csrf_token %}
+    <div style="margin-bottom:18px;">
+      <label><strong>Admin Note</strong> <span class="muted">(optional)</span></label>
+      <textarea
+        name="admin_note"
+        rows="4"
+        placeholder="Add a note to be included in the notification to the customer..."
+        style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; margin-top:8px; font-size:14px;"
+      ></textarea>
+    </div>
+
+    <div style="display:flex; gap:10px;">
+      <button type="submit" name="decision" value="approve"
+        class="btn btn-primary"
+        style="background:#087d73;"
+        onclick="return confirm('Approve this refund? The customer will receive £{{ refund.refund_amount|floatformat:2 }} back.')">
+        ✅ Approve Refund
+      </button>
+      <button type="submit" name="decision" value="reject"
+        class="btn"
+        style="background:#dc2626; color:white;"
+        onclick="return confirm('Reject this refund request?')">
+        ❌ Reject Refund
+      </button>
+      <a href="{% url 'marketplace:refund_list' %}" class="btn">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

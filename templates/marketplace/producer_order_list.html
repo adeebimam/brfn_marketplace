@@ -3,32 +3,33 @@
 
 <div class="card producer-order-management">
   <h1>Order Management</h1>
+
   {% if refund_requests %}
     <div style="background:#fef3c7; border:1px solid #fcd34d; border-radius:10px; padding:16px; margin-bottom:20px;">
       <h3 style="margin-top:0;">⚠️ Pending Refund Requests ({{ refund_requests|length }})</h3>
       <p class="muted">The following orders have refund requests awaiting your response. Please provide your statement so the admin can make a decision.</p>
-      <table class="admin-table" style="margin-top:12px;">
+      <table style="width:100%; border-collapse:collapse; margin-top:12px;">
         <thead>
-          <tr>
-            <th>Refund #</th>
-            <th>Order</th>
-            <th>Customer</th>
-            <th>Amount</th>
-            <th>Reason</th>
-            <th>Requested</th>
-            <th>Action</th>
+          <tr style="background:#f8fafc;">
+            <th style="padding:12px; text-align:left; font-weight:600; border-bottom:1px solid #e5e7eb;">Refund #</th>
+            <th style="padding:12px; text-align:left; font-weight:600; border-bottom:1px solid #e5e7eb;">Order</th>
+            <th style="padding:12px; text-align:left; font-weight:600; border-bottom:1px solid #e5e7eb;">Customer</th>
+            <th style="padding:12px; text-align:left; font-weight:600; border-bottom:1px solid #e5e7eb;">Amount</th>
+            <th style="padding:12px; text-align:left; font-weight:600; border-bottom:1px solid #e5e7eb;">Reason</th>
+            <th style="padding:12px; text-align:left; font-weight:600; border-bottom:1px solid #e5e7eb;">Requested</th>
+            <th style="padding:12px; text-align:left; font-weight:600; border-bottom:1px solid #e5e7eb;">Action</th>
           </tr>
         </thead>
         <tbody>
           {% for refund in refund_requests %}
-            <tr>
-              <td>#{{ refund.id }}</td>
-              <td>#{{ refund.order.id }}</td>
-              <td>{{ refund.customer.username }}</td>
-              <td>£{{ refund.refund_amount|floatformat:2 }}</td>
-              <td>{{ refund.reason|truncatechars:60 }}</td>
-              <td>{{ refund.created_at|date:"Y-m-d" }}</td>
-              <td>
+            <tr style="background:white;">
+              <td style="padding:12px; border-bottom:1px solid #f3f4f6;">#{{ refund.id }}</td>
+              <td style="padding:12px; border-bottom:1px solid #f3f4f6;">#{{ refund.order.id }}</td>
+              <td style="padding:12px; border-bottom:1px solid #f3f4f6;">{{ refund.customer.username }}</td>
+              <td style="padding:12px; border-bottom:1px solid #f3f4f6;">£{{ refund.refund_amount|floatformat:2 }}</td>
+              <td style="padding:12px; border-bottom:1px solid #f3f4f6;">{{ refund.reason|truncatechars:60 }}</td>
+              <td style="padding:12px; border-bottom:1px solid #f3f4f6;">{{ refund.created_at|date:"Y-m-d" }}</td>
+              <td style="padding:12px; border-bottom:1px solid #f3f4f6;">
                 <a href="{% url 'marketplace:producer_refund_response' refund.id %}" class="btn btn-primary" style="font-size:0.85rem;">
                   Respond
                 </a>
@@ -67,17 +68,17 @@
   {% if orders %}
     <table class="table producer-order-table">
       <thead>
-          <tr>
-            <th>Order #</th>
-            <th>Customer</th>
-            <th>Order Date</th>
-            <th>Delivery Date</th>
-            <th>Lead Time</th>
-            <th>Status</th>
-            <th>Items Ordered</th>
-            <th class="right">Total</th>
-            <th class="right"></th>
-          </tr>
+        <tr>
+          <th>Order #</th>
+          <th>Customer</th>
+          <th>Order Date</th>
+          <th>Delivery Date</th>
+          <th>Lead Time</th>
+          <th>Status</th>
+          <th>Items Ordered</th>
+          <th class="right">Total</th>
+          <th class="right"></th>
+        </tr>
       </thead>
       <tbody>
         {% for po in orders %}
