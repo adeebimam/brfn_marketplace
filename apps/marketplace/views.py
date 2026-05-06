@@ -19,6 +19,7 @@ from .forms import CheckoutForm, ProductForm, ProducerOrderStatusForm, PurchaseR
 from .models import (
     Allergen,
     Category,
+    CommissionLog,
     CustomerOrderHistory,
     MONTH_NAMES,
     Order,
@@ -27,6 +28,7 @@ from .models import (
     ProducerOrder,
     ProducerOrderStatusHistory,
     PurchaseReview,
+    RefundRequest,
     Review,
     StockNotification,
 )
@@ -83,10 +85,18 @@ def _anonymise_customer(customer):
 
 
 def _get_customer_order_history(user):
-    return [
-        record.order_data
-        for record in CustomerOrderHistory.objects.filter(customer=user).order_by("-id")
-    ]
+    records = CustomerOrderHistory.objects.filter(customer=user).order_by("-id")
+    result = []
+    for record in records:
+        data = record.order_data.copy()
+        try:
+            order_pk = str(record.order_number).replace("BRFN-", "")
+            live_order = Order.objects.get(pk=order_pk)
+            data["status"] = live_order.get_status_display()
+        except (Order.DoesNotExist, ValueError):
+            data["status"] = data.get("status", "Pending").title()
+        result.append(data)
+    return result
 
 
 def _parse_date(value):
@@ -269,10 +279,13 @@ def product_list(request):
         "current_month": current_month,
         "organic_filter": organic_filter,
         "max_miles": max_miles,
+        "is_bulk_buyer": (
+            hasattr(request.user, "profile")
+            and request.user.profile.role in {"COMMUNITY_GROUP", "RESTAURANT"}
+        ) if request.user.is_authenticated else False,
     }
-
     return render(request, "marketplace/product_list.html", context)
-
+    
 
 # ----------------------------
 # PRODUCT SEARCH SUGGESTIONS
@@ -338,6 +351,10 @@ def product_detail(request, pk):
         "reviews": reviews,
         "average_rating": average_rating,
         "food_miles": food_miles,
+        "is_bulk_buyer": (
+            hasattr(request.user, "profile")
+            and request.user.profile.role in {"COMMUNITY_GROUP", "RESTAURANT"}
+        ) if request.user.is_authenticated else False,
     })
 
 
@@ -1117,18 +1134,122 @@ def reorder(request, order_id):
 
 @login_required
 def download_receipt(request, order_id):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+    from decimal import Decimal
+    import io
+
     orders = _get_customer_order_history(request.user)
     order = next((o for o in orders if str(o.get("order_number")) == str(order_id)), None)
-
     if not order:
         messages.error(request, "Receipt not found.")
         return redirect("marketplace:order_history")
 
-    content = f"Order {order['order_number']} - Total £{order['total']}"
-    response = HttpResponse(content, content_type="text/plain")
-    response["Content-Disposition"] = f'attachment; filename="receipt_{order_id}.txt"'
-    return response
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=2*cm,
+        leftMargin=2*cm,
+        topMargin=2*cm,
+        bottomMargin=2*cm,
+    )
 
+    styles = getSampleStyleSheet()
+    elements = []
+
+    # Header
+    elements.append(Paragraph("BRFN Marketplace", styles["Title"]))
+    elements.append(Paragraph("Order Receipt", styles["Heading2"]))
+    elements.append(Spacer(1, 0.5*cm))
+
+    # Order info
+    info_data = [
+        ["Order Number", order.get("order_number", "")],
+        ["Order Date", order.get("order_date", "")],
+        ["Delivery Date", order.get("delivery_date", "")],
+        ["Delivery Address", order.get("address", "")],
+        ["Payment Method", order.get("payment", "").title()],
+        ["Status", order.get("status", "Pending").title()],
+    ]
+    if order.get("special_instructions"):
+        info_data.append(["Special Instructions", order.get("special_instructions")])
+
+    info_table = Table(info_data, colWidths=[5*cm, 11*cm])
+    info_table.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("PADDING", (0, 0), (-1, -1), 6),
+        ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.HexColor("#f8fafc"), colors.white]),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e5e7eb")),
+    ]))
+    elements.append(info_table)
+    elements.append(Spacer(1, 0.5*cm))
+
+    # Items by producer
+    elements.append(Paragraph("Order Items", styles["Heading3"]))
+    elements.append(Spacer(1, 0.3*cm))
+
+    for producer_name, items in order.get("producers", {}).items():
+        elements.append(Paragraph(f"Producer: {producer_name}", styles["Heading4"]))
+        item_data = [["Product", "Quantity", "Unit Price", "Total"]]
+        for item in items:
+            item_data.append([
+                item.get("name", ""),
+                str(item.get("qty", "")),
+                f"£{item.get('price', '0.00')}",
+                f"£{item.get('total', '0.00')}",
+            ])
+        item_table = Table(item_data, colWidths=[7*cm, 3*cm, 3*cm, 3*cm])
+        item_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#087d73")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+            ("PADDING", (0, 0), (-1, -1), 6),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+        ]))
+        elements.append(item_table)
+        elements.append(Spacer(1, 0.3*cm))
+
+    # Totals
+    elements.append(Spacer(1, 0.3*cm))
+    subtotal = order.get("subtotal", "0.00")
+    bulk_discount = order.get("bulk_discount", "0.00")
+    commission = order.get("commission", "0.00")
+    total = order.get("total", "0.00")
+
+    totals_data = [
+        ["Subtotal", f"£{subtotal}"],
+    ]
+    if float(bulk_discount or 0) > 0:
+        totals_data.append(["Bulk Buyer Discount (10%)", f"- £{bulk_discount}"])
+    totals_data.append(["Network Commission (5%)", f"£{commission}"])
+    totals_data.append(["Total", f"£{total}"])
+
+    totals_table = Table(totals_data, colWidths=[13*cm, 3*cm])
+    totals_table.setStyle(TableStyle([
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+        ("PADDING", (0, 0), (-1, -1), 6),
+        ("LINEABOVE", (0, -1), (-1, -1), 1, colors.black),
+        ("ROWBACKGROUNDS", (0, 0), (-1, -2), [colors.white]),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#f0fdf4")),
+    ]))
+    elements.append(totals_table)
+
+    doc.build(elements)
+    buffer.seek(0)
+
+    response = HttpResponse(buffer, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="receipt_{order_id}.pdf"'
+    return response
 
 @login_required
 def create_purchase_review(request, order_id):
@@ -1158,4 +1279,230 @@ def create_purchase_review(request, order_id):
     return render(request, "marketplace/purchase_review_form.html", {
         "form": form,
         "order": order_record.order_data,
+    })
+
+# ─────────────────────────────────────────────
+# REFUND REQUESTS
+# ─────────────────────────────────────────────
+@login_required
+def request_refund(request, order_id):
+    """Customer raises a refund request."""
+    orders = _get_customer_order_history(request.user)
+    order_data = next((o for o in orders if str(o.get("order_number")) == str(order_id)), None)
+
+    if not order_data:
+        messages.error(request, "Order not found.")
+        return redirect("marketplace:order_history")
+
+    # Get the actual Order object
+    order_pk = str(order_id).replace("BRFN-", "")
+    try:
+        order = Order.objects.get(pk=order_pk, customer=request.user)
+    except Order.DoesNotExist:
+        messages.error(request, "Order not found.")
+        return redirect("marketplace:order_history")
+
+    # Check if refund already exists
+    existing = RefundRequest.objects.filter(order=order).first()
+    if existing:
+        messages.warning(request, "A refund request already exists for this order.")
+        return redirect("marketplace:order_detail", order_id=order_id)
+
+    if request.method == "POST":
+        reason = request.POST.get("reason", "").strip()
+        if not reason:
+            messages.error(request, "Please provide a reason for the refund.")
+        else:
+            refund = RefundRequest.objects.create(
+                order=order,
+                customer=request.user,
+                reason=reason,
+                refund_amount=order.total_amount,
+                status=RefundRequest.Status.PENDING,
+            )
+
+            # Notify producers via messages
+            from apps.message.models import MessageThread, Message
+            for producer_order in order.producer_orders.all():
+                thread = MessageThread.objects.create(
+                    subject=f"Refund Request for Order #{order.id}",
+                    created_by=request.user,
+                    related_order=order,
+                    related_producer_order=producer_order,
+                )
+                thread.participants.add(request.user, producer_order.producer)
+                Message.objects.create(
+                    thread=thread,
+                    sender=request.user,
+                    body=(
+                        f"Dear {producer_order.producer.username},\n\n"
+                        f"A refund request has been raised for Order #{order.id}.\n\n"
+                        f"Reason: {reason}\n\n"
+                        f"Refund Amount: £{order.total_amount}\n\n"
+                        f"Please log in to provide your response. "
+                        f"The final decision will be made by an administrator.\n\n"
+                        f"Thank you."
+                    ),
+                )
+
+            messages.success(request, "Refund request submitted successfully.")
+            return redirect("marketplace:order_detail", order_id=order_id)
+
+    return render(request, "marketplace/refund_request_form.html", {
+        "order": order_data,
+        "order_obj": order,
+    })
+
+
+@login_required
+def producer_refund_response(request, refund_id):
+    """Producer adds a note to a refund request."""
+    refund = get_object_or_404(RefundRequest, pk=refund_id)
+
+    # Check producer is involved in this order
+    is_involved = refund.order.producer_orders.filter(
+        producer=request.user
+    ).exists()
+
+    if not is_involved:
+        return HttpResponseForbidden("You are not involved in this order.")
+
+    if refund.status not in [RefundRequest.Status.PENDING]:
+        messages.warning(request, "This refund has already been processed.")
+        return redirect("marketplace:producer_order_list")
+
+    if request.method == "POST":
+        producer_note = request.POST.get("producer_note", "").strip()
+        if not producer_note:
+            messages.error(request, "Please provide a response.")
+        else:
+            refund.producer_note = producer_note
+            refund.status = RefundRequest.Status.PRODUCER_RESPONDED
+            refund.save()
+
+            # Notify admin via message
+            from apps.message.models import MessageThread, Message
+            from django.contrib.auth.models import User
+            admins = User.objects.filter(profile__role=Profile.Role.ADMIN)
+            if admins.exists():
+                thread = MessageThread.objects.create(
+                    subject=f"Producer Response — Refund #{refund.id} for Order #{refund.order.id}",
+                    created_by=request.user,
+                    related_order=refund.order,
+                )
+                thread.participants.add(request.user, *admins)
+                Message.objects.create(
+                    thread=thread,
+                    sender=request.user,
+                    body=(
+                        f"Producer {request.user.username} has responded to "
+                        f"Refund Request #{refund.id} for Order #{refund.order.id}.\n\n"
+                        f"Producer note: {producer_note}\n\n"
+                        f"Please review and make a final decision."
+                    ),
+                )
+
+            messages.success(request, "Your response has been submitted.")
+            return redirect("marketplace:producer_order_list")
+
+    return render(request, "marketplace/producer_refund_response.html", {
+        "refund": refund,
+    })
+
+
+@login_required
+def admin_refund_decision(request, refund_id):
+    """Admin approves or rejects a refund request."""
+    if not hasattr(request.user, "profile") or request.user.profile.role != Profile.Role.ADMIN:
+        return HttpResponseForbidden("Admin access required.")
+
+    refund = get_object_or_404(RefundRequest, pk=refund_id)
+
+    if refund.status in [RefundRequest.Status.APPROVED, RefundRequest.Status.REJECTED]:
+        messages.warning(request, "This refund has already been resolved.")
+        return redirect("accounts:admin_dashboard")
+
+    if request.method == "POST":
+        decision = request.POST.get("decision")
+        admin_note = request.POST.get("admin_note", "").strip()
+
+        if decision not in ["approve", "reject"]:
+            messages.error(request, "Invalid decision.")
+        else:
+            refund.admin_note = admin_note
+            refund.resolved_by = request.user
+            refund.resolved_at = timezone.now()
+
+            if decision == "approve":
+                refund.status = RefundRequest.Status.APPROVED
+                # Update order status to cancelled
+                refund.order.status = Order.Status.CANCELLED
+                refund.order.save()
+                notification_body = (
+                    f"Dear {refund.customer.username},\n\n"
+                    f"Your refund request for Order #{refund.order.id} has been APPROVED.\n\n"
+                    f"Refund Amount: £{refund.refund_amount}\n\n"
+                    f"Admin note: {admin_note or 'N/A'}\n\n"
+                    f"The full amount will be returned to you. "
+                    f"Thank you for your patience."
+                )
+            else:
+                refund.status = RefundRequest.Status.REJECTED
+                notification_body = (
+                    f"Dear {refund.customer.username},\n\n"
+                    f"Your refund request for Order #{refund.order.id} has been REJECTED.\n\n"
+                    f"Admin note: {admin_note or 'N/A'}\n\n"
+                    f"If you have further concerns please contact us."
+                )
+
+            refund.save()
+
+            # Notify customer
+            from apps.message.models import MessageThread, Message
+            thread = MessageThread.objects.create(
+                subject=f"Refund Request #{refund.id} — {refund.get_status_display()}",
+                created_by=request.user,
+                related_order=refund.order,
+            )
+            thread.participants.add(request.user, refund.customer)
+            Message.objects.create(
+                thread=thread,
+                sender=request.user,
+                body=notification_body,
+            )
+
+            messages.success(request, f"Refund {refund.get_status_display()} successfully.")
+            return redirect("accounts:admin_dashboard")
+
+    return render(request, "marketplace/admin_refund_decision.html", {
+        "refund": refund,
+    })
+
+
+@login_required
+def refund_list(request):
+    """Admin view of all refund requests."""
+    if not hasattr(request.user, "profile") or request.user.profile.role != Profile.Role.ADMIN:
+        return HttpResponseForbidden("Admin access required.")
+
+    refunds = RefundRequest.objects.select_related(
+        "order", "customer", "resolved_by"
+    ).all()
+
+    status_filter = request.GET.get("status", "")
+    if status_filter:
+        refunds = refunds.filter(status=status_filter)
+
+    
+    refund_requests = RefundRequest.objects.filter(
+        order__producer_orders__producer=request.user,
+        status=RefundRequest.Status.PENDING,
+    ).select_related("order", "customer").distinct()
+
+    return render(request, "marketplace/producer_order_list.html", {
+        "orders": orders,
+        "selected_status": status,
+        "sort": sort,
+        "status_choices": ProducerOrder.Status.choices,
+        "refund_requests": refund_requests,
     })

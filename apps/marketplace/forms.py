@@ -184,6 +184,16 @@ class CheckoutForm(forms.Form):
         ),
     )
 
+    special_instructions = forms.CharField(
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "rows": 3,
+                "placeholder":"Add any delivery notes or instructions"
+            }
+        )
+    )
+
     PAYMENT_CHOICES = [
         ("stripe", "Stripe Test"),
         ("paypal", "PayPal Sandbox"),

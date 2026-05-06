@@ -11,9 +11,11 @@ from .forms import CustomerRegisterForm, ProducerRegisterForm
 from .models import Profile
 from apps.marketplace.models import Order, ProducerOrder, Product
 from django.utils.dateparse import parse_date
-from datetime import timedelta
+from datetime import timedelta, date
 from django.utils import timezone
 from apps.message.models import MessageThread, Message
+from apps.marketplace.models import CommissionLog
+
 
 
 
@@ -628,6 +630,10 @@ def admin_financial_report(request):
     else:
         start_date = end_date - timedelta(days=14)
 
+    # Additional filters
+    producer_filter = request.GET.get("producer", "").strip()
+    status_filter = request.GET.get("status", "").strip()
+
     orders = Order.objects.filter(
         created_at__date__range=[start_date, end_date]
     ).prefetch_related(
@@ -635,6 +641,14 @@ def admin_financial_report(request):
         "producer_orders__items",
         "producer_orders__producer",
     )
+
+    if producer_filter:
+        orders = orders.filter(
+            producer_orders__producer__username__icontains=producer_filter
+        ).distinct()
+
+    if status_filter:
+        orders = orders.filter(status=status_filter)
 
     total_order_value = Decimal("0.00")
     total_commission = Decimal("0.00")
@@ -655,11 +669,12 @@ def admin_financial_report(request):
 
         for po in order.producer_orders.all():
             po_total = po.total_value
+            po_commission = (po_total * Decimal("0.05")).quantize(Decimal("0.01"))
             po_payment = (po_total * Decimal("0.95")).quantize(Decimal("0.01"))
-
             producers.append({
                 "producer": po.producer,
                 "total": po_total,
+                "commission": po_commission,
                 "payment": po_payment,
             })
 
@@ -670,6 +685,54 @@ def admin_financial_report(request):
             "producer_payment": producer_payment,
             "producers": producers,
         })
+    
+    # Monthly summary 
+    from collections import defaultdict
+    monthly_summary = defaultdict(lambda: {
+        "order_count": 0,
+        "total_order_value": Decimal("0.00"),
+        "total_commission": Decimal("0.00"),
+        "total_producer_payment": Decimal("0.00"),
+    })
+
+    all_orders_ytd = Order.objects.filter(
+        created_at__year=timezone.now().year
+    ).prefetch_related("producer_orders")
+
+    for o in all_orders_ytd:
+        month_key = o.created_at.strftime("%Y-%m")
+        month_label = o.created_at.strftime("%B %Y")
+        o_total = o.total_amount or Decimal("0.00")
+        o_commission = (o_total * Decimal("0.05")).quantize(Decimal("0.01"))
+        o_producer_payment = (o_total - o_commission).quantize(Decimal("0.01"))
+        monthly_summary[month_key]["label"] = month_label
+        monthly_summary[month_key]["order_count"] += 1
+        monthly_summary[month_key]["total_order_value"] += o_total
+        monthly_summary[month_key]["total_commission"] += o_commission
+        monthly_summary[month_key]["total_producer_payment"] += o_producer_payment
+
+    monthly_summary = dict(sorted(monthly_summary.items(), reverse=True))
+
+    # Year-to-date totals
+    ytd_order_value = sum(
+        (m["total_order_value"] for m in monthly_summary.values()), Decimal("0.00")
+    ).quantize(Decimal("0.01"))
+    ytd_commission = sum(
+        (m["total_commission"] for m in monthly_summary.values()), Decimal("0.00")
+    ).quantize(Decimal("0.01"))
+    ytd_producer_payment = sum(
+        (m["total_producer_payment"] for m in monthly_summary.values()), Decimal("0.00")
+    ).quantize(Decimal("0.01"))
+    audit_logs = CommissionLog.objects.filter(
+        order__created_at__date__range=[start_date, end_date]
+    ).select_related("order", "producer", "producer_order").order_by("-calculated_at")
+
+    if producer_filter:
+        audit_logs = audit_logs.filter(
+            producer__username__icontains=producer_filter
+        )
+    if status_filter:
+        audit_logs = audit_logs.filter(order__status=status_filter)
 
     context = {
         "orders": report_data,
@@ -678,6 +741,20 @@ def admin_financial_report(request):
         "total_producer_payment": total_producer_payment,
         "start_date": start_date,
         "end_date": end_date,
+        "producer_filter": producer_filter,
+        "status_filter": status_filter,
+        "order_statuses": Order.Status.choices,
+        "monthly_summary": monthly_summary,      
+        "ytd_order_value": ytd_order_value,      
+        "ytd_commission": ytd_commission,         
+        "ytd_producer_payment": ytd_producer_payment,  
+        "current_year": timezone.now().year, 
+        "monthly_summary": monthly_summary,
+        "ytd_order_value": ytd_order_value,
+        "ytd_commission": ytd_commission,
+        "ytd_producer_payment": ytd_producer_payment,
+        "current_year": timezone.now().year, 
+        "audit_logs": audit_logs,   
     }
 
     return render(request, "accounts/admin_financial_report.html", context)
@@ -695,36 +772,197 @@ def export_financial_report_csv(request):
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
 
-    orders = Order.objects.all()
+    orders = Order.objects.prefetch_related(
+        "producer_orders",
+        "producer_orders__producer",
+    ).order_by("-created_at")
 
     if start_date:
         orders = orders.filter(created_at__date__gte=start_date)
-
     if end_date:
         orders = orders.filter(created_at__date__lte=end_date)
 
     response = HttpResponse(content_type="text/csv")
     response["Content-Disposition"] = 'attachment; filename="financial_report.csv"'
-
     writer = csv.writer(response)
 
     writer.writerow([
         "Order ID",
-        "Order Total",
-        "Commission (5%)",
-        "Producer Payment (95%)",
+        "Order Date",
+        "Status",
+        "Customer",
+        "Order Total (£)",
+        "Commission 5% (£)",
+        "Total Producer Payment 95% (£)",
+        "Producer",
+        "Producer Subtotal (£)",
+        "Producer Commission (£)",
+        "Producer Payment (£)",
     ])
 
     for order in orders:
-        total = order.total_amount or 0  # or order.total
-        commission = (total * Decimal(0.05)).quantize(Decimal("0.01"))
+        total = order.total_amount or Decimal("0.00")
+        commission = (total * Decimal("0.05")).quantize(Decimal("0.01"))
         producer_payment = (total - commission).quantize(Decimal("0.01"))
+        producer_orders = list(order.producer_orders.all())
 
-        writer.writerow([
-            order.id,
-            total,
-            commission,
-            producer_payment,
-        ])
+        if producer_orders:
+            for i, po in enumerate(producer_orders):
+                po_total = po.total_value
+                po_commission = (po_total * Decimal("0.05")).quantize(Decimal("0.01"))
+                po_payment = (po_total * Decimal("0.95")).quantize(Decimal("0.01"))
+                writer.writerow([
+                    f"BRFN-{order.id}" if i == 0 else "",
+                    order.created_at.strftime("%Y-%m-%d") if i == 0 else "",
+                    order.get_status_display() if i == 0 else "",
+                    order.customer.username if i == 0 else "",
+                    total if i == 0 else "",
+                    commission if i == 0 else "",
+                    producer_payment if i == 0 else "",
+                    po.producer.username,
+                    po_total,
+                    po_commission,
+                    po_payment,
+                ])
+        else:
+            writer.writerow([
+                f"BRFN-{order.id}",
+                order.created_at.strftime("%Y-%m-%d"),
+                order.get_status_display(),
+                order.customer.username,
+                total,
+                commission,
+                producer_payment,
+                "", "", "", "",
+            ])
 
+    return response
+
+@login_required
+@user_passes_test(is_admin)
+def export_financial_report_pdf(request):
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+    import io
+
+    start_date = request.GET.get("start_date")
+    end_date = request.GET.get("end_date")
+
+    orders = Order.objects.prefetch_related(
+        "producer_orders",
+        "producer_orders__producer",
+    ).order_by("-created_at")
+
+    if start_date:
+        orders = orders.filter(created_at__date__gte=start_date)
+    if end_date:
+        orders = orders.filter(created_at__date__lte=end_date)
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        rightMargin=1*cm,
+        leftMargin=1*cm,
+        topMargin=1*cm,
+        bottomMargin=1*cm,
+    )
+
+    styles = getSampleStyleSheet()
+    elements = []
+
+    # Title
+    elements.append(Paragraph("BRFN Marketplace — Financial Report", styles["Title"]))
+    if start_date and end_date:
+        elements.append(Paragraph(f"Period: {start_date} to {end_date}", styles["Normal"]))
+    elements.append(Spacer(1, 0.5*cm))
+
+    # Summary totals
+    total_value = Decimal("0.00")
+    total_commission = Decimal("0.00")
+    total_payment = Decimal("0.00")
+    for order in orders:
+        t = order.total_amount or Decimal("0.00")
+        c = (t * Decimal("0.05")).quantize(Decimal("0.01"))
+        p = (t - c).quantize(Decimal("0.01"))
+        total_value += t
+        total_commission += c
+        total_payment += p
+
+    summary_data = [
+        ["Total Order Value", "Total Commission (5%)", "Total Producer Payment (95%)", "Total Orders"],
+        [f"£{total_value.quantize(Decimal('0.01'))}", f"£{total_commission.quantize(Decimal('0.01'))}", f"£{total_payment.quantize(Decimal('0.01'))}", str(orders.count())],
+    ]
+    summary_table = Table(summary_data, colWidths=[7*cm, 6*cm, 7*cm, 4*cm])
+    summary_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#087d73")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("PADDING", (0, 0), (-1, -1), 6),
+    ]))
+    elements.append(summary_table)
+    elements.append(Spacer(1, 0.5*cm))
+
+    # Order breakdown table
+    elements.append(Paragraph("Order Breakdown", styles["Heading2"]))
+    table_data = [["Order ID", "Date", "Status", "Customer", "Producer", "Order Total", "Commission (5%)", "Payment (95%)"]]
+
+    for order in orders:
+        o_total = order.total_amount or Decimal("0.00")
+        o_commission = (o_total * Decimal("0.05")).quantize(Decimal("0.01"))
+        producer_orders = list(order.producer_orders.all())
+
+        if producer_orders:
+            for i, po in enumerate(producer_orders):
+                po_total = po.total_value
+                po_commission = (po_total * Decimal("0.05")).quantize(Decimal("0.01"))
+                po_payment = (po_total * Decimal("0.95")).quantize(Decimal("0.01"))
+                table_data.append([
+                    f"BRFN-{order.id}" if i == 0 else "",
+                    order.created_at.strftime("%Y-%m-%d") if i == 0 else "",
+                    order.get_status_display() if i == 0 else "",
+                    order.customer.username if i == 0 else "",
+                    po.producer.username,
+                    f"£{o_total}" if i == 0 else "",
+                    f"£{po_commission}",
+                    f"£{po_payment}",
+                ])
+        else:
+            table_data.append([
+                f"BRFN-{order.id}",
+                order.created_at.strftime("%Y-%m-%d"),
+                order.get_status_display(),
+                order.customer.username,
+                "—",
+                f"£{o_total}",
+                f"£{o_commission}",
+                f"£{(o_total - o_commission).quantize(Decimal('0.01'))}",
+            ])
+
+    col_widths = [3*cm, 2.5*cm, 2.5*cm, 3*cm, 3*cm, 3*cm, 3*cm, 3*cm]
+    breakdown_table = Table(table_data, colWidths=col_widths, repeatRows=1)
+    breakdown_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#087d73")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("PADDING", (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(breakdown_table)
+
+    doc.build(elements)
+    buffer.seek(0)
+
+    response = HttpResponse(buffer, content_type="application/pdf")
+    response["Content-Disposition"] = 'attachment; filename="financial_report.pdf"'
     return response

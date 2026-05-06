@@ -9,23 +9,25 @@
   </div>
 
   <div class="chat-box">
-    {% for message in messages %}
-      <div class="chat-row {% if message.sender == request.user %}chat-row-right{% else %}chat-row-left{% endif %}">
-        <div class="chat-bubble {% if message.sender == request.user %}sent{% else %}received{% endif %}">
-          <div class="chat-sender">
-            {{ message.sender.get_full_name|default:message.sender.username }}
+    {% if thread_messages %}
+      {% for thread_message in thread_messages %}
+        <div class="chat-row {% if thread_message.sender == request.user %}chat-row-right{% else %}chat-row-left{% endif %}">
+          <div class="chat-bubble {% if thread_message.sender == request.user %}sent{% else %}received{% endif %}">
+            <div class="chat-sender">
+              {{ thread_message.sender.get_full_name|default:thread_message.sender.username }}
+            </div>
+
+            <p>{{ thread_message.body }}</p>
+
+            <small>
+              {{ thread_message.created_at|date:"d M Y, H:i" }}
+            </small>
           </div>
-
-          <p>{{ message.body }}</p>
-
-          <small>
-            {{ message.created_at|date:"d M Y, H:i" }}
-          </small>
         </div>
-      </div>
-    {% empty %}
-      <p>No messages yet.</p>
-    {% endfor %}
+      {% endfor %}
+    {% else %}
+      <p class="message-empty">No messages yet.</p>
+    {% endif %}
   </div>
 
   <form method="post" class="chat-reply-form">
@@ -39,5 +41,4 @@
 </div>
 
 <a class="a-text" href="{% url 'message:inbox' %}">Back to Inbox</a>
-
 {% endblock %}

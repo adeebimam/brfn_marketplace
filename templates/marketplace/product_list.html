@@ -168,9 +168,13 @@
                 </span>
               {% endif %}
 
-              {% if not p.is_year_round and p.in_season_now %}
+              {% if p.is_year_round %}
+                <span style="display:inline-block; margin-left:0.4rem; font-size:0.8rem; color:#6b7280; background:#f3f4f6; padding:2px 8px; border-radius:4px; font-weight:600;">Available Year-Round</span>
+              {% elif p.in_season_now %}
                 <span style="display:inline-block; margin-left:0.4rem; font-size:0.8rem; color:#15803d; background:#dcfce7; padding:2px 8px; border-radius:4px; font-weight:600;">🌿 In Season</span>
+                <span style="display:inline-block; margin-left:0.2rem; font-size:0.8rem; color:#6b7280;">{{ p.season_label }}</span>
               {% endif %}
+              
             </div>
 
             {% if p.category %}
@@ -229,7 +233,7 @@
                     <form method="post" action="{% url 'cart:add' p.pk %}" class="add-to-cart" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:16px;">
                       {% csrf_token %}
                       <label for="qty-{{ p.id }}" class="muted" style="margin:0;">Quantity</label>
-                      <input type="number" id="qty-{{ p.id }}" name="qty" value="1" min="1" max="{{ p.stock_quantity }}" class="qty-input" style="width:70px;">
+                      <input type="number" id="qty-{{ p.id }}" name="qty" value="{% if is_bulk_buyer %}5{% else %}1{% endif %}" min="{% if is_bulk_buyer %}5{% else %}1{% endif %}" {% if not is_bulk_buyer %}max="{{ p.stock_quantity }}"{% endif %} class="qty-input" style="width:70px;">
                       <button type="submit" class="btn">Add to Cart</button>
                       <span class="muted">{{ p.stock_quantity }} in stock</span>
                     </form>

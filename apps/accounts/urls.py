@@ -27,5 +27,5 @@ urlpatterns = [
     path("admin-total-products/<int:product_id>/", views.admin_product_detail, name="admin_product_detail"),
     path("admin-financials/",views.admin_financial_report, name="admin_financial_report"),
     path("admin-financial-report/export/csv/", views.export_financial_report_csv, name="export_financial_report_csv"),
-    
+    path("admin-financial-report/export/pdf/", views.export_financial_report_pdf, name="export_financial_report_pdf"),
 ]

@@ -50,6 +50,10 @@
       <p><strong>Delivery Date:</strong> {{ order.date }}</p>
       <p><strong>Payment Method:</strong> {{ order.payment|title }}</p>
       <p><strong>Subtotal:</strong> £{{ order.subtotal|floatformat:2 }}</p>
+      {% if order.bulk_discount %}
+        <p style="color:#087d73;"><strong>Bulk buyer discount (10%):</strong> − £{{ order.bulk_discount|floatformat:2 }}</p>
+        <p><strong>Discounted subtotal:</strong> £{{ order.discounted_subtotal|floatformat:2 }}</p>
+      {% endif %}
       <p><strong>Commission:</strong> £{{ order.commission|floatformat:2 }}</p>
       <p style="font-size:20px;"><strong>Total:</strong> £{{ order.total|floatformat:2 }}</p>
     </div>

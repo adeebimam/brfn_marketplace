@@ -25,8 +25,11 @@
     </div>
   </div>
 
-  <form method="POST" action="{% url 'marketplace:checkout' %}">
+  <form method="POST" action="{% url 'cart:checkout' %}">
     {% csrf_token %}
+
+    <!-- Hidden delivery date field synced from first producer date picker -->
+    <input type="hidden" name="delivery_date" id="hidden-delivery-date">
 
     <div class="checkout-layout">
       <div class="card checkout-form-card">
@@ -39,7 +42,6 @@
           <div>
             <label for="{{ form.delivery_address.id_for_label }}">Delivery address</label>
             {{ form.delivery_address }}
-
             {% if form.delivery_address.errors %}
               <div class="form-error">
                 {{ form.delivery_address.errors|join:", " }}
@@ -50,7 +52,6 @@
           <div style="margin-top:18px;">
             <label for="{{ form.delivery_postcode.id_for_label }}">Delivery postcode</label>
             {{ form.delivery_postcode }}
-
             {% if form.delivery_postcode.errors %}
               <div class="form-error">
                 {{ form.delivery_postcode.errors|join:", " }}
@@ -142,7 +143,6 @@
               checked
               style="margin-top:6px;"
             >
-
             <div>
               <strong>💳 Stripe Test</strong>
               <p style="margin:6px 0 0; color:#666;">
@@ -161,7 +161,6 @@
               value="paypal"
               style="margin-top:6px;"
             >
-
             <div>
               <strong>🅿️ PayPal Sandbox</strong>
               <p style="margin:6px 0 0; color:#666;">
@@ -169,6 +168,18 @@
               </p>
             </div>
           </label>
+        </div>
+
+        <div style="margin-top:18px;">
+          <label for="{{ form.special_instructions.id_for_label }}">
+            Special instructions <span class="muted" style="font-weight:normal;">(optional)</span>
+          </label>
+          {{ form.special_instructions }}
+          {% if form.special_instructions.errors %}
+            <div class="form-error">
+              {{ form.special_instructions.errors|join:", " }}
+            </div>
+          {% endif %}
         </div>
 
         <div class="checkout-note">
@@ -198,7 +209,6 @@
                     <h3>{{ producer }}</h3>
                     <p class="muted">Lead time: {{ items.0.lead_time }} days</p>
                   </div>
-
                   <span class="summary-chip">
                     {{ items|length }} line{{ items|length|pluralize }}
                   </span>
@@ -211,14 +221,12 @@
                         <strong>{{ item.name }}</strong>
                         <span>x{{ item.qty }}</span>
                       </div>
-
                       <div class="summary-line-breakdown">
                         <div class="price-row">
                           <span>Unit price</span>
                           <span>£{{ item.price|floatformat:2 }}</span>
                         </div>
                       </div>
-
                       <div class="summary-line-total">
                         £{{ item.total|floatformat:2 }}
                       </div>
@@ -238,12 +246,22 @@
             <strong>£{{ subtotal|floatformat:2 }}</strong>
           </div>
 
+          {% if is_bulk_buyer and bulk_discount %}
+            <div style="color: #087d73;">
+              <span>Bulk buyer discount (10%)</span>
+              <strong>− £{{ bulk_discount|floatformat:2 }}</strong>
+            </div>
+            <div>
+              <span>Discounted subtotal</span>
+              <strong>£{{ discounted_subtotal|floatformat:2 }}</strong>
+            </div>
+          {% endif %}
+
           <div>
             <span>Network commission (5%)</span>
             <strong>£{{ commission|floatformat:2 }}</strong>
           </div>
 
-          <!-- Food miles in summary sidebar -->
           <div id="food-miles-summary-row">
             <span>📍 Food miles</span>
             <strong id="food-miles-summary-value">
@@ -268,6 +286,15 @@
 <script>
 document.addEventListener("DOMContentLoaded", function () {
 
+  // ── Sync first delivery date to hidden field ─────────────────────────────
+  function syncDeliveryDate() {
+    const firstDate = document.querySelector(".delivery-date");
+    const hiddenDate = document.getElementById("hidden-delivery-date");
+    if (firstDate && hiddenDate) {
+      hiddenDate.value = firstDate.value;
+    }
+  }
+
   // ── Delivery date lead-time validation ──────────────────────────────────
   document.querySelectorAll(".delivery-date").forEach(function (input) {
     const lead = parseInt(input.dataset.lead, 10) || 2;
@@ -290,8 +317,12 @@ document.addEventListener("DOMContentLoaded", function () {
         if (warning) warning.style.display = "none";
         input.setCustomValidity("");
       }
+      syncDeliveryDate();
     });
   });
+
+  // Sync on page load
+  syncDeliveryDate();
 
   // ── Food miles AJAX ─────────────────────────────────────────────────────
   const postcodeInput = document.getElementById("{{ form.delivery_postcode.id_for_label }}");
@@ -306,7 +337,6 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
-    // Show loading state
     foodMilesValue.style.display = "none";
     foodMilesLoading.style.display = "inline";
     if (foodMilesSummaryValue) foodMilesSummaryValue.textContent = "...";
@@ -337,7 +367,6 @@ document.addEventListener("DOMContentLoaded", function () {
   if (postcodeInput) {
     postcodeInput.addEventListener("input", function () {
       clearTimeout(debounceTimer);
-      // Wait 600ms after user stops typing before firing the request
       debounceTimer = setTimeout(function () {
         updateFoodMiles(postcodeInput.value);
       }, 600);

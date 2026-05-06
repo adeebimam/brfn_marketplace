@@ -112,6 +112,9 @@
 
   <div class="order-detail-actions">
     <a class="btn" href="{% url 'orders:history' %}">Back to order history</a>
+    <a href="{% url 'marketplace:request_refund' order.order_number %}" class="btn" style="background:#dc2626; color:white;">
+        Request Refund
+    </a>
     <a class="btn btn-primary" href="{% url 'marketplace:product_list' %}">Shop again</a>
   </div>
 </div>

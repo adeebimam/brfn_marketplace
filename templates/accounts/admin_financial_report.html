@@ -7,29 +7,38 @@
   <form method="get" class="admin-filter-form">
     <label>From:</label>
     <input type="date" name="start_date" value="{{ start_date|date:'Y-m-d' }}">
-
     <label>To:</label>
     <input type="date" name="end_date" value="{{ end_date|date:'Y-m-d' }}">
-
+    <label>Producer:</label>
+    <input type="text" name="producer" value="{{ producer_filter }}" placeholder="Producer username" style="padding:8px 12px; border:1px solid #ddd; border-radius:8px; height:42px; min-width:160px;">
+    <label>Status:</label>
+    <select name="status" style="padding:8px 12px; border:1px solid #ddd; border-radius:8px; height:42px; min-width:150px;">
+      <option value="">All statuses</option>
+      {% for value, label in order_statuses %}
+        <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>
+          {{ label }}
+        </option>
+      {% endfor %}
+    </select>
+    <br>
     <button class="btn-uniform btn-admin">Filter</button>
   </form>
 
+  <!-- Period summary cards -->
+  <h2>Period Summary</h2>
   <div class="admin-grid">
     <div class="admin-card">
       <h3>Total Order Value</h3>
       <p>£{{ total_order_value }}</p>
     </div>
-
     <div class="admin-card">
       <h3>Commission (5%)</h3>
       <p>£{{ total_commission }}</p>
     </div>
-
     <div class="admin-card">
       <h3>Producer Payments (95%)</h3>
       <p>£{{ total_producer_payment }}</p>
     </div>
-
     <div class="admin-card">
       <h3>Total Orders</h3>
       <p>{{ orders|length }}</p>
@@ -38,29 +47,138 @@
 
   <br>
 
-    <a href="{% url 'accounts:export_financial_report_csv' %}?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}" class="btn-uniform btn-admin">
-      Export CSV
-    </a>
+  <!-- Year-to-date totals -->
+  <h2>Year-to-Date Totals ({{ current_year }})</h2>
+  <div class="admin-grid">
+    <div class="admin-card">
+      <h3>YTD Order Value</h3>
+      <p>£{{ ytd_order_value }}</p>
+    </div>
+    <div class="admin-card">
+      <h3>YTD Commission (5%)</h3>
+      <p>£{{ ytd_commission }}</p>
+    </div>
+    <div class="admin-card">
+      <h3>YTD Producer Payments (95%)</h3>
+      <p>£{{ ytd_producer_payment }}</p>
+    </div>
+  </div>
 
+  <br>
+
+  <!-- Monthly summary -->
+  <h2>Monthly Summary ({{ current_year }})</h2>
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>Month</th>
+        <th>Orders</th>
+        <th>Total Order Value</th>
+        <th>Commission (5%)</th>
+        <th>Producer Payments (95%)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for key, month in monthly_summary.items %}
+        <tr>
+          <td>{{ month.label }}</td>
+          <td>{{ month.order_count }}</td>
+          <td>£{{ month.total_order_value|floatformat:2 }}</td>
+          <td>£{{ month.total_commission|floatformat:2 }}</td>
+          <td>£{{ month.total_producer_payment|floatformat:2 }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5" style="text-align:center; color:#6b7280;">No orders this year.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <br>
+
+  <a href="{% url 'accounts:export_financial_report_csv' %}?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}" class="btn-uniform btn-admin">
+    Export CSV
+  </a>
+  <a href="{% url 'accounts:export_financial_report_pdf' %}?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}" class="btn-uniform btn-admin">
+    Export PDF
+  </a>
+
+  <br><br>
+
+  <!-- Order breakdown -->
   <h2>Order Breakdown</h2>
-
   <table class="admin-table">
     <thead>
       <tr>
         <th>Order</th>
-        <th>Total</th>
-        <th>Commission</th>
-        <th>Producer Payment</th>
+        <th>Date</th>
+        <th>Status</th>
+        <th>Producer</th>
+        <th>Order Total</th>
+        <th>Commission (5%)</th>
+        <th>Producer Payment (95%)</th>
       </tr>
     </thead>
-
     <tbody>
       {% for item in orders %}
+        {% if item.producers %}
+          {% for producer in item.producers %}
+            <tr>
+              {% if forloop.first %}
+                <td rowspan="{{ item.producers|length }}"><strong>#{{ item.order.id }}</strong></td>
+                <td rowspan="{{ item.producers|length }}">{{ item.order.created_at|date:"Y-m-d" }}</td>
+                <td rowspan="{{ item.producers|length }}">{{ item.order.get_status_display }}</td>
+              {% endif %}
+              <td>{{ producer.producer }}</td>
+              <td>{% if forloop.first %}£{{ item.order_total|floatformat:2 }}{% endif %}</td>
+              <td>£{{ producer.commission|floatformat:2 }}</td>
+              <td>£{{ producer.payment|floatformat:2 }}</td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td><strong>#{{ item.order.id }}</strong></td>
+            <td>{{ item.order.created_at|date:"Y-m-d" }}</td>
+            <td>{{ item.order.get_status_display }}</td>
+            <td>—</td>
+            <td>£{{ item.order_total|floatformat:2 }}</td>
+            <td>£{{ item.commission|floatformat:2 }}</td>
+            <td>£{{ item.producer_payment|floatformat:2 }}</td>
+          </tr>
+        {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+
+  
+  <h2>Audit Trail</h2>
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>Timestamp</th>
+        <th>Order</th>
+        <th>Producer</th>
+        <th>Order Total</th>
+        <th>Commission</th>
+        <th>Producer Payment</th>
+        <th>Note</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in audit_logs %}
         <tr>
-          <td>#{{ item.order.id }}</td>
-          <td>£{{ item.order_total }}</td>
-          <td>£{{ item.commission }}</td>
-          <td>£{{ item.producer_payment }}</td>
+          <td>{{ log.calculated_at|date:"Y-m-d H:i" }}</td>
+          <td>#{{ log.order.id }}</td>
+          <td>{{ log.producer.username }}</td>
+          <td>£{{ log.order_total|floatformat:2 }}</td>
+          <td>£{{ log.commission_amount|floatformat:2 }}</td>
+          <td>£{{ log.producer_payment|floatformat:2 }}</td>
+          <td>{{ log.note }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="7" style="text-align:center; color:#6b7280;">No audit logs for this period.</td>
         </tr>
       {% endfor %}
     </tbody>

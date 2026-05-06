@@ -46,6 +46,7 @@
             Payments
           </a>
 
+
         {% elif user.profile.role == "CUSTOMER" or user.profile.role == "COMMUNITY_GROUP" or user.profile.role == "RESTAURANT" %}
           <a href="{% url 'marketplace:order_history' %}" {% if request.resolver_match.url_name == 'order_history' or request.resolver_match.url_name == 'order_detail' %}class="active"{% endif %}>
             My Orders

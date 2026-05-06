@@ -73,9 +73,9 @@ def thread_detail(request, thread_id):
     if not thread.participants.filter(id=request.user.id).exists():
         return HttpResponseForbidden("You cannot view this conversation.")
 
-    messages = thread.messages.select_related("sender")
+    thread_messages = thread.messages.select_related("sender")
 
-    for message in messages.exclude(sender=request.user):
+    for message in thread_messages.exclude(sender=request.user):
         message.read_by.add(request.user)
 
     if request.method == "POST":
@@ -99,6 +99,6 @@ def thread_detail(request, thread_id):
 
     return render(request, "message/thread_detail.html", {
         "thread": thread,
-        "messages": messages,
+        "thread_messages": thread_messages,
         "form": form
     })

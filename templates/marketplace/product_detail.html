@@ -148,9 +148,9 @@
                 type="number"
                 id="qty"
                 name="qty"
-                value="1"
-                min="1"
-                max="{{ product.stock_quantity }}"
+                value="{% if is_bulk_buyer %}5{% else %}1{% endif %}"
+                min="{% if is_bulk_buyer %}5{% else %}1{% endif %}"
+                {% if not is_bulk_buyer %}max="{{ product.stock_quantity }}"{% endif %}
                 class="qty-input"
                 style="width:70px; margin-right:10px;"
               >

@@ -11,9 +11,19 @@
         <h3>Order Total</h3>
         <div>
           <div style="display:flex; justify-content:space-between;">
-            <span>Total</span>
-            <strong>£{{ cart_total }}</strong>
+          <span>Subtotal</span>
+          <strong>£{{ cart_total }}</strong>
+        </div>
+        {% if is_bulk_buyer and bulk_discount %}
+          <div style="display:flex; justify-content:space-between; margin-top:8px; color:#087d73;">
+            <span>Bulk buyer discount (10%)</span>
+            <strong>− £{{ bulk_discount }}</strong>
           </div>
+          <div style="display:flex; justify-content:space-between; margin-top:8px; border-top:1px solid #e5e7eb; padding-top:8px;">
+            <span>Total after discount</span>
+            <strong>£{{ discounted_total }}</strong>
+          </div>
+        {% endif %}
           {% if total_food_miles %}
             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-top:10px; padding-top:10px; border-top:1px solid #e5e7eb;">
               <div>

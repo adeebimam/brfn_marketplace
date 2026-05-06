@@ -10,20 +10,20 @@
     </a>
   </div>
 
-  <div class="message-table-wrap">
-    <table class="message-table">
-      <thead>
-        <tr>
-          <th>To</th>
-          <th>Subject</th>
-          <th>Date</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
+  {% if threads %}
+    <div class="message-table-wrap">
+      <table class="message-table">
+        <thead>
+          <tr>
+            <th>To</th>
+            <th>Subject</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
 
-      <tbody>
-        {% if threads %}
+        <tbody>
           {% for thread in threads %}
             <tr>
               <td class="message-user">
@@ -36,10 +36,12 @@
 
               <td class="message-subject">{{ thread.subject }}</td>
 
-              <td class="message-date">{{ thread.updated_at|date:"d M Y, H:i" }}</td>
+              <td class="message-date">
+                {{ thread.updated_at|date:"d M Y, H:i" }}
+              </td>
 
               <td>
-                {% if thread.is_unread_for_user %}
+                {% if thread.is_unread %}
                   <span class="message-status unread">Unread</span>
                 {% else %}
                   <span class="message-status read">Read</span>
@@ -53,15 +55,13 @@
               </td>
             </tr>
           {% endfor %}
-        {% else %}
-          <tr>
-            <td colspan="5" class="message-empty">
-              You do not have any conversations yet.
-            </td>
-          </tr>
-        {% endif %}
-      </tbody>
-    </table>
-  </div>
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="message-empty" style="text-align: center; padding: 2rem;">
+      <p>You do not have any conversations yet.</p>
+    </div>
+  {% endif %}
 </div>
 {% endblock %}

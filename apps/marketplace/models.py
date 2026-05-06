@@ -418,3 +418,89 @@ class CustomerOrderHistory(models.Model):
 
     def __str__(self):
         return self.order_number
+    
+class CommissionLog(models.Model):
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="commission_logs",
+    )
+    producer_order = models.ForeignKey(
+        ProducerOrder,
+        on_delete=models.CASCADE,
+        related_name="commission_logs",
+        null=True,
+        blank=True,
+    )
+    order_total = models.DecimalField(max_digits=10, decimal_places=2)
+    commission_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    producer_payment = models.DecimalField(max_digits=10, decimal_places=2)
+    producer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="commission_logs",
+    )
+    calculated_at = models.DateTimeField(auto_now_add=True)
+    note = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-calculated_at"]
+
+    def __str__(self):
+        return f"Commission log for Order #{self.order_id} — £{self.commission_amount}"
+    
+class RefundRequest(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        PRODUCER_RESPONDED = "PRODUCER_RESPONDED", "Producer Responded"
+        APPROVED = "APPROVED", "Approved"
+        REJECTED = "REJECTED", "Rejected"
+
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="refund_requests",
+    )
+    customer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="refund_requests",
+    )
+    reason = models.TextField(help_text="Customer's reason for requesting a refund.")
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    producer_note = models.TextField(
+        blank=True,
+        help_text="Producer's response to the refund request.",
+    )
+    admin_note = models.TextField(
+        blank=True,
+        help_text="Admin's note on the refund decision.",
+    )
+    refund_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Amount to be refunded to the customer.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="resolved_refunds",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Refund for Order #{self.order_id} — {self.get_status_display()}"

@@ -1,12 +1,15 @@
 from collections import defaultdict
 from decimal import Decimal
 from datetime import datetime
+from django.utils import timezone
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.shortcuts import render, redirect
+from apps.marketplace.models import CustomerOrderHistory
+from apps.marketplace.models import CommissionLog
 
 from apps.cart.models import Cart
 from apps.marketplace.models import (
@@ -42,7 +45,7 @@ def _build_order_item_entries(product, quantity):
 
     if pricing["discounted_qty"] > 0:
         entries.append({
-            "product_name": product.name,
+            "product": product,
             "quantity": pricing["discounted_qty"],
             "unit_price": pricing["discounted_unit_price"],
             "line_total": pricing["discounted_total"],
@@ -50,7 +53,7 @@ def _build_order_item_entries(product, quantity):
 
     if pricing["normal_qty"] > 0:
         entries.append({
-            "product_name": product.name,
+            "product": product,
             "quantity": pricing["normal_qty"],
             "unit_price": pricing["normal_unit_price"],
             "line_total": pricing["normal_total"],
@@ -147,9 +150,13 @@ def payment(request):
     address = request.session.get("delivery_address", "")
     date = request.session.get("delivery_date", "")
     payment_method = request.session.get("payment_method", "")
+    special_instructions = request.session.get("special_instructions", "")
     subtotal = request.session.get("subtotal", total)
     commission = request.session.get("commission", "")
     producers = request.session.get("producers", [])
+    bulk_discount = request.session.get("bulk_discount", "0.00")
+    discounted_subtotal = request.session.get("discounted_subtotal", subtotal)
+    is_bulk_buyer = bool(request.session.get("is_bulk_buyer", False))
 
     if request.method == "POST":
         address = request.POST.get("delivery_address", address)
@@ -195,18 +202,22 @@ def payment(request):
                     if not product.is_in_season():
                         raise ValueError(f"{product.name} is currently out of season.")
 
-                    if item.quantity > product.stock_quantity:
+                    is_bulk_buyer = (
+                        hasattr(request.user, "profile")
+                        and request.user.profile.role in {"COMMUNITY_GROUP", "RESTAURANT"}
+                    )
+                    if item.quantity > product.stock_quantity and not is_bulk_buyer:
                         raise ValueError(
                             f"Insufficient stock for {product.name}. "
                             f"Available: {product.stock_quantity}, requested: {item.quantity}."
                         )
-
                     locked_products[item.product_id] = product
+
 
                 order = Order.objects.create(
                     customer=request.user,
                     delivery_address=address,
-                    special_instructions="",
+                    special_instructions=special_instructions,
                     delivery_postcode=postcode,
                     status=Order.Status.PENDING,
                     total_amount=Decimal("0.00"),
@@ -219,6 +230,7 @@ def payment(request):
 
                 producer_order_summaries = []
                 computed_subtotal = Decimal("0.00")
+                overstock_items = []
 
                 for producer, items in grouped_items.items():
                     producer_total = Decimal("0.00")
@@ -255,15 +267,22 @@ def payment(request):
                                 unit_price=entry["unit_price"],
                             )
 
+                        original_stock = product.stock_quantity
                         _update_product_inventory(
                             product,
                             item.quantity,
                             priced_item["discounted_qty"],
                         )
+                        if is_bulk_buyer and item.quantity > original_stock:
+                            overstock_items.append({
+                                "product": product,
+                                "ordered": item.quantity,
+                                "available": original_stock,
+                            })
 
-                        producer_order_items.append(priced_item)
-                        producer_total += priced_item["line_total"]
-                        computed_subtotal += priced_item["line_total"]
+                        producer_order_items.extend(order_item_entries)
+                        producer_total += priced_item["total"]
+                        computed_subtotal += priced_item["total"]
 
                     producer_order.total_value = producer_total.quantize(
                         Decimal("0.01")
@@ -279,12 +298,20 @@ def payment(request):
                         }
                     )
 
+                bulk_discount = (
+                    computed_subtotal * Decimal("0.10")
+                ).quantize(Decimal("0.01")) if is_bulk_buyer else Decimal("0.00")
+
+                discounted_subtotal = (
+                    computed_subtotal - bulk_discount
+                ).quantize(Decimal("0.01"))
+
                 computed_commission = (
-                    computed_subtotal * Decimal("0.05")
+                    discounted_subtotal * Decimal("0.05")
                 ).quantize(Decimal("0.01"))
 
                 computed_total = (
-                    computed_subtotal + computed_commission
+                    discounted_subtotal + computed_commission
                 ).quantize(Decimal("0.01"))
 
                 order.total_amount = computed_total
@@ -293,6 +320,85 @@ def payment(request):
                 cart.items.all().delete()
                 request.session["cart"] = {}
 
+                # Save to CustomerOrderHistory for order history view
+                order_number = f"BRFN-{order.id}"
+                producers_data = {}
+                for summary in producer_order_summaries:
+                    producer_name = str(summary["producer"])
+                    producers_data[producer_name] = [
+                        {
+                        "id": entry["product"].id,
+                        "name": entry["product"].name,
+                        "qty": entry["quantity"],
+                        "price": str(entry["unit_price"]),
+                        "total": str(entry["line_total"]),
+                        }
+                        for entry in summary["items"]
+                    ]
+
+                order_data = {
+                    "order_number": order_number,
+                    "address": address,
+                    "order_date": timezone.now().strftime("%Y-%m-%d"),
+                    "delivery_date": date,
+                    "payment": payment_method,
+                    "subtotal": str(computed_subtotal),
+                    "bulk_discount": str(bulk_discount),
+                    "discounted_subtotal": str(discounted_subtotal),
+                    "commission": str(computed_commission),
+                    "total": str(computed_total),
+                    "producers": producers_data,
+                    "special_instructions": special_instructions,
+                }
+
+                CustomerOrderHistory.objects.create(
+                    customer=request.user,
+                    order_number=order_number,
+                    order_data=order_data,
+                )
+                
+                for summary in producer_order_summaries:
+                    po_total = summary["total"]
+                    po_commission = (po_total * Decimal("0.05")).quantize(Decimal("0.01"))
+                    po_payment = (po_total * Decimal("0.95")).quantize(Decimal("0.01"))
+                    CommissionLog.objects.create(
+                        order=order,
+                        producer_order=summary["producer_order"],
+                        order_total=computed_total,
+                        commission_amount=po_commission,
+                        producer_payment=po_payment,
+                        producer=summary["producer"],
+                        note=f"Auto-calculated at order placement. Bulk discount: £{bulk_discount}",
+                    )
+                # Notify producers of over-stock bulk orders
+                from apps.message.models import MessageThread, Message
+                for overstock in overstock_items:
+                    producer = overstock["product"].producer
+                    subject = f"Bulk Order #{order.id} — Stock Arrangement Required"
+                    thread = MessageThread.objects.create(
+                        subject=subject,
+                        created_by=request.user,
+                        related_order=order,
+                    )
+                    thread.participants.add(request.user, producer)
+                    Message.objects.create(
+                        thread=thread,
+                        sender=request.user,
+                        body=(
+                            f"Dear {producer.username},\n\n"
+                            f"A bulk order (#{order.id}) has been placed for "
+                            f"{overstock['ordered']} {overstock['product'].unit} of "
+                            f"{overstock['product'].name}, which exceeds your current "
+                            f"stock of {overstock['available']} {overstock['product'].unit}.\n\n"
+                            f"Please arrange the additional stock or contact the buyer "
+                            f"to discuss lead times.\n\n"
+                            f"Special instructions: {special_instructions or 'None'}\n\n"
+                            f"Delivery date requested: {date}\n\n"
+                            f"Thank you."
+                        ),
+                    )
+
+
                 for key in [
                     "cart_items",
                     "order_total",
@@ -300,6 +406,7 @@ def payment(request):
                     "delivery_postcode",
                     "delivery_date",
                     "payment_method",
+                    "special_instructions",
                     "producers",
                     "subtotal",
                     "commission",
@@ -321,27 +428,37 @@ def payment(request):
             "address": order.delivery_address,
             "date": date,
             "payment": payment_method,
+            "special_instructions": order.special_instructions,
             "producer_order_summaries": producer_order_summaries,
             "subtotal": computed_subtotal,
+            "bulk_discount": bulk_discount,
+            "discounted_subtotal": discounted_subtotal,
             "commission": computed_commission,
             "total": computed_total,
+            "is_bulk_buyer": is_bulk_buyer,
         }
 
         return render(request, "orders/confirmation.html", context)
 
     return render(
-        request,
-        "orders/payment.html",
-        {
+    request,
+    "orders/payment.html",
+    {
+        "order": {
             "total": _as_money(total),
             "subtotal": _as_money(subtotal),
+            "bulk_discount": _as_money(bulk_discount),
+            "discounted_subtotal": _as_money(discounted_subtotal),
+            "is_bulk_buyer": is_bulk_buyer,
             "commission": _as_money(commission),
-            "cart_items": cart_items,
             "address": address,
             "date": date,
-            "payment_method": payment_method,
-            "producers": producers,
+            "payment": payment_method,
         },
+        "cart_items": cart_items,
+        "special_instructions": special_instructions,
+        "producers": producers,
+    },
     )
 
 

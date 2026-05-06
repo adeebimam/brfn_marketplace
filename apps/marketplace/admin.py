@@ -108,3 +108,5 @@ class ProducerOrderStatusHistoryAdmin(admin.ModelAdmin):
 
 admin.site.register(Allergen)
 admin.site.register(Product, ProductAdmin)
+from apps.marketplace.models import CustomerOrderHistory
+admin.site.register(CustomerOrderHistory)

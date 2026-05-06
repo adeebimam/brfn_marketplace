@@ -121,9 +121,19 @@ def cart_detail(request):
 
     _sync_session_cart(request, cart)
 
+    is_bulk_buyer = (
+        hasattr(request.user, "profile")
+        and request.user.profile.role in {"COMMUNITY_GROUP", "RESTAURANT"}
+    )
+    bulk_discount = (total * Decimal("0.10")).quantize(Decimal("0.01")) if is_bulk_buyer else Decimal("0.00")
+    discounted_total = (total - bulk_discount).quantize(Decimal("0.01"))
+
     return render(request, "cart/detail.html", {
         "cart_items": cart_items,
         "cart_total": total.quantize(Decimal("0.01")),
+        "bulk_discount": bulk_discount,
+        "discounted_total": discounted_total,
+        "is_bulk_buyer": is_bulk_buyer,
         "total_food_miles": round(float(total_food_miles), 1),
     })
 
@@ -157,13 +167,53 @@ def cart_add(request, product_id):
     if qty < 1:
         qty = 1
 
-    item, created = CartItem.objects.get_or_create(cart=cart, product=product)
-    new_quantity = qty if created else item.quantity + qty
+    # ── Bulk buyer rules ───────────────────────────────────────────
+    is_bulk_buyer = (
+        hasattr(request.user, "profile")
+        and request.user.profile.role in {"COMMUNITY_GROUP", "RESTAURANT"}
+    )
 
-    if new_quantity > product.stock_quantity:
-        messages.error(request, f"Cannot add more than available stock ({product.stock_quantity}) for {product.name}.")
+    if is_bulk_buyer:
+        existing = CartItem.objects.filter(cart=cart, product=product).first()
+        new_quantity = qty if not existing else existing.quantity + qty
+
+        if new_quantity < 5:
+            messages.error(
+                request,
+                f"Bulk orders require a minimum of 5 units per item. "
+                f"Please order at least 5 {product.unit} of {product.name}."
+            )
+            return redirect("marketplace:product_list")
+
+        item, created = CartItem.objects.get_or_create(cart=cart, product=product)
+
+        # Allow ordering above stock — producer will be notified
+        if new_quantity > product.stock_quantity:
+            messages.warning(
+                request,
+                f"You have requested {new_quantity} {product.unit} of {product.name}, "
+                f"but only {product.stock_quantity} are currently in stock. "
+                f"Your order will be placed and the producer will arrange the remainder."
+            )
+
+        item.quantity = new_quantity
+        item.save()
+        _sync_session_cart(request, cart)
+        messages.success(request, f"Added {qty} {product.name} to your cart (bulk order).")
         return redirect("cart:detail")
 
+    # ── Regular customer rules ─────────────────────────────────────
+    existing = CartItem.objects.filter(cart=cart, product=product).first()
+    new_quantity = qty if not existing else existing.quantity + qty
+
+    if new_quantity > product.stock_quantity:
+        messages.error(
+            request,
+            f"Cannot add more than available stock ({product.stock_quantity}) for {product.name}."
+        )
+        return redirect("cart:detail")
+
+    item, created = CartItem.objects.get_or_create(cart=cart, product=product)
     item.quantity = new_quantity
     item.save()
     _sync_session_cart(request, cart)
@@ -174,7 +224,6 @@ def cart_add(request, product_id):
     else:
         messages.success(request, f"Added {qty} {product.name} to your cart.")
     return redirect("cart:detail")
-
 
 @require_POST
 @login_required
@@ -199,11 +248,23 @@ def cart_update(request, product_id):
         item.delete()
         messages.info(request, f"Removed {product_name} from your cart.")
     else:
-        if qty > product.stock_quantity:
+        is_bulk_buyer = (
+            hasattr(request.user, "profile")
+            and request.user.profile.role in {"COMMUNITY_GROUP", "RESTAURANT"}
+        )
+        if qty > product.stock_quantity and not is_bulk_buyer:
             messages.error(request, f"Cannot add more than available stock ({product.stock_quantity}) for {product.name}.")
             qty = product.stock_quantity
+        elif qty > product.stock_quantity and is_bulk_buyer:
+            messages.warning(
+                request,
+                f"You have requested {qty} {product.unit} of {product.name}, "
+                f"but only {product.stock_quantity} are currently in stock. "
+                f"Your order will be placed and the producer will arrange the remainder."
+            )
         item.quantity = qty
         item.save()
+
         pricing = product.calculate_price_for_quantity(qty)
         if pricing["warning"]:
             messages.warning(request, pricing["warning"])
@@ -272,9 +333,16 @@ def checkout(request):
             "total": str(line_total),
         })
 
-    commission = (subtotal * Decimal("0.05")).quantize(Decimal("0.01"))
-    total = (subtotal + commission).quantize(Decimal("0.01"))
+#Bulk buyer discount (10%)
 
+    is_bulk_buyer = (
+        hasattr(request.user, "profile")
+        and request.user.profile.role in {"COMMUNITY_GROUP", "RESTAURANT"}
+    )
+    bulk_discount = (subtotal * Decimal("0.10")).quantize(Decimal("0.01")) if is_bulk_buyer else Decimal("0.00")
+    discounted_subtotal = (subtotal - bulk_discount).quantize(Decimal("0.01"))
+    commission = (discounted_subtotal * Decimal("0.05")).quantize(Decimal("0.01"))
+    total = (discounted_subtotal + commission).quantize(Decimal("0.01"))
     _sync_session_cart(request, cart)
 
     # Determine initial postcode for food miles display
@@ -306,7 +374,11 @@ def checkout(request):
             request.session['payment_method'] = form.cleaned_data.get('payment_method', '')
             request.session['producers'] = producers
             request.session['subtotal'] = str(subtotal)
+            request.session['special_instructions'] = form.cleaned_data.get('special_instructions', '')
             request.session['commission'] = str(commission)
+            request.session['bulk_discount'] = str(bulk_discount)
+            request.session['discounted_subtotal'] = str(discounted_subtotal)
+            request.session['is_bulk_buyer'] = is_bulk_buyer
             return redirect("orders:payment")
 
     return render(request, "cart/checkout.html", {
@@ -314,6 +386,9 @@ def checkout(request):
         "producers": producers,
         "cart_items": cart_items,
         "subtotal": subtotal,
+        "bulk_discount": bulk_discount,
+        "is_bulk_buyer": is_bulk_buyer,
+        "discounted_subtotal": discounted_subtotal,
         "commission": commission,
         "total": total,
         "total_food_miles": total_food_miles,

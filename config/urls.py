@@ -16,19 +16,11 @@ def producer_redirect(request):
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("apps.accounts.urls")),
-
-    # Root homepage
     path("", home_redirect, name="home"),
-
-    # Producer shortcut
     path("producer/", producer_redirect, name="producer_dashboard"),
-    
-    # Cart routes
     path("cart/", include("apps.cart.urls")),
-
-    # Marketplace routes
+    path("orders/", include("orders.urls")),  
     path("", include("apps.marketplace.urls")),
-    path("orders/", include("orders.urls")),
     path("message/", include("apps.message.urls"))
 ]
 

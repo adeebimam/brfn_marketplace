@@ -39,6 +39,14 @@
           <span>Delivery address</span>
           <strong>{{ address }}</strong>
         </div>
+        
+        {% if special_instructions %}
+          <div class="detail-pairs--full">
+            <span>Special instructions</span>
+            <strong>{{ special_instructions }}</strong>
+          </div>
+        {% endif %}
+        
       </div>
 
       <div class="section-heading" style="margin-top:28px;">
@@ -137,21 +145,26 @@
         <h2>Payment summary</h2>
       </div>
 
-      <div class="checkout-totals">
-        <div>
-          <span>Subtotal</span>
-          <strong>£{{ subtotal|floatformat:2 }}</strong>
-        </div>
+    <div class="checkout-totals">
+      <div>
+        <span>Subtotal</span>
+        <strong>£{{ subtotal|floatformat:2 }}</strong>
+      </div>
 
+      {% if is_bulk_buyer and bulk_discount %}
+        <div style="color: #087d73;">
+          <span>Bulk buyer discount (10%)</span>
+          <strong>− £{{ bulk_discount|floatformat:2 }}</strong>
+        </div>
         <div>
-          <span>Network commission (5%)</span>
-          <strong>£{{ commission|floatformat:2 }}</strong>
+          <span>Discounted subtotal</span>
+          <strong>£{{ discounted_subtotal|floatformat:2 }}</strong>
         </div>
+      {% endif %}
 
-        <div class="checkout-grand-total">
-          <span>Total paid</span>
-          <strong>£{{ total|floatformat:2 }}</strong>
-        </div>
+      <div>
+        <span>Network commission (5%)</span>
+        <strong>£{{ commission|floatformat:2 }}</strong>
       </div>
 
       <div style="background:#ecfdf5; border:1px solid #a7f3d0; border-radius:14px; padding:16px; margin-top:25px; color:#047857;">
