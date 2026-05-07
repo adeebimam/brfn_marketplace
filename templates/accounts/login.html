@@ -1,26 +1,139 @@
 {% extends "base.html" %}
 {% block content %}
-  <div class="card stack">
-    <h1>Login</h1>
+<style>
+  .auth-shell {
+    min-height: calc(100vh - 220px);
+    display: grid;
+    place-items: center;
+    padding: 24px 0 40px;
+  }
 
-    <form method="post" class="stack">
-      {% csrf_token %}
-      <div>
-        <label>Email</label>
-        <input name="username" autocomplete="email" />
-      </div>
-      <div>
-        <label>Password</label>
-        <input type="password" name="password" autocomplete="current-password" />
-      </div>
-      <div style="display:flex; align-items:center; gap:8px;">
-        <input type="checkbox" name="remember_me" id="remember_me" style="width:auto;" />
-        <label for="remember_me" style="margin:0; font-weight:normal;">Remember me</label>
-      </div>
-      <button class="btn btn-primary"  style="font-size: large;"   type="submit">Login</button>
-    </form>
+  .auth-card {
+    width: min(100%, 460px);
+    padding: 34px;
+    border-radius: 28px;
+    background: #ffffff;
+    border: 1px solid #D1D5DB;
+    box-shadow: 0 22px 54px rgba(15, 23, 42, 0.08);
+  }
 
-    <p class="muted">No account? <a href="{% url 'accounts:register' %}" class="login-register-link">Register</a> <span style="font-style: italic; font-size: small;">(Restaurants, Community Groups, Customers)</span></p>
-    <p class="muted">Producer registration? <a href="{% url 'accounts:producer_register' %}" class="login-register-link">Register</a></p>
+  .auth-card h1 {
+    margin: 0 0 10px;
+    font-size: 2.2rem;
+    color: #0F172A;
+  }
+
+  .auth-card .muted {
+    line-height: 1.7;
+  }
+
+  .auth-field {
+    margin-top: 16px;
+  }
+
+  .auth-field label {
+    display: block;
+    margin-bottom: 8px;
+    color: #0F172A;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 800;
+  }
+
+  .auth-field input {
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 18px;
+    border: 1px solid #D1D5DB;
+    background: #FFFFFF;
+    transition: border-color 180ms ease, box-shadow 180ms ease;
+  }
+
+  .auth-field input:focus {
+    outline: none;
+    border-color: #16A34A;
+    box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.12);
+  }
+
+  .auth-remember {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 18px 0 8px;
+    color: #5f726c;
+  }
+
+  .auth-remember input {
+    width: auto;
+  }
+
+  .auth-submit {
+    width: 100%;
+    margin-top: 12px;
+    padding: 15px 18px;
+    border: 0;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #16A34A, #15803D);
+    color: #fff;
+    font-size: 1.02rem;
+    font-weight: 800;
+    box-shadow: 0 18px 30px rgba(22, 163, 74, 0.18);
+  }
+
+  .auth-links {
+    display: grid;
+    gap: 10px;
+    margin-top: 20px;
+    padding-top: 18px;
+    border-top: 1px solid #E5E7EB;
+  }
+
+  .auth-links p {
+    margin: 0;
+    color: #64748B;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 640px) {
+    .auth-card {
+      padding: 24px;
+    }
+  }
+</style>
+
+<section class="auth-shell">
+  <div class="auth-card">
+        <h1>Welcome back</h1>
+        <p class="muted">
+          Sign in to continue to your products, offers, orders, and account dashboard.
+        </p>
+
+        <form method="post">
+          {% csrf_token %}
+
+          <div class="auth-field">
+            <label for="login-username">Email</label>
+            <input id="login-username" name="username" autocomplete="email" placeholder="you@example.com" />
+          </div>
+
+          <div class="auth-field">
+            <label for="login-password">Password</label>
+            <input id="login-password" type="password" name="password" autocomplete="current-password" placeholder="Enter your password" />
+          </div>
+
+          <div class="auth-remember">
+            <input type="checkbox" name="remember_me" id="remember_me" />
+            <label for="remember_me" style="margin:0; font-weight:600; display:inline;">Remember me on this device</label>
+          </div>
+
+          <button class="btn auth-submit" type="submit">Sign in to BRFN Marketplace</button>
+        </form>
+
+        <div class="auth-links">
+          <p>No account yet? <a href="{% url 'accounts:register' %}" class="login-register-link">Register here</a>.</p>
+          <p>Producer registration? <a href="{% url 'accounts:producer_register' %}" class="login-register-link">Create a producer account</a>.</p>
+        </div>
   </div>
+</section>
 {% endblock %}

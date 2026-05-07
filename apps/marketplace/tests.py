@@ -28,7 +28,19 @@ from django.utils import timezone
 
 from apps.accounts.models import Profile
 from apps.marketplace.forms import ProductForm
-from apps.marketplace.models import Category, Product, MONTH_NAMES
+from apps.marketplace.models import (
+    Allergen,
+    Category,
+    FavouriteProducer,
+    MONTH_NAMES,
+    Order,
+    OrderItem,
+    Product,
+    ProducerOrder,
+    SurplusAnalyticsRecord,
+    SurplusDealNotification,
+)
+from apps.marketplace.services import expire_surplus_deals, notify_favourite_customers_about_surplus
 
 
 # ─── helpers ────────────────────────────────────────────────────────
@@ -410,6 +422,7 @@ class TC19SurplusDealTests(TestCase):
             contact_last_name="Customer",
         )
         self.category = Category.objects.create(name="Dairy")
+        self.no_common_allergens = Allergen.objects.create(name="No common allergens")
 
     def test_product_stores_discount_amount_for_surplus_deal(self):
         product = Product.objects.create(
@@ -436,7 +449,10 @@ class TC19SurplusDealTests(TestCase):
             "price": "10.00",
             "unit": "pack",
             "stock_quantity": 8,
+            "estimated_unit_weight_kg": "0.50",
+            "low_stock_threshold": 2,
             "season": "ALL",
+            "allergens": [self.no_common_allergens.pk],
             "is_surplus": "on",
             "surplus_discount_percent": 30,
             "surplus_stock_quantity": 3,
@@ -494,3 +510,346 @@ class TC19SurplusDealTests(TestCase):
         self.assertEqual(product.surplus_stock_quantity, 0)
         self.assertIsNone(product.surplus_expires_at)
         self.assertEqual(product.surplus_note, "")
+
+
+class TC19SurplusNotificationTests(TestCase):
+    def setUp(self):
+        self.password = "Str0ng!Pass99"
+        self.customer = _create_user(
+            "buyer_alerts",
+            "buyer_alerts@example.com",
+            self.password,
+            Profile.Role.CUSTOMER,
+            contact_first_name="Buyer",
+            contact_last_name="Alerts",
+        )
+        self.producer = _create_user(
+            "producer_alerts",
+            "producer_alerts@example.com",
+            self.password,
+            Profile.Role.PRODUCER,
+            business_name="Alerts Farm",
+            is_verified=True,
+        )
+        self.category = Category.objects.create(name="Surplus Alerts")
+
+    def test_customer_can_favourite_producer(self):
+        self.client.force_login(self.customer)
+
+        response = self.client.post(
+            reverse("marketplace:toggle_favourite_producer", args=[self.producer.id]),
+            {"next": reverse("marketplace:product_list")},
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            FavouriteProducer.objects.filter(
+                customer=self.customer,
+                producer=self.producer,
+            ).exists()
+        )
+
+    def test_surplus_alert_page_shows_notification_for_favourite_producer(self):
+        FavouriteProducer.objects.create(
+            customer=self.customer,
+            producer=self.producer,
+        )
+        product = Product.objects.create(
+            producer=self.producer,
+            category=self.category,
+            name="Discounted Lettuce",
+            description="Surplus lettuce",
+            price=Decimal("4.00"),
+            stock_quantity=8,
+            is_surplus=True,
+            surplus_discount_percent=25,
+            surplus_stock_quantity=3,
+            surplus_expires_at=timezone.now() + timedelta(days=1),
+        )
+
+        created_count = notify_favourite_customers_about_surplus(product)
+
+        self.assertEqual(created_count, 1)
+        self.assertTrue(
+            SurplusDealNotification.objects.filter(
+                customer=self.customer,
+                producer=self.producer,
+                product=product,
+            ).exists()
+        )
+
+        self.client.force_login(self.customer)
+        response = self.client.get(reverse("marketplace:surplus_notifications"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Surplus Alerts")
+        self.assertContains(response, "Discounted Lettuce")
+
+    def test_favourite_offers_filter_shows_favourite_producer_deals(self):
+        FavouriteProducer.objects.create(
+            customer=self.customer,
+            producer=self.producer,
+        )
+        Product.objects.create(
+            producer=self.producer,
+            category=self.category,
+            name="Favourite Carrots",
+            description="Surplus carrots",
+            price=Decimal("3.50"),
+            stock_quantity=10,
+            is_surplus=True,
+            surplus_discount_percent=20,
+            surplus_stock_quantity=4,
+            surplus_expires_at=timezone.now() + timedelta(days=1),
+        )
+
+        self.client.force_login(self.customer)
+        response = self.client.get(
+            reverse("marketplace:surplus_deals") + "?favourites=1"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Favourite Producer Deals")
+        self.assertContains(response, "Favourite Carrots")
+
+    def test_removing_favourite_producer_clears_existing_notifications(self):
+        FavouriteProducer.objects.create(
+            customer=self.customer,
+            producer=self.producer,
+        )
+        product = Product.objects.create(
+            producer=self.producer,
+            category=self.category,
+            name="Favourite Apples",
+            description="Surplus apples",
+            price=Decimal("2.80"),
+            stock_quantity=6,
+            is_surplus=True,
+            surplus_discount_percent=30,
+            surplus_stock_quantity=2,
+            surplus_expires_at=timezone.now() + timedelta(days=1),
+        )
+        notify_favourite_customers_about_surplus(product)
+
+        self.client.force_login(self.customer)
+        response = self.client.post(
+            reverse("marketplace:toggle_favourite_producer", args=[self.producer.id]),
+            {"next": reverse("marketplace:product_list")},
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(
+            FavouriteProducer.objects.filter(
+                customer=self.customer,
+                producer=self.producer,
+            ).exists()
+        )
+        self.assertFalse(
+            SurplusDealNotification.objects.filter(
+                customer=self.customer,
+                producer=self.producer,
+            ).exists()
+        )
+
+    def test_only_unread_favourite_notifications_drive_popup_context(self):
+        FavouriteProducer.objects.create(
+            customer=self.customer,
+            producer=self.producer,
+        )
+        product = Product.objects.create(
+            producer=self.producer,
+            category=self.category,
+            name="Purple Popup Plums",
+            description="Surplus plums",
+            price=Decimal("5.10"),
+            stock_quantity=9,
+            is_surplus=True,
+            surplus_discount_percent=15,
+            surplus_stock_quantity=3,
+            surplus_expires_at=timezone.now() + timedelta(days=1),
+        )
+        notify_favourite_customers_about_surplus(product)
+
+        self.client.force_login(self.customer)
+        response = self.client.get(reverse("marketplace:product_list"))
+
+        self.assertEqual(response.context["unread_favourite_surplus_notification_count"], 1)
+        self.assertEqual(
+            response.context["latest_favourite_surplus_notification"].product,
+            product,
+        )
+
+        SurplusDealNotification.objects.filter(
+            customer=self.customer,
+            producer=self.producer,
+            product=product,
+        ).update(is_read=True)
+
+        response = self.client.get(reverse("marketplace:product_list"))
+        self.assertEqual(response.context["unread_favourite_surplus_notification_count"], 0)
+        self.assertIsNone(response.context["latest_favourite_surplus_notification"])
+
+
+class TC19SurplusImpactAnalyticsTests(TestCase):
+    def setUp(self):
+        self.password = "Str0ng!Pass99"
+        self.producer = _create_user(
+            "impact_producer",
+            "impact_producer@example.com",
+            self.password,
+            Profile.Role.PRODUCER,
+            business_name="Impact Farm",
+            is_verified=True,
+        )
+        self.customer = _create_user(
+            "impact_customer",
+            "impact_customer@example.com",
+            self.password,
+            Profile.Role.CUSTOMER,
+            contact_first_name="Impact",
+            contact_last_name="Customer",
+        )
+        self.category = Category.objects.create(name="Analytics Produce")
+
+    def test_payment_flow_records_saved_surplus_analytics(self):
+        product = Product.objects.create(
+            producer=self.producer,
+            category=self.category,
+            name="Surplus Tomatoes",
+            description="Discounted surplus tomatoes",
+            price=Decimal("5.00"),
+            stock_quantity=8,
+            estimated_unit_weight_kg=Decimal("1.25"),
+            is_surplus=True,
+            surplus_discount_percent=20,
+            surplus_stock_quantity=3,
+            surplus_expires_at=timezone.now() + timedelta(days=1),
+        )
+
+        self.client.force_login(self.customer)
+        session = self.client.session
+        delivery_date = (timezone.localdate() + timedelta(days=2)).isoformat()
+        session["order"] = {
+            "address": "123 Bristol Road",
+            "date": delivery_date,
+            "payment": "stripe",
+            "subtotal": 8.00,
+            "commission": 0.40,
+            "total": 8.40,
+            "producers": {
+                self.producer.username: [{
+                    "name": product.name,
+                    "price": float(product.discounted_price),
+                    "qty": 2,
+                    "total": float(product.discounted_price * 2),
+                    "lead_time": 2,
+                    "id": product.id,
+                }]
+            },
+        }
+        session.save()
+
+        response = self.client.post(
+            reverse("marketplace:payment"),
+            {
+                "card_number": "4242424242424242",
+                "expiry": "12/30",
+                "cvc": "123",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        analytics_record = SurplusAnalyticsRecord.objects.get(
+            producer=self.producer,
+            product=product,
+            record_type=SurplusAnalyticsRecord.RecordType.SAVED,
+        )
+        self.assertEqual(analytics_record.quantity, 2)
+        self.assertEqual(analytics_record.estimated_weight_kg, Decimal("2.50"))
+        self.assertEqual(analytics_record.customer_saving, Decimal("2.00"))
+        self.assertEqual(analytics_record.revenue, Decimal("8.00"))
+
+        product.refresh_from_db()
+        self.assertEqual(product.stock_quantity, 6)
+        self.assertEqual(product.surplus_stock_quantity, 1)
+
+    def test_expire_surplus_deals_records_unsold_analytics_once(self):
+        product = Product.objects.create(
+            producer=self.producer,
+            category=self.category,
+            name="Unsold Lettuce",
+            description="Expired surplus lettuce",
+            price=Decimal("3.00"),
+            stock_quantity=5,
+            estimated_unit_weight_kg=Decimal("0.75"),
+            is_surplus=True,
+            surplus_discount_percent=25,
+            surplus_stock_quantity=4,
+            surplus_expires_at=timezone.now() - timedelta(hours=1),
+        )
+
+        expire_surplus_deals()
+        expire_surplus_deals()
+
+        records = SurplusAnalyticsRecord.objects.filter(
+            producer=self.producer,
+            product=product,
+            record_type=SurplusAnalyticsRecord.RecordType.UNSOLD,
+        )
+        self.assertEqual(records.count(), 1)
+        self.assertEqual(records.first().quantity, 4)
+        self.assertEqual(records.first().estimated_weight_kg, Decimal("3.00"))
+
+        product.refresh_from_db()
+        self.assertFalse(product.is_surplus)
+        self.assertEqual(product.surplus_stock_quantity, 0)
+
+    def test_producer_surplus_impact_view_shows_totals(self):
+        order = Order.objects.create(
+            customer=self.customer,
+            delivery_address="1 Impact Street",
+            delivery_postcode="BS1 1AA",
+            special_instructions="",
+            total_amount=Decimal("10.00"),
+        )
+        product = Product.objects.create(
+            producer=self.producer,
+            category=self.category,
+            name="Impact Carrots",
+            description="Carrots",
+            price=Decimal("4.00"),
+            stock_quantity=10,
+            estimated_unit_weight_kg=Decimal("0.50"),
+        )
+
+        SurplusAnalyticsRecord.objects.create(
+            producer=self.producer,
+            product=product,
+            order=order,
+            record_type=SurplusAnalyticsRecord.RecordType.SAVED,
+            quantity=3,
+            estimated_weight_kg=Decimal("1.50"),
+            customer_saving=Decimal("1.20"),
+            revenue=Decimal("6.80"),
+        )
+        SurplusAnalyticsRecord.objects.create(
+            producer=self.producer,
+            product=product,
+            record_type=SurplusAnalyticsRecord.RecordType.UNSOLD,
+            quantity=2,
+            estimated_weight_kg=Decimal("1.00"),
+            customer_saving=Decimal("0.00"),
+            revenue=Decimal("0.00"),
+        )
+
+        self.client.force_login(self.producer)
+        response = self.client.get(reverse("marketplace:producer_surplus_impact"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Surplus Impact Analytics")
+        self.assertContains(response, "Impact Carrots")
+        self.assertContains(response, "1.50 kg")
+        self.assertContains(response, "£1.20")
+        self.assertContains(response, "£6.80")

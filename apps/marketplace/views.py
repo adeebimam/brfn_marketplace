@@ -1,13 +1,16 @@
 import csv
+import json
 import random
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
-from django.db.models import Q
+from django.db.models import DecimalField, Q, Sum, Value
+from django.db.models.functions import Coalesce, TruncWeek
 from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -20,6 +23,7 @@ from .models import (
     Allergen,
     Category,
     CustomerOrderHistory,
+    FavouriteProducer,
     MONTH_NAMES,
     Order,
     OrderItem,
@@ -29,12 +33,23 @@ from .models import (
     PurchaseReview,
     Review,
     StockNotification,
+    SurplusAnalyticsRecord,
+    SurplusDealNotification,
 )
-from .services import expire_surplus_deals, update_producer_order_status
+from .services import (
+    expire_surplus_deals,
+    notify_favourite_customers_about_surplus,
+    update_producer_order_status,
+)
 
 
 COMMISSION_RATE = Decimal("0.05")
 TWO_PLACES = Decimal("0.01")
+BUYER_ROLES = {
+    Profile.Role.CUSTOMER,
+    Profile.Role.COMMUNITY_GROUP,
+    Profile.Role.RESTAURANT,
+}
 
 
 # -----------------------------
@@ -63,11 +78,48 @@ def _last_completed_week_range(today):
     return week_start, week_end
 
 
+def _producer_settlement_week_range(producer, today):
+    week_start, week_end = _last_completed_week_range(today)
+    delivered_orders = ProducerOrder.objects.filter(
+        producer=producer,
+        status=ProducerOrder.Status.DELIVERED,
+        delivery_date__isnull=False,
+    )
+
+    if not delivered_orders.exists():
+        return week_start, week_end
+
+    if delivered_orders.filter(delivery_date__range=(week_start, week_end)).exists():
+        return week_start, week_end
+
+    latest_delivery = delivered_orders.order_by("-delivery_date").values_list(
+        "delivery_date", flat=True
+    ).first()
+    if latest_delivery is None:
+        return week_start, week_end
+
+    fallback_start = latest_delivery - timedelta(days=latest_delivery.weekday())
+    fallback_end = fallback_start + timedelta(days=6)
+    return fallback_start, fallback_end
+
+
 def _uk_tax_year_start(today):
     tax_year_start = date(today.year, 4, 6)
     if today < tax_year_start:
         tax_year_start = date(today.year - 1, 4, 6)
     return tax_year_start
+
+
+def _payment_template_context(order, **extra):
+    payment_value = str(order.get("payment", "")).strip().lower()
+    is_paypal_sandbox = payment_value in {"paypal", "paypal_sandbox"}
+    context = {
+        "order": order,
+        "is_paypal_sandbox": is_paypal_sandbox,
+        "paypal_client_id": settings.PAYPAL_SANDBOX_CLIENT_ID,
+    }
+    context.update(extra)
+    return context
 
 
 def _anonymise_customer(customer):
@@ -221,9 +273,22 @@ def product_list(request):
     current_month = today.month
     products = [p for p in products if p.is_in_season(today)]
 
+    can_toggle_favourite_producers = (
+        request.user.is_authenticated
+        and getattr(request.user, "profile", None)
+        and request.user.profile.role in BUYER_ROLES
+    )
+    favourite_producer_ids = set()
+    if can_toggle_favourite_producers:
+        favourite_producer_ids = set(
+            FavouriteProducer.objects.filter(customer=request.user)
+            .values_list("producer_id", flat=True)
+        )
+
     for p in products:
         p.in_season_now = p.is_in_season(today)
         p.real_allergens = [a for a in p.allergens.all() if a.name != "No common allergens"]
+        p.is_favourite_producer = p.producer_id in favourite_producer_ids
 
     # Food miles
     if request.user.is_authenticated:
@@ -269,6 +334,7 @@ def product_list(request):
         "current_month": current_month,
         "organic_filter": organic_filter,
         "max_miles": max_miles,
+        "can_toggle_favourite_producers": can_toggle_favourite_producers,
     }
 
     return render(request, "marketplace/product_list.html", context)
@@ -320,6 +386,8 @@ def product_detail(request, pk):
         average_rating = round(sum(review.rating for review in reviews) / reviews.count(), 1)
 
     food_miles = None
+    is_favourite_producer = False
+    can_favourite_producer = False
     if request.user.is_authenticated:
         from .foodmiles import calculate_food_miles
         try:
@@ -332,12 +400,21 @@ def product_detail(request, pk):
         except Profile.DoesNotExist:
             pass
 
+        if getattr(request.user, "profile", None) and request.user.profile.role in BUYER_ROLES:
+            can_favourite_producer = True
+            is_favourite_producer = FavouriteProducer.objects.filter(
+                customer=request.user,
+                producer=product.producer,
+            ).exists()
+
     return render(request, "marketplace/product_detail.html", {
         "product": product,
         "is_in_season": product.is_in_season(),
         "reviews": reviews,
         "average_rating": average_rating,
         "food_miles": food_miles,
+        "can_favourite_producer": can_favourite_producer,
+        "is_favourite_producer": is_favourite_producer,
     })
 
 
@@ -348,6 +425,15 @@ def product_detail(request, pk):
 def surplus_deals(request):
     expire_surplus_deals()
     now = timezone.now()
+    can_filter_favourite_offers = (
+        request.user.is_authenticated
+        and getattr(request.user, "profile", None)
+        and request.user.profile.role in BUYER_ROLES
+    )
+    showing_favourites_only = (
+        can_filter_favourite_offers and request.GET.get("favourites") == "1"
+    )
+
     products = (
         Product.objects.filter(
             is_active=True, is_surplus=True,
@@ -358,10 +444,97 @@ def surplus_deals(request):
         .order_by("surplus_expires_at")
     )
     today = date.today()
+
+    if showing_favourites_only:
+        favourite_producer_ids = FavouriteProducer.objects.filter(
+            customer=request.user
+        ).values_list("producer_id", flat=True)
+        products = products.filter(producer_id__in=favourite_producer_ids)
+        SurplusDealNotification.objects.filter(
+            customer=request.user,
+            is_read=False,
+        ).update(is_read=True)
+
     products = [p for p in products if p.is_in_season(today)]
+    favourite_producer_ids = set()
+    if can_filter_favourite_offers:
+        favourite_producer_ids = set(
+            FavouriteProducer.objects.filter(customer=request.user)
+            .values_list("producer_id", flat=True)
+        )
     for p in products:
         p.in_season_now = p.is_in_season(today)
-    return render(request, "marketplace/surplus_deals.html", {"products": products})
+        p.is_favourite_producer = p.producer_id in favourite_producer_ids
+
+    return render(
+        request,
+        "marketplace/surplus_deals.html",
+        {
+            "products": products,
+            "showing_favourites_only": showing_favourites_only,
+            "can_filter_favourite_offers": can_filter_favourite_offers,
+        },
+    )
+
+
+@login_required
+def surplus_notifications(request):
+    if (
+        not getattr(request.user, "profile", None)
+        or request.user.profile.role not in BUYER_ROLES
+    ):
+        return HttpResponseForbidden("Buyer access only.")
+
+    notifications = (
+        SurplusDealNotification.objects
+        .filter(customer=request.user)
+        .select_related("producer", "product")
+    )
+
+    unread_ids = list(
+        notifications.filter(is_read=False).values_list("id", flat=True)
+    )
+    if unread_ids:
+        SurplusDealNotification.objects.filter(id__in=unread_ids).update(is_read=True)
+        notifications = notifications.order_by("-created_at")
+
+    return render(
+        request,
+        "marketplace/surplus_notifications.html",
+        {"notifications": notifications},
+    )
+
+
+@login_required
+def toggle_favourite_producer(request, producer_id):
+    if (
+        not getattr(request.user, "profile", None)
+        or request.user.profile.role not in BUYER_ROLES
+    ):
+        return HttpResponseForbidden("Buyer access only.")
+
+    producer = get_object_or_404(get_user_model(), pk=producer_id)
+
+    if request.user == producer:
+        messages.error(request, "You cannot favourite your own producer account.")
+        return redirect(request.POST.get("next") or "marketplace:product_list")
+
+    favourite, created = FavouriteProducer.objects.get_or_create(
+        customer=request.user,
+        producer=producer,
+    )
+
+    if created:
+        messages.success(request, f"{producer.username} added to your favourite producers.")
+    else:
+        SurplusDealNotification.objects.filter(
+            customer=request.user,
+            producer=producer,
+        ).delete()
+        favourite.delete()
+        messages.info(request, f"{producer.username} removed from your favourite producers.")
+
+    return redirect(request.POST.get("next") or "marketplace:product_list")
 
 
 # -----------------------------
@@ -438,6 +611,8 @@ def product_create(request):
             product.producer = request.user
             product.save()
             form.save_m2m()
+            if product.is_active_surplus_deal:
+                notify_favourite_customers_about_surplus(product)
             messages.success(request, "Product created.")
             return redirect("marketplace:producer_product_list")
     else:
@@ -461,6 +636,8 @@ def product_update(request, pk):
             product.save()
             form.save_m2m()
             product.check_low_stock()
+            if product.is_active_surplus_deal:
+                notify_favourite_customers_about_surplus(product)
             messages.success(request, "Product updated.")
             return redirect("marketplace:producer_product_list")
     else:
@@ -586,34 +763,73 @@ def payment(request):
     if not order:
         return redirect("marketplace:product_list")
 
+    payment_method = str(order.get("payment", "")).strip().lower()
+    if payment_method == "paypal":
+        order["payment"] = "paypal_sandbox"
+        request.session["order"] = order
+        request.session.modified = True
+        payment_method = "paypal_sandbox"
+
+    is_paypal_sandbox = payment_method == "paypal_sandbox"
     debug_info = []
 
     if request.method == "POST":
-        card_number = request.POST.get("card_number", "").strip()
-        expiry = request.POST.get("expiry", "").strip()
-        cvc = request.POST.get("cvc", "").strip()
+        if is_paypal_sandbox:
+            paypal_order_id = request.POST.get("paypal_order_id", "").strip()
+            paypal_payer_id = request.POST.get("paypal_payer_id", "").strip()
 
-        if len(expiry) != 5 or expiry[2] != "/":
-            messages.error(request, "Enter expiry date in MM/YY format.")
-            return render(request, "orders/payment.html", {"order": order})
+            if not paypal_order_id or not paypal_payer_id:
+                messages.error(
+                    request,
+                    "PayPal Sandbox approval was not completed. Please try again.",
+                )
+                return render(
+                    request,
+                    "orders/payment.html",
+                    _payment_template_context(order),
+                )
+        else:
+            card_number = request.POST.get("card_number", "").strip()
+            expiry = request.POST.get("expiry", "").strip()
+            cvc = request.POST.get("cvc", "").strip()
 
-        month_part, year_part = expiry.split("/")
-        if not month_part.isdigit() or not year_part.isdigit():
-            messages.error(request, "Enter expiry date in MM/YY format.")
-            return render(request, "orders/payment.html", {"order": order})
+            if len(expiry) != 5 or expiry[2] != "/":
+                messages.error(request, "Enter expiry date in MM/YY format.")
+                return render(
+                    request,
+                    "orders/payment.html",
+                    _payment_template_context(order),
+                )
 
-        month = int(month_part)
-        year = int(year_part)
+            month_part, year_part = expiry.split("/")
+            if not month_part.isdigit() or not year_part.isdigit():
+                messages.error(request, "Enter expiry date in MM/YY format.")
+                return render(
+                    request,
+                    "orders/payment.html",
+                    _payment_template_context(order),
+                )
 
-        if month < 1 or month > 12:
-            messages.error(request, "Enter a valid expiry month.")
-            return render(request, "orders/payment.html", {"order": order})
+            month = int(month_part)
+            year = int(year_part)
 
-        today = timezone.localdate()
-        current_year = today.year % 100
-        if year < current_year or (year == current_year and month < today.month):
-            messages.error(request, "Card expiry date cannot be in the past.")
-            return render(request, "orders/payment.html", {"order": order})
+            if month < 1 or month > 12:
+                messages.error(request, "Enter a valid expiry month.")
+                return render(
+                    request,
+                    "orders/payment.html",
+                    _payment_template_context(order),
+                )
+
+            today = timezone.localdate()
+            current_year = today.year % 100
+            if year < current_year or (year == current_year and month < today.month):
+                messages.error(request, "Card expiry date cannot be in the past.")
+                return render(
+                    request,
+                    "orders/payment.html",
+                    _payment_template_context(order),
+                )
 
         order_number = "ORD-" + str(random.randint(10000, 99999))
         delivery_date_obj = _parse_date(order.get("date"))
@@ -630,6 +846,7 @@ def payment(request):
                 delivery_address=order["address"],
                 delivery_postcode="",
                 special_instructions="",
+                total_amount=Decimal(str(order["total"])).quantize(TWO_PLACES),
             )
 
             debug_info.append(f"Created Order: {db_order}")
@@ -651,6 +868,11 @@ def payment(request):
                     product = Product.objects.get(id=item["id"], producer=producer)
                     quantity = int(item["qty"])
                     unit_price = Decimal(str(item["price"]))
+                    current_surplus_stock = int(product.surplus_stock_quantity or 0)
+                    is_surplus_before_purchase = product.is_active_surplus_deal
+                    surplus_quantity = 0
+                    if is_surplus_before_purchase:
+                        surplus_quantity = min(quantity, current_surplus_stock)
 
                     OrderItem.objects.create(
                         producer_order=producer_order,
@@ -659,9 +881,52 @@ def payment(request):
                         unit_price=unit_price,
                     )
 
-                    total_value += unit_price * quantity
+                    line_total = (unit_price * quantity).quantize(
+                        Decimal("0.01"), rounding=ROUND_HALF_UP
+                    )
+                    total_value += line_total
+
+                    if surplus_quantity > 0:
+                        normal_value = (product.price * surplus_quantity).quantize(
+                            TWO_PLACES, rounding=ROUND_HALF_UP
+                        )
+                        discounted_value = (unit_price * surplus_quantity).quantize(
+                            TWO_PLACES, rounding=ROUND_HALF_UP
+                        )
+                        customer_saving = (normal_value - discounted_value).quantize(
+                            TWO_PLACES, rounding=ROUND_HALF_UP
+                        )
+                        estimated_weight_kg = (
+                            product.estimated_unit_weight_kg * Decimal(surplus_quantity)
+                        ).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+
+                        SurplusAnalyticsRecord.objects.create(
+                            producer=producer,
+                            product=product,
+                            order=db_order,
+                            record_type=SurplusAnalyticsRecord.RecordType.SAVED,
+                            quantity=surplus_quantity,
+                            estimated_weight_kg=estimated_weight_kg,
+                            customer_saving=customer_saving,
+                            revenue=discounted_value,
+                        )
+
                     product.stock_quantity = max(0, product.stock_quantity - quantity)
+                    if surplus_quantity > 0:
+                        product.surplus_stock_quantity = max(
+                            0, current_surplus_stock - surplus_quantity
+                        )
+                        if product.surplus_stock_quantity == 0 or product.stock_quantity == 0:
+                            product.is_surplus = False
+                            product.surplus_discount_percent = None
+                            product.surplus_discounted_price = Decimal("0.00")
+                            product.surplus_discount_amount = Decimal("0.00")
+                            product.surplus_stock_quantity = 0
+                            product.surplus_expires_at = None
+                            product.surplus_note = ""
+                            product.best_before_date = None
                     product.save()
+                    product.check_low_stock()
 
                 producer_order.total_value = Decimal(str(total_value)).quantize(
                     Decimal("0.01"), rounding=ROUND_HALF_UP
@@ -674,11 +939,15 @@ def payment(request):
             error_message = f"Order creation failed: {error}"
             print(error_message)
             print(traceback.format_exc())
-            return render(request, "orders/payment.html", {
-                "order": order,
-                "error_message": error_message,
-                "debug_info": debug_info,
-            })
+            return render(
+                request,
+                "orders/payment.html",
+                _payment_template_context(
+                    order,
+                    error_message=error_message,
+                    debug_info=debug_info,
+                ),
+            )
 
         order_data = {
             "order_number": order_number,
@@ -719,7 +988,7 @@ def payment(request):
             "producers": order["producers"],
         })
 
-    return render(request, "orders/payment.html", {"order": order})
+    return render(request, "orders/payment.html", _payment_template_context(order))
 
 
 # ----------------------------
@@ -870,7 +1139,7 @@ def producer_payments(request):
 
     producer = request.user
     today = timezone.localdate()
-    week_start, week_end = _last_completed_week_range(today)
+    week_start, week_end = _producer_settlement_week_range(producer, today)
     tax_year_start = _uk_tax_year_start(today)
 
     all_delivered_orders = (
@@ -935,13 +1204,180 @@ def producer_payments(request):
 
 
 @login_required
+def producer_surplus_impact(request):
+    if not _require_producer(request):
+        return _producer_access_denied_response(request)
+
+    producer = request.user
+    records = (
+        SurplusAnalyticsRecord.objects
+        .filter(producer=producer)
+        .select_related("product", "order")
+    )
+
+    totals = records.aggregate(
+        total_saved_items=Coalesce(
+            Sum(
+                "quantity",
+                filter=Q(record_type=SurplusAnalyticsRecord.RecordType.SAVED),
+            ),
+            Value(0),
+        ),
+        total_saved_kg=Coalesce(
+            Sum(
+                "estimated_weight_kg",
+                filter=Q(record_type=SurplusAnalyticsRecord.RecordType.SAVED),
+            ),
+            Value(Decimal("0.00")),
+            output_field=DecimalField(max_digits=10, decimal_places=2),
+        ),
+        total_unsold_items=Coalesce(
+            Sum(
+                "quantity",
+                filter=Q(record_type=SurplusAnalyticsRecord.RecordType.UNSOLD),
+            ),
+            Value(0),
+        ),
+        total_unsold_kg=Coalesce(
+            Sum(
+                "estimated_weight_kg",
+                filter=Q(record_type=SurplusAnalyticsRecord.RecordType.UNSOLD),
+            ),
+            Value(Decimal("0.00")),
+            output_field=DecimalField(max_digits=10, decimal_places=2),
+        ),
+        total_customer_saving=Coalesce(
+            Sum(
+                "customer_saving",
+                filter=Q(record_type=SurplusAnalyticsRecord.RecordType.SAVED),
+            ),
+            Value(Decimal("0.00")),
+            output_field=DecimalField(max_digits=10, decimal_places=2),
+        ),
+        total_surplus_revenue=Coalesce(
+            Sum(
+                "revenue",
+                filter=Q(record_type=SurplusAnalyticsRecord.RecordType.SAVED),
+            ),
+            Value(Decimal("0.00")),
+            output_field=DecimalField(max_digits=10, decimal_places=2),
+        ),
+    )
+
+    weekly_records = (
+        records.annotate(week=TruncWeek("created_at"))
+        .values("week")
+        .annotate(
+            saved_kg=Coalesce(
+                Sum(
+                    "estimated_weight_kg",
+                    filter=Q(record_type=SurplusAnalyticsRecord.RecordType.SAVED),
+                ),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(max_digits=10, decimal_places=2),
+            ),
+            unsold_kg=Coalesce(
+                Sum(
+                    "estimated_weight_kg",
+                    filter=Q(record_type=SurplusAnalyticsRecord.RecordType.UNSOLD),
+                ),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(max_digits=10, decimal_places=2),
+            ),
+        )
+        .order_by("week")
+    )
+
+    chart_labels = []
+    saved_kg_data = []
+    unsold_kg_data = []
+    for record in weekly_records:
+        week_value = record["week"]
+        chart_labels.append(week_value.strftime("%b %d, %Y") if week_value else "Unknown")
+        saved_kg_data.append(float(record["saved_kg"]))
+        unsold_kg_data.append(float(record["unsold_kg"]))
+
+    product_breakdown = (
+        records.values("product__name")
+        .annotate(
+            saved_items=Coalesce(
+                Sum(
+                    "quantity",
+                    filter=Q(record_type=SurplusAnalyticsRecord.RecordType.SAVED),
+                ),
+                Value(0),
+            ),
+            saved_kg=Coalesce(
+                Sum(
+                    "estimated_weight_kg",
+                    filter=Q(record_type=SurplusAnalyticsRecord.RecordType.SAVED),
+                ),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(max_digits=10, decimal_places=2),
+            ),
+            unsold_kg=Coalesce(
+                Sum(
+                    "estimated_weight_kg",
+                    filter=Q(record_type=SurplusAnalyticsRecord.RecordType.UNSOLD),
+                ),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(max_digits=10, decimal_places=2),
+            ),
+            customer_saving=Coalesce(
+                Sum(
+                    "customer_saving",
+                    filter=Q(record_type=SurplusAnalyticsRecord.RecordType.SAVED),
+                ),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(max_digits=10, decimal_places=2),
+            ),
+            revenue=Coalesce(
+                Sum(
+                    "revenue",
+                    filter=Q(record_type=SurplusAnalyticsRecord.RecordType.SAVED),
+                ),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(max_digits=10, decimal_places=2),
+            ),
+        )
+        .order_by("product__name")
+    )
+
+    recent_records = records.order_by("-created_at", "-id")[:20]
+    has_analytics_records = records.exists()
+    has_chart_data = bool(chart_labels)
+    needs_weight_setup = (
+        has_analytics_records
+        and (totals["total_saved_items"] or totals["total_unsold_items"])
+        and totals["total_saved_kg"] == Decimal("0.00")
+        and totals["total_unsold_kg"] == Decimal("0.00")
+    )
+
+    return render(
+        request,
+        "marketplace/producer_surplus_impact.html",
+        {
+            **totals,
+            "chart_labels": json.dumps(chart_labels),
+            "saved_kg_data": json.dumps(saved_kg_data),
+            "unsold_kg_data": json.dumps(unsold_kg_data),
+            "recent_records": recent_records,
+            "product_breakdown": product_breakdown,
+            "has_analytics_records": has_analytics_records,
+            "has_chart_data": has_chart_data,
+            "needs_weight_setup": needs_weight_setup,
+        },
+    )
+
+
+@login_required
 def download_payments_csv(request):
     if not _require_producer(request):
         return _producer_access_denied_response(request)
 
     producer = request.user
     today = timezone.localdate()
-    week_start, week_end = _last_completed_week_range(today)
+    week_start, week_end = _producer_settlement_week_range(producer, today)
 
     orders = (
         ProducerOrder.objects
@@ -957,9 +1393,9 @@ def download_payments_csv(request):
 
     writer = csv.writer(response)
     writer.writerow([
-        "Settlement Reference", "Order Number", "Customer",
-        "Delivery Date", "Items Sold", "Gross Amount",
-        "Commission (5%)", "Net Payment", "Status",
+        "Settlement Reference", "Settlement Week Start", "Settlement Week End",
+        "Producer", "Order Number", "Customer", "Delivery Date", "Items Sold",
+        "Gross Amount", "Commission (5%)", "Net Payment", "Status",
     ])
 
     settlement_reference = _build_settlement_ref(producer.id, week_start, week_end)
@@ -969,7 +1405,8 @@ def download_payments_csv(request):
         gross = (order.total_value or Decimal("0.00")).quantize(TWO_PLACES)
         commission, net = _compute_financials(gross)
         writer.writerow([
-            settlement_reference, order.order.id,
+            settlement_reference, week_start, week_end,
+            producer.username, order.order.id,
             _anonymise_customer(order.order.customer),
             order.delivery_date, items_sold, gross, commission, net,
             order.get_status_display(),

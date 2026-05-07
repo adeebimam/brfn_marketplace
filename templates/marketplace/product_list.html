@@ -6,48 +6,51 @@
   .tag-select-tags {
     display: flex;
     align-items: center;
-    height: 42px;
-    padding: 4px 10px;
-    border: 1px solid #d1d5db;
-    border-radius: 12px;
-    background: white;
+    min-height: 50px;
+    padding: 6px 12px;
+    border: 1px solid #D1D5DB;
+    border-radius: 16px;
+    background: #FFFFFF;
     cursor: pointer;
   }
   .tag-item {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    background: #e8f7f5;
-    border: 1px solid #1faa9f;
-    color: #087d73;
+    background: #F0FDF4;
+    border: 1px solid rgba(22, 163, 74, 0.26);
+    color: #166534;
     border-radius: 20px;
-    padding: 2px 8px;
+    padding: 3px 10px;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
     white-space: nowrap;
     flex-shrink: 0;
   }
-  .tag-item button { background: none; border: none; color: #087d73; cursor: pointer; font-size: 12px; padding: 0; line-height: 1; }
+  .tag-item button { background: none; border: none; color: #166534; cursor: pointer; font-size: 12px; padding: 0; line-height: 1; }
   .tag-item button:hover { color: #dc2626; }
   .tag-select-input { border: none !important; outline: none !important; box-shadow: none !important; padding: 0 !important; width: 100% !important; background: transparent; font-size: 14px; cursor: pointer; height: auto !important; }
-  .tag-select-dropdown { display: none; position: absolute; top: 100%; left: 0; width: 100%; background: white; border: 1px solid #d1d5db; border-radius: 0 0 12px 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 100; max-height: 220px; overflow-y: auto; }
+  .tag-select-dropdown { display: none; position: absolute; top: calc(100% + 6px); left: 0; width: 100%; background: #FFFFFF; border: 1px solid #D1D5DB; border-radius: 16px; box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12); z-index: 100; max-height: 220px; overflow-y: auto; }
   .tag-select-dropdown.open { display: block; }
   .tag-select-option { padding: 10px 14px; font-size: 14px; cursor: pointer; font-weight: 500; }
-  .tag-select-option:hover { background: #f3f4f6; }
-  .tag-select-option.selected { background: #e8f7f5; color: #087d73; font-weight: 600; }
+  .tag-select-option:hover { background: #F0FDF4; }
+  .tag-select-option.selected { background: #F0FDF4; color: #166534; font-weight: 700; }
   .tag-select-option.selected::after { content: " ✓"; }
   .search-wrapper { position: relative; }
-  .search-suggestions { display: none; position: absolute; top: 100%; left: 0; width: 100%; background: white; border: 1px solid #d1d5db; border-radius: 0 0 12px 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 100; max-height: 200px; overflow-y: auto; }
+  .search-suggestions { display: none; position: absolute; top: calc(100% + 6px); left: 0; width: 100%; background: #FFFFFF; border: 1px solid #D1D5DB; border-radius: 16px; box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12); z-index: 100; max-height: 200px; overflow-y: auto; }
   .search-suggestion-item { padding: 10px 14px; font-size: 14px; cursor: pointer; font-weight: 500; }
-  .search-suggestion-item:hover { background: #f3f4f6; color: #1faa9f; }
-  .organic-badge { display: inline-block; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 20px; padding: 2px 10px; font-size: 0.78rem; font-weight: 600; margin-left: 0.4rem; }
-  .selected-allergen-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; min-height: 0; }
-  .miles-slider-wrapper { display: flex; flex-direction: column; gap: 4px; width: 180px; }
-  .miles-slider-top { display: flex; justify-content: center; font-size: 13px; font-weight: 600; color: #087d73; }
-  .miles-slider-top span { background: #e8f7f5; border: 1px solid #1faa9f; border-radius: 20px; padding: 1px 10px; }
-  input[type="range"]#miles_slider { -webkit-appearance: none; appearance: none; width: 180px; height: 6px; border-radius: 4px; background: #d1d5db; outline: none; cursor: pointer; }
-  input[type="range"]#miles_slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #1faa9f; cursor: pointer; border: 2px solid white; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
-  .miles-slider-labels { display: flex; justify-content: space-between; font-size: 11px; color: #6b7280; padding: 0 2px; width: 180px; }
+  .search-suggestion-item:hover { background: #F0FDF4; color: #166534; }
+  .organic-badge { display: inline-flex; align-items: center; gap: 6px; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 20px; padding: 2px 10px; font-size: 0.78rem; font-weight: 600; margin-left: 0.4rem; }
+  .selected-allergen-tags { display: none; flex-wrap: wrap; gap: 8px; margin-top: 12px; min-height: 0; }
+  .selected-allergen-tags.has-tags { display: flex; }
+  .miles-slider-wrapper { display: flex; flex-direction: column; gap: 8px; width: 100%; min-width: 180px; }
+  .miles-slider-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; font-weight: 600; color: #0F172A; }
+  .miles-slider-top span { background: #FFFFFF; border: 1px solid #D1D5DB; border-radius: 999px; padding: 4px 10px; min-width: 58px; text-align: center; }
+  .miles-slider-track { display: grid; gap: 8px; }
+  input[type="range"]#miles_slider { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; border-radius: 999px; background: linear-gradient(90deg, #86efac 0%, #16A34A 100%); outline: none; cursor: pointer; }
+  input[type="range"]#miles_slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #FFFFFF; cursor: pointer; border: 3px solid #16A34A; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18); }
+  input[type="range"]#miles_slider::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #FFFFFF; cursor: pointer; border: 3px solid #16A34A; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18); }
+  .miles-slider-labels { display: flex; justify-content: space-between; font-size: 11px; color: #64748B; padding: 0 2px; width: 100%; }
 </style>
 
 <div class="card stack product-list-page">
@@ -118,37 +121,40 @@
       </div>
 
       {% if user.is_authenticated %}
-      <div class="filter-group" style="min-width:180px; max-width:200px;">
-        <label>📍 Max Food Miles</label>
+      <div class="filter-group filter-group--miles">
+        <label for="miles_slider"><i class="fa-solid fa-route"></i> Max Food Miles</label>
         <div class="miles-slider-wrapper">
           <div class="miles-slider-top">
-            <span id="milesDisplay">{% if max_miles == 20.0 %}All{% else %}{{ max_miles }} mi{% endif %}</span>
+            <span id="milesDisplay">{% if max_miles == 20.0 %}All{% else %}{{ max_miles }}{% endif %}</span>
           </div>
-          <input type="range" id="miles_slider" min="0" max="3" step="1" value="{% if max_miles == 5.0 %}1{% elif max_miles == 15.0 %}2{% elif max_miles == 20.0 %}3{% else %}0{% endif %}">
-          <div class="miles-slider-labels"><span>0</span><span>5 mi</span><span>15 mi</span><span>20 mi</span></div>
+          <div class="miles-slider-track">
+            <input type="range" id="miles_slider" min="0" max="3" step="1" value="{% if max_miles == 5.0 %}1{% elif max_miles == 15.0 %}2{% elif max_miles == 20.0 %}3{% else %}0{% endif %}">
+            <div class="miles-slider-labels"><span>0</span><span>5</span><span>15</span><span>20</span></div>
+          </div>
         </div>
       </div>
       {% endif %}
 
-      <div class="selected-allergen-tags" id="selectedAllergenTags" style="width:100%; margin-bottom:8px;"></div>
-
-      <button class="non-primary-btn btn" type="submit">Apply</button>
-      <a href="{% url 'marketplace:product_list' %}" class="non-primary-btn btn">Clear Filters</a>
+      <div class="product-filter-actions">
+        <button class="non-primary-btn btn" type="submit">Apply</button>
+        <a href="{% url 'marketplace:product_list' %}" class="non-primary-btn btn">Clear Filters</a>
+      </div>
     </form>
-  </div>
 
-  <br>
+    <div class="selected-allergen-tags" id="selectedAllergenTags"></div>
+  </div>
 
   <ul class="list product-results">
     {% for p in products %}
       <li class="product-card">
-        <div style="display:flex; gap:1.5rem; align-items:flex-start;">
-
+        <article class="product-card-shell">
           {% if p.image %}
-            <img src="{{ p.image.url }}" alt="{{ p.name }} image" style="max-width:110px; max-height:110px; border-radius:8px; border:1px solid #eee; object-fit:cover;">
+            <div class="product-card-media">
+              <img src="{{ p.image.url }}" alt="{{ p.name }} image">
+            </div>
           {% endif %}
 
-          <div style="flex:1;">
+          <div class="product-card-body">
             <div style="display:flex; align-items:center; flex-wrap:wrap; gap:4px; margin-bottom:4px;">
               <a class="product-link" href="{% url 'marketplace:product_detail' p.pk %}">
                 <strong>{{ p.name }}</strong>
@@ -159,17 +165,17 @@
               {% endif %}
 
               {% if p.is_organic %}
-                <span class="organic-badge">🌱 Certified Organic</span>
+                <span class="organic-badge"><i class="fa-solid fa-seedling"></i> Certified Organic</span>
               {% endif %}
 
               {% if p.food_miles is not None %}
-                <span style="display:inline-flex; align-items:center; gap:4px; background:#f0fdf4; border:1px solid #86efac; color:#166534; border-radius:20px; padding:2px 10px; font-size:0.78rem; font-weight:600; margin-left:0.4rem;">
-                  📍 {{ p.food_miles }} mi
+                <span class="metric-badge" title="Food miles">
+                  <i class="fa-solid fa-route"></i> {{ p.food_miles }}
                 </span>
               {% endif %}
 
               {% if not p.is_year_round and p.in_season_now %}
-                <span style="display:inline-block; margin-left:0.4rem; font-size:0.8rem; color:#15803d; background:#dcfce7; padding:2px 8px; border-radius:4px; font-weight:600;">🌿 In Season</span>
+                <span class="organic-badge"><i class="fa-solid fa-leaf"></i> In Season</span>
               {% endif %}
             </div>
 
@@ -177,11 +183,29 @@
               <span class="item-info">{{ p.category.name }}</span>
             {% endif %}
 
-            <div class="muted" style="margin-top:8px;">
-              Sold by: <strong>{{ p.producer.username }}</strong>
+            <div class="muted" style="margin-top:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <span>Sold by: <strong>{{ p.producer.username }}</strong></span>
+              {% if can_toggle_favourite_producers %}
+                <form method="post" action="{% url 'marketplace:toggle_favourite_producer' p.producer.id %}" style="margin:0;">
+                  {% csrf_token %}
+                  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                  <button
+                    type="submit"
+                    title="{% if p.is_favourite_producer %}Remove from favourite producer deals{% else %}Add to favourite producer deals{% endif %}"
+                    aria-label="{% if p.is_favourite_producer %}Remove from favourite producer deals{% else %}Add to favourite producer deals{% endif %}"
+                    class="favourite-heart-btn{% if p.is_favourite_producer %} is-active{% endif %}"
+                  >
+                    {% if p.is_favourite_producer %}
+                      <i class="fa-solid fa-heart"></i>
+                    {% else %}
+                      <i class="fa-regular fa-heart"></i>
+                    {% endif %}
+                  </button>
+                </form>
+              {% endif %}
             </div>
 
-            <div class="muted">{{ p.description|truncatechars:80 }}</div>
+            <div class="muted product-card-description">{{ p.description|truncatechars:110 }}</div>
 
             <div style="margin-top:12px;">
               {% if p.is_active_surplus_deal %}
@@ -244,7 +268,7 @@
               {% endif %}
             </div>
           </div>
-        </div>
+        </article>
       </li>
     {% empty %}
       <li>No products found.</li>
@@ -261,7 +285,7 @@
     milesSlider.addEventListener('input', () => {
       const val = milesSnap[parseInt(milesSlider.value)];
       maxMilesInput.value = val === 0 ? 20 : val;
-      milesDisplay.textContent = val === 0 ? 'All' : val + ' mi';
+      milesDisplay.textContent = val === 0 ? 'All' : val;
     });
   }
   const searchInput = document.getElementById('q');
@@ -293,6 +317,10 @@
   const tagDropdown = document.getElementById('tagDropdown');
   const hiddenInputs = document.getElementById('hiddenInputs');
   const selectedAllergenTags = document.getElementById('selectedAllergenTags');
+  function syncSelectedTagsState() {
+    if (!selectedAllergenTags) return;
+    selectedAllergenTags.classList.toggle('has-tags', selectedAllergenTags.children.length > 0);
+  }
   tagInput.addEventListener('click', () => { tagDropdown.style.display = tagDropdown.style.display === 'none' ? 'block' : 'none'; });
   document.addEventListener('click', (e) => { if (!tagSelect.contains(e.target)) tagDropdown.style.display = 'none'; });
   document.querySelectorAll('.tag-select-option[data-selected="true"]').forEach(opt => { if (!opt.classList.contains('season-option')) { addTag(opt.dataset.id, opt.dataset.name); opt.classList.add('selected'); } });
@@ -308,11 +336,13 @@
     tag.innerHTML = `${name} <button type="button" onclick="removeTag('${id}')">✕</button>`;
     selectedAllergenTags.appendChild(tag);
     if (!document.getElementById(`hidden_${id}`)) { const input = document.createElement('input'); input.type = 'checkbox'; input.name = 'allergens_exclude'; input.value = id; input.checked = true; input.style.display = 'none'; input.id = `hidden_${id}`; hiddenInputs.appendChild(input); }
+    syncSelectedTagsState();
   }
   function removeTag(id) {
     const tag = selectedAllergenTags.querySelector(`[data-id="${id}"][data-type="allergen"]`); if (tag) tag.remove();
     const input = document.getElementById(`hidden_${id}`); if (input) input.remove();
     const option = tagDropdown.querySelector(`[data-id="${id}"]`); if (option) option.classList.remove('selected');
+    syncSelectedTagsState();
   }
 
   const seasonTagSelect = document.getElementById('seasonTagSelect');
@@ -331,16 +361,19 @@
   function addSeasonTag(id, name) {
     if (selectedAllergenTags.querySelector(`[data-id="${id}"][data-type="season"]`)) return;
     const tag = document.createElement('span'); tag.className = 'tag-item'; tag.dataset.id = id; tag.dataset.type = 'season';
-    tag.style.background = '#e0f2fe'; tag.style.borderColor = '#38bdf8'; tag.style.color = '#0369a1';
+    tag.style.background = '#F0FDF4'; tag.style.borderColor = 'rgba(22, 163, 74, 0.26)'; tag.style.color = '#166534';
     tag.innerHTML = `${name} <button type="button" onclick="removeSeasonTag('${id}')">✕</button>`;
     selectedAllergenTags.appendChild(tag);
     if (!document.getElementById(`season_hidden_${id}`)) { const input = document.createElement('input'); input.type = 'checkbox'; input.name = 'season'; input.value = id; input.checked = true; input.style.display = 'none'; input.id = `season_hidden_${id}`; seasonHiddenInputs.appendChild(input); }
+    syncSelectedTagsState();
   }
   function removeSeasonTag(id) {
     const tag = selectedAllergenTags.querySelector(`[data-id="${id}"][data-type="season"]`); if (tag) tag.remove();
     const input = document.getElementById(`season_hidden_${id}`); if (input) input.remove();
     const option = seasonTagDropdown.querySelector(`[data-id="${id}"]`); if (option) option.classList.remove('selected');
+    syncSelectedTagsState();
   }
+  syncSelectedTagsState();
 </script>
 
 {% endblock %}

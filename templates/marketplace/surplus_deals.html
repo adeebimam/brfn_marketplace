@@ -7,10 +7,34 @@
     <p class="muted">Limited-time savings from local producers to help reduce food waste.</p>
   </div>
 
+  {% if can_filter_favourite_offers %}
+    <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px;">
+      <a
+        href="{% url 'marketplace:surplus_deals' %}"
+        class="btn {% if not showing_favourites_only %}btn-primary{% endif %}"
+      >
+        All Offers
+      </a>
+      <a
+        href="{% url 'marketplace:surplus_deals' %}?favourites=1"
+        class="btn {% if showing_favourites_only %}btn-primary{% endif %}"
+      >
+        Favourite Producer Deals
+      </a>
+    </div>
+  {% endif %}
+
   <ul class="list product-results">
     {% for p in products %}
       <li class="product-card">
-        <div>
+        <article class="product-card-shell">
+          {% if p.image %}
+            <div class="product-card-media">
+              <img src="{{ p.image.url }}" alt="{{ p.name }} image">
+            </div>
+          {% endif %}
+
+          <div class="product-card-body">
           <a class="product-link" href="{% url 'marketplace:product_detail' p.pk %}">
             <strong>{{ p.name }}</strong>
           </a>
@@ -21,24 +45,40 @@
 
           <br>
 
-          {% if p.category %}
-            <span class="item-info">{{ p.category.name }}</span>
-          {% endif %}
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            {% if p.category %}
+              <span class="item-info">{{ p.category.name }}</span>
+            {% endif %}
 
-          {% if p.category and p.season %}
-            <span class="dot-separator">&bull;</span>
-          {% endif %}
-
-          {% if p.season %}
-            <span class="item-info">{{ p.season_label }}</span>
-          {% endif %}
-
-          <div class="muted" style="margin-top: 20px;">
-            Sold by: <strong>{{ p.producer.username }}</strong>
+            {% if p.season_label %}
+              <span class="item-info">{{ p.season_label }}</span>
+            {% endif %}
           </div>
 
-          <div class="muted">
-            {{ p.description|truncatechars:80 }}
+          <div class="muted" style="margin-top: 20px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span>Sold by: <strong>{{ p.producer.username }}</strong></span>
+            {% if can_filter_favourite_offers %}
+              <form method="post" action="{% url 'marketplace:toggle_favourite_producer' p.producer.id %}" style="margin:0;">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button
+                  type="submit"
+                  title="{% if p.is_favourite_producer %}Remove from favourite producer deals{% else %}Add to favourite producer deals{% endif %}"
+                  aria-label="{% if p.is_favourite_producer %}Remove from favourite producer deals{% else %}Add to favourite producer deals{% endif %}"
+                  class="favourite-heart-btn{% if p.is_favourite_producer %} is-active{% endif %}"
+                >
+                  {% if p.is_favourite_producer %}
+                    <i class="fa-solid fa-heart"></i>
+                  {% else %}
+                    <i class="fa-regular fa-heart"></i>
+                  {% endif %}
+                </button>
+              </form>
+            {% endif %}
+          </div>
+
+          <div class="muted product-card-description">
+            {{ p.description|truncatechars:110 }}
           </div>
 
           <div style="margin-top: 12px;">
@@ -65,6 +105,28 @@
             </div>
           </div>
 
+          <div style="margin-top:15px;">
+            {% if p.stock_quantity > 0 %}
+              {% if user.is_authenticated %}
+                {% if user.profile.role == "CUSTOMER" or user.profile.role == "COMMUNITY_GROUP" or user.profile.role == "RESTAURANT" %}
+                  <form method="post" action="{% url 'cart:add' p.pk %}" class="add-to-cart" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:16px;">
+                    {% csrf_token %}
+                    <label for="offer-qty-{{ p.id }}" class="muted" style="margin:0;">Quantity</label>
+                    <input type="number" id="offer-qty-{{ p.id }}" name="qty" value="1" min="1" max="{{ p.stock_quantity }}" class="qty-input" style="width:70px;">
+                    <button type="submit" class="btn">Add to Cart</button>
+                    <span class="muted">{{ p.stock_quantity }} in stock</span>
+                  </form>
+                {% else %}
+                  <div class="muted" style="margin-top:10px;">Customer checkout preview is hidden for producer accounts.</div>
+                {% endif %}
+              {% else %}
+                <a class="btn" href="{% url 'accounts:login' %}?next={{ request.path }}">Login to add to cart</a>
+              {% endif %}
+            {% else %}
+              <div class="muted" style="margin-top:10px; color:#b91c1c; font-weight:600;">Out of stock</div>
+            {% endif %}
+          </div>
+
           {% if p.allergens.exists or p.other_allergen_info %}
             <div class="allergen-warning allergen-warning--compact">
               <i class="fa-solid fa-triangle-exclamation"></i>
@@ -82,10 +144,17 @@
               <i class="fa-solid fa-circle-check"></i> No common allergens declared
             </div>
           {% endif %}
-        </div>
+          </div>
+        </article>
       </li>
     {% empty %}
-      <li>No offers available right now.</li>
+      <li>
+        {% if showing_favourites_only %}
+          No favourite producer deals are available right now.
+        {% else %}
+          No offers available right now.
+        {% endif %}
+      </li>
     {% endfor %}
   </ul>
 </div>

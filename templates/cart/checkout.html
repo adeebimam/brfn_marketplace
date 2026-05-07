@@ -70,12 +70,12 @@
             border-radius: 10px;
             font-size: 14px;
           ">
-            <span style="font-size: 18px;">📍</span>
+            <span style="font-size: 16px; color:#16A34A;"><i class="fa-solid fa-route"></i></span>
             <span>
               Estimated food miles:
               <strong id="food-miles-value">
                 {% if total_food_miles is not None %}
-                  {{ total_food_miles }} miles
+                  {{ total_food_miles }}
                 {% else %}
                   —
                 {% endif %}
@@ -158,7 +158,7 @@
             <input
               type="radio"
               name="payment_method"
-              value="paypal"
+              value="paypal_sandbox"
               style="margin-top:6px;"
             >
 
@@ -245,10 +245,10 @@
 
           <!-- Food miles in summary sidebar -->
           <div id="food-miles-summary-row">
-            <span>📍 Food miles</span>
+            <span><i class="fa-solid fa-route" style="color:#16A34A;"></i> Food miles</span>
             <strong id="food-miles-summary-value">
               {% if total_food_miles is not None %}
-                {{ total_food_miles }} miles
+                {{ total_food_miles }}
               {% else %}
                 —
               {% endif %}
@@ -318,7 +318,7 @@ document.addEventListener("DOMContentLoaded", function () {
         foodMilesValue.style.display = "inline";
 
         if (data.food_miles !== null && data.food_miles !== undefined) {
-          const display = data.food_miles + " miles";
+          const display = data.food_miles;
           foodMilesValue.textContent = display;
           if (foodMilesSummaryValue) foodMilesSummaryValue.textContent = display;
         } else {

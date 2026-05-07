@@ -63,6 +63,7 @@ class ProductForm(forms.ModelForm):
             "price",
             "unit",
             "stock_quantity",
+            "estimated_unit_weight_kg",
             "low_stock_threshold",
             "season",
             "available_from_month",
@@ -94,6 +95,7 @@ class ProductForm(forms.ModelForm):
             "unit": forms.Select(choices=Product.UNIT_CHOICES),
             "image": NoClearableFileInput(),
             "low_stock_threshold": forms.NumberInput(attrs={"min": 0}),
+            "estimated_unit_weight_kg": forms.NumberInput(attrs={"min": 0, "step": "0.01"}),
         }
 
     def clean(self):
@@ -186,7 +188,7 @@ class CheckoutForm(forms.Form):
 
     PAYMENT_CHOICES = [
         ("stripe", "Stripe Test"),
-        ("paypal", "PayPal Sandbox"),
+        ("paypal_sandbox", "PayPal Sandbox"),
     ]
 
     payment_method = forms.ChoiceField(choices=PAYMENT_CHOICES)

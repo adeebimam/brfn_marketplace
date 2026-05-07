@@ -216,3 +216,8 @@ LOGGING = {
 # Media files (uploads)
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+
+# Payment configuration
+PAYPAL_SANDBOX_CLIENT_ID = os.getenv("PAYPAL_SANDBOX_CLIENT_ID", "sb")
+PAYPAL_SANDBOX_CLIENT_SECRET = os.getenv("PAYPAL_SANDBOX_CLIENT_SECRET", "")

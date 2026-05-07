@@ -5,13 +5,20 @@
   <h1>Financial Report</h1>
 
   <form method="get" class="admin-filter-form">
-    <label>From:</label>
-    <input type="date" name="start_date" value="{{ start_date }}">
+    <div>
+      <label for="admin-report-start">From</label>
+      <input id="admin-report-start" type="date" name="start_date" value="{{ start_date }}">
+    </div>
 
-    <label>To:</label>
-    <input type="date" name="end_date" value="{{ end_date }}">
+    <div>
+      <label for="admin-report-end">To</label>
+      <input id="admin-report-end" type="date" name="end_date" value="{{ end_date }}">
+    </div>
 
-    <button class="btn-uniform btn-admin">Filter</button>
+    <div>
+      <label>&nbsp;</label>
+      <button class="btn btn-primary btn-uniform" type="submit">Filter</button>
+    </div>
   </form>
 
   <div class="admin-grid">

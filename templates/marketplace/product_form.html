@@ -15,6 +15,7 @@
     {{ form.price.label_tag }} {{ form.price }}<br><br>
     {{ form.unit.label_tag }} {{ form.unit }}<br><br>
     {{ form.stock_quantity.label_tag }} {{ form.stock_quantity }}<br><br>
+    {{ form.estimated_unit_weight_kg.label_tag }} {{ form.estimated_unit_weight_kg }}<br><br>
     {{ form.harvest_date.label_tag }} {{ form.harvest_date }}<br><br>
     {{ form.not_available.label_tag }} {{ form.not_available }}<br><br>
 
@@ -106,8 +107,10 @@
       </p>
     </fieldset>
 
-    <button class="save-btn btn" type="submit">Save</button>
-    <button class="back-btn btn" type="button" onclick="window.history.back();">Back</button>
+    <div style="display:flex; gap:12px; align-items:center; margin-top:1rem;">
+      <button class="btn btn-primary" type="submit">Save</button>
+      <button class="back-btn btn" type="button" onclick="window.history.back();">Back</button>
+    </div>
   </form>
 
   <script>

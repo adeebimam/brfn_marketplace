@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card stack">
+  <h1>Surplus Alerts</h1>
+
+  <p class="muted">
+    These are surplus deal notifications from your favourite producers.
+  </p>
+
+  {% for notification in notifications %}
+    <div style="border:1px solid #e5e7eb; border-radius:12px; padding:16px; margin-bottom:12px; background:#fff;">
+      <p style="margin:0 0 8px;">
+        <strong>{{ notification.message }}</strong>
+      </p>
+
+      <p class="muted" style="margin:0 0 8px;">
+        Producer: {{ notification.producer.username }}
+      </p>
+
+      <p class="muted" style="margin:0 0 12px;">
+        Created: {{ notification.created_at }}
+      </p>
+
+      <a class="btn" href="{% url 'marketplace:product_detail' notification.product.id %}">
+        View Deal
+      </a>
+    </div>
+  {% empty %}
+    <p>No surplus alerts yet.</p>
+    <p class="muted">
+      Favourite a producer from a product page. When they create a surplus offer, it will appear here.
+    </p>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -10,11 +10,16 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 </head>
 
-<body>
+<body class="marketplace-body">
 
 <header class="nav">
   <div class="nav-inner">
-    <a class="brand" href="{% url 'home' %}">BRFN Marketplace</a>
+    <a class="brand" href="{% url 'home' %}">
+      <span class="brand-mark"><i class="fa-solid fa-leaf"></i></span>
+      <span class="brand-copy">
+        <strong>BRFN Marketplace</strong>
+      </span>
+    </a>
 
     <nav class="nav-links">
       <a href="{% url 'marketplace:product_list' %}" {% if request.resolver_match.url_name == 'product_list' %}class="active"{% endif %}>
@@ -46,9 +51,17 @@
             Payments
           </a>
 
+          <a href="{% url 'marketplace:producer_surplus_impact' %}" {% if request.resolver_match.url_name == 'producer_surplus_impact' %}class="active"{% endif %}>
+            Surplus Impact
+          </a>
+
         {% elif user.profile.role == "CUSTOMER" or user.profile.role == "COMMUNITY_GROUP" or user.profile.role == "RESTAURANT" %}
           <a href="{% url 'marketplace:order_history' %}" {% if request.resolver_match.url_name == 'order_history' or request.resolver_match.url_name == 'order_detail' %}class="active"{% endif %}>
             My Orders
+          </a>
+
+          <a href="{% url 'marketplace:surplus_deals' %}?favourites=1" class="nav-icon-link" aria-label="Favourite producer deals" title="Favourite producer deals">
+            <i class="fa-solid fa-heart"></i>
           </a>
 
           <a href="{% url 'cart:detail' %}">
@@ -76,6 +89,7 @@
               <a href="{% url 'marketplace:producer_product_list' %}">My Products</a>
               <a href="{% url 'marketplace:producer_order_list' %}">Orders</a>
               <a href="{% url 'marketplace:producer_payments' %}">Payments</a>
+              <a href="{% url 'marketplace:producer_surplus_impact' %}">Surplus Impact</a>
 
             {% elif user.profile.role == "PRODUCER" and not user.profile.is_verified %}
               <a href="#" style="color: red;">Account under review</a>
@@ -101,27 +115,47 @@
   </div>
 </header>
 
-<main class="container">
+<main class="container app-shell">
   {% if user.is_authenticated %}
     <div class="user-info">
       {% if request.user.profile.role == "PRODUCER" %}
-        Welcome back, {{ request.user.profile.business_name|title }}!
-        <span style="color: #087d73;">({{ request.user.profile.display_role }})</span>
+        {% if request.user.profile.business_name %}
+          Welcome back, {{ request.user.profile.business_name|title }}
+        {% elif request.user.first_name %}
+          Welcome back, {{ request.user.first_name|title }}
+        {% else %}
+          Welcome back
+        {% endif %}
 
       {% elif request.user.profile.role == "RESTAURANT" %}
-        Welcome back, {{ request.user.profile.business_name|title }}!
-        <span style="color: #087d73;">({{ request.user.profile.display_role }})</span>
+        {% if request.user.profile.business_name %}
+          Welcome back, {{ request.user.profile.business_name|title }}
+        {% elif request.user.first_name %}
+          Welcome back, {{ request.user.first_name|title }}
+        {% else %}
+          Welcome back
+        {% endif %}
 
       {% elif request.user.profile.role == "COMMUNITY_GROUP" %}
-        Welcome back, {{ request.user.profile.business_name|title }}!
-        <span style="color: #087d73;">({{ request.user.profile.display_role }})</span>
+        {% if request.user.profile.business_name %}
+          Welcome back, {{ request.user.profile.business_name|title }}
+        {% elif request.user.first_name %}
+          Welcome back, {{ request.user.first_name|title }}
+        {% else %}
+          Welcome back
+        {% endif %}
 
       {% elif request.user.profile.role == "ADMIN" %}
         <div class="admin-center">Admin Portal</div>
 
       {% else %}
-        Welcome back, {{ request.user.profile.contact_first_name|title }} {{ request.user.profile.contact_last_name|title }}!
-        <span style="color: #087d73;">({{ request.user.profile.display_role }})</span>
+        {% if request.user.profile.contact_first_name %}
+          Welcome back, {{ request.user.profile.contact_first_name|title }}
+        {% elif request.user.first_name %}
+          Welcome back, {{ request.user.first_name|title }}
+        {% else %}
+          Welcome back
+        {% endif %}
       {% endif %}
     </div>
 
@@ -130,9 +164,12 @@
 
   {% if user.is_authenticated %}
     {% if request.user.profile.role == "CUSTOMER" or request.user.profile.role == "COMMUNITY_GROUP" or request.user.profile.role == "RESTAURANT" %}
-      {% if active_surplus_deal_count > 0 %}
-        {% if request.resolver_match.url_name == "product_list" or request.resolver_match.url_name == "product_detail" %}
-          <div id="surplus-popup" class="surplus-popup">
+      {% if request.resolver_match.namespace == "cart" and request.resolver_match.url_name == "detail" or request.resolver_match.namespace == "marketplace" and request.resolver_match.url_name == "product_list" or request.resolver_match.namespace == "marketplace" and request.resolver_match.url_name == "product_detail" %}
+      {% if latest_favourite_surplus_notification or active_surplus_deal_count > 0 %}
+          <div
+            id="surplus-popup"
+            class="surplus-popup"
+          >
             <button
               class="surplus-popup-close"
               type="button"
@@ -142,11 +179,9 @@
               ×
             </button>
 
-            <a href="{% url 'marketplace:surplus_deals' %}" class="surplus-popup-link">
-              <strong>
-                Hurry up and save on {{ active_surplus_deal_count }} limited deal{{ active_surplus_deal_count|pluralize }}
-              </strong>
-              <span>Enjoy our yellow-tag offers before the prices go back up.</span>
+            <a href="#" class="surplus-popup-link" id="surplusPopupLink">
+              <strong id="surplusPopupTitle"></strong>
+              <span id="surplusPopupMessage"></span>
             </a>
           </div>
 
@@ -168,6 +203,13 @@
               transform: translateY(18px);
               transition: opacity 0.35s ease, transform 0.35s ease;
               overflow: hidden;
+            }
+
+            .surplus-popup--favourite {
+              background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+              border-color: #16A34A;
+              color: #0F172A;
+              box-shadow: 0 18px 40px rgba(22, 163, 74, 0.18);
             }
 
             .surplus-popup.show {
@@ -197,6 +239,11 @@
               text-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
             }
 
+            .surplus-popup--favourite .surplus-popup-link strong::before {
+              color: #16A34A;
+              text-shadow: 0 0 10px rgba(22, 163, 74, 0.35);
+            }
+
             .surplus-popup-link span {
               display: block;
               margin-top: 8px;
@@ -216,6 +263,10 @@
               cursor: pointer;
             }
 
+            .surplus-popup--favourite .surplus-popup-close {
+              color: #0F172A;
+            }
+
             @keyframes surplusPopupFloat {
               0%, 100% {
                 transform: translateY(0);
@@ -226,7 +277,7 @@
               }
             }
           </style>
-        {% endif %}
+      {% endif %}
       {% endif %}
     {% endif %}
   {% endif %}
@@ -284,29 +335,81 @@
   });
 
   const surplusPopup = document.getElementById("surplus-popup");
+  const surplusPopupLink = document.getElementById("surplusPopupLink");
+  const surplusPopupTitle = document.getElementById("surplusPopupTitle");
+  const surplusPopupMessage = document.getElementById("surplusPopupMessage");
 
+  const popupItems = [
+    {% if latest_favourite_surplus_notification %}
+      {
+        type: "favourite",
+        storageKey: "favouriteSurplusPopupClosed-{{ latest_favourite_surplus_notification.id }}",
+        href: "{% url 'marketplace:surplus_deals' %}?favourites=1",
+        title: "Favourite producer deal from {{ latest_favourite_surplus_notification.producer.username|escapejs }}",
+        message: "{% if unread_favourite_surplus_notification_count > 1 %}{{ latest_favourite_surplus_notification.product.name|escapejs }} is now available at a discounted price. Plus {{ unread_favourite_surplus_notification_count|add:'-1' }} more favourite producer update{{ unread_favourite_surplus_notification_count|add:'-1'|pluralize }}.{% else %}{{ latest_favourite_surplus_notification.product.name|escapejs }} is now available at a discounted price.{% endif %}",
+      },
+    {% endif %}
+    {% if active_surplus_deal_count > 0 %}
+      {
+        type: "general",
+        storageKey: "surplusPopupClosed",
+        href: "{% url 'marketplace:surplus_deals' %}",
+        title: "Hurry up and save on {{ active_surplus_deal_count }} limited deal{{ active_surplus_deal_count|pluralize }}",
+        message: "Enjoy our yellow-tag offers before the prices go back up.",
+      },
+    {% endif %}
+  ];
+
+  let popupIndex = -1;
   let surplusPopupShowTimer;
   let surplusPopupHideTimer;
   let surplusPopupLoopTimer;
 
-  function showSurplusPopup() {
-    if (!surplusPopup) return;
-
-    surplusPopup.classList.add("show");
-
-    surplusPopupHideTimer = setTimeout(function () {
-      hideSurplusPopup();
-    }, 18000);
+  function getActivePopupItems() {
+    return popupItems.filter((item) => sessionStorage.getItem(item.storageKey) !== "true");
   }
 
-  function hideSurplusPopup() {
+  function renderPopupItem(item) {
+    if (!surplusPopup || !surplusPopupLink || !surplusPopupTitle || !surplusPopupMessage) return;
+    surplusPopup.classList.remove("surplus-popup--favourite");
+    if (item.type === "favourite") {
+      surplusPopup.classList.add("surplus-popup--favourite");
+    }
+    surplusPopup.dataset.storageKey = item.storageKey;
+    surplusPopupLink.href = item.href;
+    surplusPopupTitle.textContent = item.title;
+    surplusPopupMessage.textContent = item.message;
+  }
+
+  function hideSurplusPopup(scheduleNext = true) {
     if (!surplusPopup) return;
-
     surplusPopup.classList.remove("show");
-
+    surplusPopup.style.display = "none";
+    if (!scheduleNext) return;
+    clearTimeout(surplusPopupLoopTimer);
     surplusPopupLoopTimer = setTimeout(function () {
-      showSurplusPopup();
-    }, 120000);
+      showNextPopup();
+    }, 50000);
+  }
+
+  function showNextPopup() {
+    const activeItems = getActivePopupItems();
+    if (!surplusPopup || activeItems.length === 0) {
+      if (surplusPopup) {
+        surplusPopup.style.display = "none";
+      }
+      return;
+    }
+
+    popupIndex = (popupIndex + 1) % activeItems.length;
+    renderPopupItem(activeItems[popupIndex]);
+    surplusPopup.style.display = "block";
+    surplusPopup.classList.add("show");
+
+    clearTimeout(surplusPopupHideTimer);
+    surplusPopupHideTimer = setTimeout(function () {
+      hideSurplusPopup(true);
+    }, 50000);
   }
 
   function closeSurplusPopup() {
@@ -316,16 +419,17 @@
     clearTimeout(surplusPopupHideTimer);
     clearTimeout(surplusPopupLoopTimer);
 
-    surplusPopup.classList.remove("show");
-    surplusPopup.style.display = "none";
+    if (surplusPopup.dataset.storageKey) {
+      sessionStorage.setItem(surplusPopup.dataset.storageKey, "true");
+    }
 
-    sessionStorage.setItem("surplusPopupClosed", "true");
+    hideSurplusPopup(true);
   }
 
-  if (surplusPopup && sessionStorage.getItem("surplusPopupClosed") !== "true") {
+  if (surplusPopup && getActivePopupItems().length > 0) {
     surplusPopupShowTimer = setTimeout(function () {
-      showSurplusPopup();
-    }, 8000);
+      showNextPopup();
+    }, 3000);
   }
 </script>
 

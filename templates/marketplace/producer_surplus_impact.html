@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <section class="page-hero card" style="margin-bottom: 1.5rem;">
+    <div>
+      <p class="page-eyebrow">Surplus intelligence</p>
+      <h1>Surplus Impact Analytics</h1>
+      <p class="muted page-intro">
+        Track how much surplus produce was saved from waste, what expired unsold, and the value created through surplus deals.
+      </p>
+    </div>
+    <div class="page-hero-chip">
+      <span class="status-pill status-pill--soft">Producer insight</span>
+      <strong>{{ total_saved_kg|floatformat:2 }} kg saved</strong>
+    </div>
+  </section>
+
+  {% if not has_analytics_records %}
+    <section class="card" style="margin-bottom:1.5rem;">
+      <h2 style="margin:0 0 8px;">No surplus impact data yet</h2>
+      <p class="muted" style="margin:0;">
+        This dashboard fills after a surplus deal is sold or expires unsold. To see kilogram impact as well, enter an estimated unit weight when creating or editing products.
+      </p>
+    </section>
+  {% elif needs_weight_setup %}
+    <section class="card" style="margin-bottom:1.5rem;">
+      <h2 style="margin:0 0 8px;">Weight setup needed</h2>
+      <p class="muted" style="margin:0;">
+        Surplus events exist, but kilogram totals are still zero because the products involved do not have an estimated unit weight set yet.
+      </p>
+    </section>
+  {% endif %}
+
+  <div class="stats-grid" style="margin-bottom:1.5rem;">
+    <div class="card stat-card">
+      <span class="stat-label">Items saved from waste</span>
+      <strong class="stat-value">{{ total_saved_items }}</strong>
+      <span class="muted">Discounted surplus sold successfully</span>
+    </div>
+    <div class="card stat-card">
+      <span class="stat-label">Food waste prevented</span>
+      <strong class="stat-value">{{ total_saved_kg|floatformat:2 }} kg</strong>
+      <span class="muted">Estimated edible produce preserved</span>
+    </div>
+    <div class="card stat-card">
+      <span class="stat-label">Unsold expired surplus</span>
+      <strong class="stat-value">{{ total_unsold_kg|floatformat:2 }} kg</strong>
+      <span class="muted">{{ total_unsold_items }} item{{ total_unsold_items|pluralize }} expired before sale</span>
+    </div>
+    <div class="card stat-card">
+      <span class="stat-label">Customer savings</span>
+      <strong class="stat-value">£{{ total_customer_saving|floatformat:2 }}</strong>
+      <span class="muted">Value returned to buyers through offers</span>
+    </div>
+    <div class="card stat-card">
+      <span class="stat-label">Surplus revenue generated</span>
+      <strong class="stat-value">£{{ total_surplus_revenue|floatformat:2 }}</strong>
+      <span class="muted">Recovered income from stock that may have gone to waste</span>
+    </div>
+  </div>
+
+  <div class="card stack" style="margin-bottom:1.5rem;">
+    <h2 style="margin-bottom:0.5rem;">Weekly Surplus Impact</h2>
+    <p class="muted" style="margin-top:0;">
+      Track how much surplus produce was saved from waste, what expired unsold, and the value created through surplus deals.
+    </p>
+    <p class="muted" style="margin-top:0;">
+      Weekly comparison of surplus produce saved from waste versus surplus that expired unsold.
+    </p>
+    {% if has_chart_data %}
+      <div style="position:relative; height:340px; width:100%;">
+        <canvas id="surplusImpactChart"></canvas>
+      </div>
+    {% else %}
+      <div class="card" style="background:#F8FAFC; border:1px dashed #D1D5DB; box-shadow:none;">
+        <p class="muted" style="margin:0;">
+          Weekly chart data will appear here after surplus analytics records are created.
+        </p>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="card stack" style="margin-bottom:1.5rem;">
+    <h2>Product Breakdown</h2>
+    <div class="table-shell">
+      <table class="modern-table">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Saved Items</th>
+            <th>Saved Kg</th>
+            <th>Unsold Kg</th>
+            <th>Customer Saving</th>
+            <th>Revenue</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in product_breakdown %}
+            <tr>
+              <td>{{ row.product__name }}</td>
+              <td>{{ row.saved_items }}</td>
+              <td>{{ row.saved_kg|floatformat:2 }}</td>
+              <td>{{ row.unsold_kg|floatformat:2 }}</td>
+              <td>£{{ row.customer_saving|floatformat:2 }}</td>
+              <td>£{{ row.revenue|floatformat:2 }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6">No surplus analytics records yet.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card stack">
+    <h2>Recent Records</h2>
+    <div class="table-shell">
+      <table class="modern-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Product</th>
+            <th>Type</th>
+            <th>Quantity</th>
+            <th>Weight Kg</th>
+            <th>Customer Saving</th>
+            <th>Revenue</th>
+            <th>Order</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for record in recent_records %}
+            <tr>
+              <td>{{ record.created_at|date:"Y-m-d H:i" }}</td>
+              <td>{{ record.product.name }}</td>
+              <td>{{ record.get_record_type_display }}</td>
+              <td>{{ record.quantity }}</td>
+              <td>{{ record.estimated_weight_kg }}</td>
+              <td>£{{ record.customer_saving }}</td>
+              <td>£{{ record.revenue }}</td>
+              <td>{% if record.order %}#{{ record.order.id }}{% else %}-{% endif %}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="8">No surplus analytics records yet.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const chartLabels = {{ chart_labels|safe }};
+    const savedKgData = {{ saved_kg_data|safe }};
+    const unsoldKgData = {{ unsold_kg_data|safe }};
+
+    const surplusImpactChart = document.getElementById("surplusImpactChart");
+    if (surplusImpactChart && chartLabels.length) {
+      new Chart(surplusImpactChart, {
+        type: "bar",
+        data: {
+          labels: chartLabels,
+          datasets: [
+            {
+              label: "Saved from waste (kg)",
+              data: savedKgData,
+              backgroundColor: "rgba(16, 185, 129, 0.75)",
+              borderColor: "rgba(5, 150, 105, 1)",
+              borderWidth: 1,
+            },
+            {
+              label: "Unsold expired surplus (kg)",
+              data: unsoldKgData,
+              backgroundColor: "rgba(245, 158, 11, 0.75)",
+              borderColor: "rgba(217, 119, 6, 1)",
+              borderWidth: 1,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: "Kilograms",
+              },
+            },
+          },
+        },
+      });
+    }
+  </script>
+{% endblock %}

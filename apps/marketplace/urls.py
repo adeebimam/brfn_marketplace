@@ -10,6 +10,11 @@ urlpatterns = [
 
     # Reviews
     path("products/<int:product_id>/reviews/create/", views.create_review, name="create_review"),
+    path(
+        "producer-favourites/<int:producer_id>/toggle/",
+        views.toggle_favourite_producer,
+        name="toggle_favourite_producer",
+    ),
 
     # Producer products
     path("producer/products/", views.producer_product_list, name="producer_product_list"),
@@ -35,6 +40,7 @@ urlpatterns = [
     # Producer payments
     path("producer/payments/", views.producer_payments, name="producer_payments"),
     path("producer/payments/download/", views.download_payments_csv, name="download_payments_csv"),
+    path("producer/surplus-impact/", views.producer_surplus_impact, name="producer_surplus_impact"),
 
     # Customer order history
     path("orders/", views.order_history, name="order_history"),
@@ -48,6 +54,7 @@ urlpatterns = [
 
     # Stock notifications
     path("producer/stock-alerts/", views.stock_notifications, name="stock_notifications"),
+    path("surplus-alerts/", views.surplus_notifications, name="surplus_notifications"),
 
     # Surplus deals
     path("surplus-deals/", views.surplus_deals, name="surplus_deals"),
