@@ -22,7 +22,7 @@
         {% for error in form.account_type.errors %}<span class="error">{{ error }}</span>{% endfor %}
       </fieldset>
 
-      {# ── Business / Organisation name (shown for Community Group & Restaurant/Café) ── #}
+      {# ── Business / Organisation name ── #}
       <div id="business-name-group" style="display:none;">
         <p>
           {{ form.business_name.label_tag }}
@@ -32,7 +32,7 @@
         </p>
       </div>
 
-      {# ── Type of establishment (shown only for Restaurant / Café) ── #}
+      {# ── Type of establishment ── #}
       <div id="business-type-group" style="display:none;">
         <p>
           {{ form.business_type.label_tag }}
@@ -44,13 +44,25 @@
       {# ── Passwords ── #}
       <p>
         {{ form.password1.label_tag }}
-        {{ form.password1 }}
+        <div style="position:relative;">
+          {{ form.password1 }}
+          <button type="button" onclick="togglePassword('id_password1', this)"
+            style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:#6b7280;">
+            <i class="fa-solid fa-eye"></i>
+          </button>
+        </div>
         {% if form.password1.help_text %}<span class="helptext">{{ form.password1.help_text }}</span>{% endif %}
         {% for error in form.password1.errors %}<span class="error">{{ error }}</span>{% endfor %}
       </p>
       <p>
         {{ form.password2.label_tag }}
-        {{ form.password2 }}
+        <div style="position:relative;">
+          {{ form.password2 }}
+          <button type="button" onclick="togglePassword('id_password2', this)"
+            style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:#6b7280;">
+            <i class="fa-solid fa-eye"></i>
+          </button>
+        </div>
         {% if form.password2.help_text %}<span class="helptext">{{ form.password2.help_text }}</span>{% endif %}
         {% for error in form.password2.errors %}<span class="error">{{ error }}</span>{% endfor %}
       </p>
@@ -96,6 +108,20 @@
   </div>
 
   <script>
+    function togglePassword(inputId, btn) {
+      const input = document.getElementById(inputId);
+      const icon = btn.querySelector("i");
+      if (input.type === "password") {
+        input.type = "text";
+        icon.classList.remove("fa-eye");
+        icon.classList.add("fa-eye-slash");
+      } else {
+        input.type = "password";
+        icon.classList.remove("fa-eye-slash");
+        icon.classList.add("fa-eye");
+      }
+    }
+
     // Show / hide fields based on account type selection
     (function () {
       const radios = document.querySelectorAll('input[name="account_type"]');
@@ -106,16 +132,12 @@
       function toggle() {
         const selected = document.querySelector('input[name="account_type"]:checked');
         const val = selected ? selected.value : '';
-
-        // Show business name for Community Group and Restaurant/Café
         businessGroup.style.display = rolesNeedingBusiness.includes(val) ? '' : 'none';
-
-        // Show establishment type only for Restaurant/Café
         businessTypeGroup.style.display = (val === 'RESTAURANT') ? '' : 'none';
       }
 
       radios.forEach(r => r.addEventListener('change', toggle));
-      toggle();  // run on page load (in case of form re-render with errors)
+      toggle();
     })();
   </script>
 {% endblock %}

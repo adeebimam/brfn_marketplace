@@ -1,41 +1,64 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="card">
-  <h1>Order #{{ po.order.id }}</h1>
+<div class="card producer-order-detail">
 
-  <p><strong>Customer:</strong> {{ po.order.customer.username }}</p>
-  <p><strong>Customer email:</strong> {{ po.order.customer.email }}</p>
-  {% if po.order.customer.profile.phone %}
-    <p><strong>Customer phone:</strong> {{ po.order.customer.profile.phone }}</p>
-  {% endif %}
+  <style>
+    .admin-table tr:hover { background: white !important; }
+  </style>
 
-  <p><strong>Order date:</strong> {{ po.order.created_at|date:"F j, Y, P" }}</p>
-  <p><strong>Delivery date:</strong> {{ po.delivery_date|date:"F j, Y" }}</p>
-  <p><strong>Lead time:</strong> {{ po.lead_time_days }} day{{ po.lead_time_days|pluralize }}</p>
-
-  <p><strong>Status:</strong> {{ po.get_status_display }}</p>
-  <p><strong>Total:</strong> £{{ po.total_value }}</p>
-
-  <p style="margin-top: 16px;">
-    <a href="{% url 'marketplace:producer_order_update_status' po.pk %}" class="btn">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+    <h1 style="margin:0;">Order #{{ po.order.id }}</h1>
+    <a href="{% url 'marketplace:producer_order_update_status' po.pk %}" class="btn-uniform btn-admin">
       Update Status
     </a>
-  </p>
+  </div>
 
-  <hr>
+  <!-- Info Grid -->
+  <div class="order-info-grid">
+    <div class="info-card">
+      <h3 style="margin:0 0 12px; font-size:1rem; font-weight:800; color:#374151;">Customer Details</h3>
+      <p><strong>Name:</strong> {{ po.order.customer.username }}</p>
+      <p><strong>Email:</strong> {{ po.order.customer.email }}</p>
+      {% if po.order.customer.profile.phone %}
+        <p><strong>Phone:</strong> {{ po.order.customer.profile.phone }}</p>
+      {% endif %}
+    </div>
 
-  <h2>Delivery Address</h2>
-  <p>
-    {{ po.order.delivery_address }}<br>
-    {{ po.order.delivery_postcode }}
-  </p>
+    <div class="info-card">
+      <h3 style="margin:0 0 12px; font-size:1rem; font-weight:800; color:#374151;">Order Details</h3>
+      <p><strong>Order Date:</strong> {{ po.order.created_at|date:"F j, Y, P" }}</p>
+      <p><strong>Delivery Date:</strong> {{ po.delivery_date|date:"F j, Y" }}</p>
+      <p><strong>Lead Time:</strong> {{ po.lead_time_days }} day{{ po.lead_time_days|pluralize }}</p>
+      <p><strong>Total:</strong> £{{ po.total_value }}</p>
+      <p><strong>Status:</strong>
+        <span class="status-{{ po.status|lower }}">{{ po.get_status_display }}</span>
+      </p>
+      <p><strong>Order Type:</strong>
+        <span style="
+          padding:2px 10px;
+          border-radius:20px;
+          font-size:0.8rem;
+          font-weight:700;
+        ">{{ po.get_order_type_display }}</span>
+      </p>
+    </div>
 
-  <h2 style="margin-top: 16px;">Special Instructions</h2>
-  <p>{{ po.order.special_instructions|default:"None" }}</p>
+    <div class="info-card">
+      <h3 style="margin:0 0 12px; font-size:1rem; font-weight:800; color:#374151;">Delivery Address</h3>
+      <p>{{ po.order.delivery_address }}</p>
+      <p>{{ po.order.delivery_postcode }}</p>
+    </div>
 
-  <h2 style="margin-top: 16px;">Items</h2>
-  <table class="table" style="width:100%; margin-top: 8px;">
+    <div class="info-card">
+      <h3 style="margin:0 0 12px; font-size:1rem; font-weight:800; color:#374151;">Special Instructions</h3>
+      <p>{{ po.order.special_instructions|default:"None" }}</p>
+    </div>
+  </div>
+
+  <!-- Items -->
+  <h2 style="font-size:1.2rem; font-weight:800; margin:24px 0 12px; padding-bottom:8px; border-bottom:2px solid #e5e7eb;">Items</h2>
+  <table class="admin-table">
     <thead>
       <tr>
         <th>Product</th>
@@ -54,14 +77,15 @@
         </tr>
       {% empty %}
         <tr>
-          <td colspan="4">No items.</td>
+          <td colspan="4" style="text-align:center; color:#6b7280;">No items.</td>
         </tr>
       {% endfor %}
     </tbody>
   </table>
 
-  <h2 style="margin-top: 16px;">Status History</h2>
-  <table class="table" style="width:100%; margin-top: 8px;">
+  <!-- Status History -->
+  <h2 style="font-size:1.2rem; font-weight:800; margin:24px 0 12px; padding-bottom:8px; border-bottom:2px solid #e5e7eb;">Status History</h2>
+  <table class="admin-table">
     <thead>
       <tr>
         <th>Date / Time</th>
@@ -76,21 +100,20 @@
         <tr>
           <td>{{ entry.changed_at|date:"F j, Y, P" }}</td>
           <td>{{ entry.old_status }}</td>
-          <td>{{ entry.new_status }}</td>
+          <td><span class="status-{{ entry.new_status|lower }}">{{ entry.new_status }}</span></td>
           <td>{{ entry.changed_by.username }}</td>
           <td>{{ entry.note|default:"-" }}</td>
         </tr>
       {% empty %}
         <tr>
-          <td colspan="5">No status changes yet.</td>
+          <td colspan="5" style="text-align:center; color:#6b7280;">No status changes yet.</td>
         </tr>
       {% endfor %}
     </tbody>
   </table>
 
-  <p style="margin-top: 16px;">
-    <a href="{% url 'marketplace:producer_order_list' %}">← Back to Order Management</a>
-  </p>
+  <a href="{% url 'marketplace:producer_order_list' %}" class="admin-back-link">← Back to Order Management</a>
+
 </div>
 
 {% endblock %}

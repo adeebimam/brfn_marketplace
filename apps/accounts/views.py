@@ -4,6 +4,8 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import User
 from django.shortcuts import redirect, render
 from django.http import HttpResponseForbidden, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -15,7 +17,12 @@ from datetime import timedelta, date
 from django.utils import timezone
 from apps.message.models import MessageThread, Message
 from apps.marketplace.models import CommissionLog
-
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib import colors
+from reportlab.lib.units import cm
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+import io
 
 
 
@@ -841,13 +848,7 @@ def export_financial_report_csv(request):
 @login_required
 @user_passes_test(is_admin)
 def export_financial_report_pdf(request):
-    from reportlab.lib.pagesizes import A4, landscape
-    from reportlab.lib import colors
-    from reportlab.lib.units import cm
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
-    import io
-
+    
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
 
@@ -966,3 +967,97 @@ def export_financial_report_pdf(request):
     response = HttpResponse(buffer, content_type="application/pdf")
     response["Content-Disposition"] = 'attachment; filename="financial_report.pdf"'
     return response
+
+
+@login_required
+def user_settings(request):
+    profile = request.user.profile
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+
+        if action == "change_password":
+            current_password = request.POST.get("current_password")
+            new_password1 = request.POST.get("new_password1")
+            new_password2 = request.POST.get("new_password2")
+
+            if not request.user.check_password(current_password):
+                messages.error(request, "Current password is incorrect.")
+            elif new_password1 != new_password2:
+                messages.error(request, "New passwords do not match.")
+            elif len(new_password1) < 8:
+                messages.error(request, "Password must be at least 8 characters.")
+            else:
+                request.user.set_password(new_password1)
+                request.user.save()
+                from django.contrib.auth import update_session_auth_hash
+                update_session_auth_hash(request, request.user)
+                messages.success(request, "Password changed successfully.")
+
+        elif action == "change_address":
+            delivery_address = request.POST.get("delivery_address", "").strip()
+            delivery_postcode = request.POST.get("delivery_postcode", "").strip()
+            if not delivery_address:
+                messages.error(request, "Delivery address cannot be empty.")
+            else:
+                profile.delivery_address = delivery_address
+                profile.delivery_postcode = delivery_postcode
+                profile.save()
+                messages.success(request, "Delivery address updated successfully.")
+
+        elif action == "font_size":
+            font_size = request.POST.get("font_size", "medium")
+            if font_size not in ["small", "medium", "large"]:
+                font_size = "medium"
+            request.session["font_size"] = font_size
+            messages.success(request, f"Font size set to {font_size}.")
+
+        return redirect("accounts:settings")
+
+    font_size = request.session.get("font_size", "medium")
+
+    return render(request, "accounts/settings.html", {
+        "profile": profile,
+        "font_size": font_size,
+    })
+
+def forgot_password(request):
+    if request.method == "POST":
+        email = request.POST.get("email", "").strip()
+        user = User.objects.filter(email=email).first()
+        if user:
+            request.session["password_reset_user_id"] = user.id
+            return redirect("accounts:reset_password")
+        else:
+            messages.error(request, "No account found with that email address.")
+    return render(request, "accounts/forgot_password.html")
+
+
+def reset_password(request):
+    user_id = request.session.get("password_reset_user_id")
+    if not user_id:
+        messages.error(request, "Invalid or expired reset session.")
+        return redirect("accounts:forgot_password")
+
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        messages.error(request, "User not found.")
+        return redirect("accounts:forgot_password")
+
+    if request.method == "POST":
+        new_password1 = request.POST.get("new_password1", "")
+        new_password2 = request.POST.get("new_password2", "")
+
+        if new_password1 != new_password2:
+            messages.error(request, "Passwords do not match.")
+        elif len(new_password1) < 8:
+            messages.error(request, "Password must be at least 8 characters.")
+        else:
+            user.set_password(new_password1)
+            user.save()
+            del request.session["password_reset_user_id"]
+            messages.success(request, "Password reset successfully. Please log in.")
+            return redirect("accounts:login")
+
+    return render(request, "accounts/reset_password.html", {"user": user})

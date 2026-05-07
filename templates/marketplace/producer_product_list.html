@@ -6,7 +6,7 @@
       <h1>My Products</h1>
       <div style="display: flex; gap: 0.5rem; align-items: center;">
         <a href="{% url 'marketplace:stock_notifications' %}" class="btn" style="position:relative;">
-          <i class="fa-solid fa-bell" style="margin-right:0.5rem;"></i>Stock Alerts
+          Stock Alerts
           {% if active_alerts_count %}
             <span style="position:absolute; top:-6px; right:-6px; background:#dc2626; color:white; border-radius:50%; width:18px; height:18px; font-size:11px; display:flex; align-items:center; justify-content:center; font-weight:700;">
               {{ active_alerts_count }}

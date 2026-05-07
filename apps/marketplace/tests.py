@@ -28,8 +28,18 @@ from django.utils import timezone
 
 from apps.accounts.models import Profile
 from apps.marketplace.forms import ProductForm
-from apps.marketplace.models import Category, Product, MONTH_NAMES
 
+from apps.marketplace.models import (
+    Category,
+    Order,
+    OrderItem,
+    Product,
+    ProducerOrder,
+    RefundRequest,
+    MONTH_NAMES,
+)
+from datetime import timedelta
+from django.utils import timezone
 
 # ─── helpers ────────────────────────────────────────────────────────
 def _create_user(username, email, password, role, **extra_profile):
@@ -504,3 +514,293 @@ class TC19SurplusDealTests(TestCase):
         self.assertEqual(product.surplus_stock_quantity, 0)
         self.assertIsNone(product.surplus_expires_at)
         self.assertEqual(product.surplus_note, "")
+
+class RefundRequestTests(TestCase):
+    def setUp(self):
+        self.password = "Str0ng!Pass99"
+
+        self.admin = User.objects.create_user(
+            username="refund_admin", email="refund_admin@example.com", password=self.password
+        )
+        Profile.objects.create(user=self.admin, role=Profile.Role.ADMIN)
+
+        self.customer = User.objects.create_user(
+            username="refund_customer", email="refund_customer@example.com", password=self.password
+        )
+        Profile.objects.create(user=self.customer, role=Profile.Role.CUSTOMER)
+
+        self.producer = User.objects.create_user(
+            username="refund_producer", email="refund_producer@example.com", password=self.password
+        )
+        Profile.objects.create(
+            user=self.producer, role=Profile.Role.PRODUCER,
+            business_name="Refund Farm", is_verified=True,
+        )
+
+        category = Category.objects.create(name="RefundCat")
+        self.product = Product.objects.create(
+            producer=self.producer,
+            category=category,
+            name="Refund Product",
+            price=Decimal("10.00"),
+            stock_quantity=100,
+            season="ALL",
+        )
+
+        self.order = Order.objects.create(
+            customer=self.customer,
+            delivery_address="1 Test St",
+            delivery_postcode="BS1 1AA",
+            status=Order.Status.PENDING,
+            total_amount=Decimal("100.00"),
+        )
+        self.producer_order = ProducerOrder.objects.create(
+            order=self.order,
+            producer=self.producer,
+            delivery_date=(timezone.now().date() + timedelta(days=3)).isoformat(),
+            status=ProducerOrder.Status.PENDING,
+            total_value=Decimal("100.00"),
+        )
+
+    # ── access ─────────────────────────────────────────────
+    def test_customer_can_access_refund_request_form(self):
+        self.client.force_login(self.customer)
+        resp = self.client.get(f"/orders/BRFN-{self.order.id}/refund/")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_anonymous_cannot_access_refund_form(self):
+        resp = self.client.get(f"/orders/BRFN-{self.order.id}/refund/")
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("/accounts/login", resp.url)
+
+    # ── customer submits refund ─────────────────────────────
+    def test_customer_can_submit_refund_request(self):
+        self.client.force_login(self.customer)
+        self.client.post(
+            f"/orders/BRFN-{self.order.id}/refund/",
+            {"reason": "Item was damaged"},
+            follow=True,
+        )
+        self.assertTrue(RefundRequest.objects.filter(order=self.order).exists())
+
+    def test_refund_request_has_correct_amount(self):
+        self.client.force_login(self.customer)
+        self.client.post(
+            f"/orders/BRFN-{self.order.id}/refund/",
+            {"reason": "Item was damaged"},
+        )
+        refund = RefundRequest.objects.get(order=self.order)
+        self.assertEqual(refund.refund_amount, self.order.total_amount)
+
+    def test_refund_request_status_is_pending(self):
+        self.client.force_login(self.customer)
+        self.client.post(
+            f"/orders/BRFN-{self.order.id}/refund/",
+            {"reason": "Item was damaged"},
+        )
+        refund = RefundRequest.objects.get(order=self.order)
+        self.assertEqual(refund.status, RefundRequest.Status.PENDING)
+
+    def test_cannot_submit_refund_without_reason(self):
+        self.client.force_login(self.customer)
+        self.client.post(
+            f"/orders/BRFN-{self.order.id}/refund/",
+            {"reason": ""},
+        )
+        self.assertFalse(RefundRequest.objects.filter(order=self.order).exists())
+
+    def test_cannot_submit_duplicate_refund(self):
+        RefundRequest.objects.create(
+            order=self.order,
+            customer=self.customer,
+            reason="First request",
+            refund_amount=self.order.total_amount,
+            status=RefundRequest.Status.PENDING,
+        )
+        self.client.force_login(self.customer)
+        self.client.post(
+            f"/orders/BRFN-{self.order.id}/refund/",
+            {"reason": "Second request"},
+            follow=True,
+        )
+        self.assertEqual(RefundRequest.objects.filter(order=self.order).count(), 1)
+
+    # ── eligibility ────────────────────────────────────────
+    def test_cannot_refund_cancelled_order(self):
+        self.order.status = Order.Status.CANCELLED
+        self.order.save()
+        self.client.force_login(self.customer)
+        self.client.post(
+            f"/orders/BRFN-{self.order.id}/refund/",
+            {"reason": "Want refund"},
+            follow=True,
+        )
+        self.assertFalse(RefundRequest.objects.filter(order=self.order).exists())
+
+    def test_cannot_refund_delivered_order_after_7_days(self):
+        self.order.status = Order.Status.DELIVERED
+        self.order.created_at = timezone.now() - timedelta(days=8)
+        self.order.save()
+        self.client.force_login(self.customer)
+        self.client.post(
+            f"/orders/BRFN-{self.order.id}/refund/",
+            {"reason": "Late refund"},
+        )
+        self.assertFalse(RefundRequest.objects.filter(order=self.order).exists())
+
+    def test_can_refund_delivered_order_within_7_days(self):
+        self.order.status = Order.Status.DELIVERED
+        self.order.save()
+        self.client.force_login(self.customer)
+        self.client.post(
+            f"/orders/BRFN-{self.order.id}/refund/",
+            {"reason": "Item was damaged"},
+        )
+        self.assertTrue(RefundRequest.objects.filter(order=self.order).exists())
+
+    # ── producer response ──────────────────────────────────
+    def test_producer_can_respond_to_refund(self):
+        refund = RefundRequest.objects.create(
+            order=self.order,
+            customer=self.customer,
+            reason="Item was damaged",
+            refund_amount=self.order.total_amount,
+            status=RefundRequest.Status.PENDING,
+        )
+        self.client.force_login(self.producer)
+        self.client.post(
+            f"/refunds/{refund.id}/respond/",
+            {"producer_note": "Item was in good condition when dispatched"},
+            follow=True,
+        )
+        refund.refresh_from_db()
+        self.assertEqual(refund.status, RefundRequest.Status.PRODUCER_RESPONDED)
+        self.assertEqual(refund.producer_note, "Item was in good condition when dispatched")
+
+    def test_non_involved_producer_cannot_respond(self):
+        other_producer = User.objects.create_user(
+            username="other_producer", password=self.password
+        )
+        Profile.objects.create(
+            user=other_producer, role=Profile.Role.PRODUCER,
+            business_name="Other Farm", is_verified=True,
+        )
+        refund = RefundRequest.objects.create(
+            order=self.order,
+            customer=self.customer,
+            reason="Item damaged",
+            refund_amount=self.order.total_amount,
+            status=RefundRequest.Status.PENDING,
+        )
+        self.client.force_login(other_producer)
+        resp = self.client.post(
+            f"/refunds/{refund.id}/respond/",
+            {"producer_note": "Not my order"},
+        )
+        self.assertEqual(resp.status_code, 403)
+
+    # ── admin decision ─────────────────────────────────────
+    def test_admin_can_approve_refund(self):
+        refund = RefundRequest.objects.create(
+            order=self.order,
+            customer=self.customer,
+            reason="Item damaged",
+            refund_amount=self.order.total_amount,
+            status=RefundRequest.Status.PENDING,
+        )
+        self.client.force_login(self.admin)
+        self.client.post(
+            f"/refunds/{refund.id}/decision/",
+            {"decision": "approve", "admin_note": "Valid claim"},
+        )
+        refund.refresh_from_db()
+        self.assertEqual(refund.status, RefundRequest.Status.APPROVED)
+
+    def test_admin_approve_cancels_order(self):
+        refund = RefundRequest.objects.create(
+            order=self.order,
+            customer=self.customer,
+            reason="Item damaged",
+            refund_amount=self.order.total_amount,
+            status=RefundRequest.Status.PENDING,
+        )
+        self.client.force_login(self.admin)
+        self.client.post(
+            f"/refunds/{refund.id}/decision/",
+            {"decision": "approve", "admin_note": "Valid claim"},
+        )
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, Order.Status.CANCELLED)
+
+    def test_admin_approve_cancels_producer_orders(self):
+        refund = RefundRequest.objects.create(
+            order=self.order,
+            customer=self.customer,
+            reason="Item damaged",
+            refund_amount=self.order.total_amount,
+            status=RefundRequest.Status.PENDING,
+        )
+        self.client.force_login(self.admin)
+        self.client.post(
+            f"/refunds/{refund.id}/decision/",
+            {"decision": "approve", "admin_note": "Valid claim"},
+        )
+        self.producer_order.refresh_from_db()
+        self.assertEqual(self.producer_order.status, ProducerOrder.Status.CANCELLED)
+
+    def test_admin_can_reject_refund(self):
+        refund = RefundRequest.objects.create(
+            order=self.order,
+            customer=self.customer,
+            reason="Changed mind",
+            refund_amount=self.order.total_amount,
+            status=RefundRequest.Status.PENDING,
+        )
+        self.client.force_login(self.admin)
+        self.client.post(
+            f"/refunds/{refund.id}/decision/",
+            {"decision": "reject", "admin_note": "Not eligible"},
+        )
+        refund.refresh_from_db()
+        self.assertEqual(refund.status, RefundRequest.Status.REJECTED)
+
+    def test_admin_reject_does_not_cancel_order(self):
+        refund = RefundRequest.objects.create(
+            order=self.order,
+            customer=self.customer,
+            reason="Changed mind",
+            refund_amount=self.order.total_amount,
+            status=RefundRequest.Status.PENDING,
+        )
+        self.client.force_login(self.admin)
+        self.client.post(
+            f"/refunds/{refund.id}/decision/",
+            {"decision": "reject", "admin_note": "Not eligible"},
+        )
+        self.order.refresh_from_db()
+        self.assertNotEqual(self.order.status, Order.Status.CANCELLED)
+
+    def test_non_admin_cannot_access_refund_decision(self):
+        refund = RefundRequest.objects.create(
+            order=self.order,
+            customer=self.customer,
+            reason="Item damaged",
+            refund_amount=self.order.total_amount,
+            status=RefundRequest.Status.PENDING,
+        )
+        self.client.force_login(self.customer)
+        resp = self.client.post(
+            f"/refunds/{refund.id}/decision/",
+            {"decision": "approve", "admin_note": ""},
+        )
+        self.assertIn(resp.status_code, [403, 302])
+
+    def test_admin_refund_list_accessible(self):
+        self.client.force_login(self.admin)
+        resp = self.client.get("/refunds/")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_non_admin_cannot_access_refund_list(self):
+        self.client.force_login(self.customer)
+        resp = self.client.get("/refunds/")
+        self.assertEqual(resp.status_code, 403)

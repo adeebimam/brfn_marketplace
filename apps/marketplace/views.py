@@ -1,19 +1,26 @@
 import csv
+import io
 import random
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required
 from django.db.models import Q
-from django.http import HttpResponse, HttpResponseForbidden, Http404, JsonResponse
+from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from apps.cart.models import Cart, CartItem
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import cm
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
 from apps.accounts.models import Profile
+from apps.cart.models import Cart, CartItem
 
 from .forms import (
     CheckoutForm,
@@ -25,11 +32,12 @@ from .forms import (
 from .models import (
     Allergen,
     Category,
+    CommissionLog,
     CustomerOrderHistory,
+    MONTH_NAMES,
     Order,
     OrderItem,
     Product,
-    MONTH_NAMES,
     ProducerOrder,
     ProducerOrderStatusHistory,
     PurchaseReview,
@@ -42,64 +50,57 @@ from .models import (
     Review,
     StockNotification,
 )
+from .services import expire_surplus_deals, update_producer_order_status
 
-from .services import update_producer_order_status
+
+COMMISSION_RATE = Decimal("0.05")
+TWO_PLACES = Decimal("0.01")
 
 
-TWO_PLACES = Decimal('0.01')
+# -----------------------------
+# Helper functions
+# -----------------------------
 
-def expire_surplus_deals():
-    now = timezone.now()
+def _compute_financials(gross):
+    gross = Decimal(gross).quantize(TWO_PLACES)
+    commission = (gross * COMMISSION_RATE).quantize(TWO_PLACES)
+    net = (gross - commission).quantize(TWO_PLACES)
+    return commission, net
 
-    Product.objects.filter(
-        is_surplus=True,
-        surplus_expires_at__isnull=False,
-        surplus_expires_at__lte=now,
-    ).update(
-        is_surplus=False,
-        surplus_stock_quantity=0,
+
+def _build_settlement_ref(producer_id, week_start, week_end):
+    return (
+        f"SET-{producer_id}-"
+        f"{week_start.strftime('%Y%m%d')}-"
+        f"{week_end.strftime('%Y%m%d')}"
     )
 
 
 def _last_completed_week_range(today):
-    # Assuming weeks start on Monday
     current_week_start = today - timedelta(days=today.weekday())
-    last_week_start = current_week_start - timedelta(days=7)
-    last_week_end = current_week_start - timedelta(days=1)
-    return last_week_start, last_week_end
+    week_end = current_week_start - timedelta(days=1)
+    week_start = week_end - timedelta(days=6)
+    return week_start, week_end
 
 
 def _uk_tax_year_start(today):
-    year = today.year
-    if today.month < 4 or (today.month == 4 and today.day < 6):
-        year -= 1
-    return date(year, 4, 6)
-
-
-def _compute_financials(gross_total):
-    commission_rate = Decimal('0.10')
-    commission = (gross_total * commission_rate).quantize(TWO_PLACES)
-    net_payment = (gross_total - commission).quantize(TWO_PLACES)
-    return commission, net_payment
-
-
-def _build_settlement_ref(producer_id, week_start, week_end):
-    return f"P{producer_id}-{week_start.strftime('%Y%m%d')}-{week_end.strftime('%Y%m%d')}"
+    tax_year_start = date(today.year, 4, 6)
+    if today < tax_year_start:
+        tax_year_start = date(today.year - 1, 4, 6)
+    return tax_year_start
 
 
 def _anonymise_customer(customer):
-    return {
-        'name': f"Customer {customer.id}",
-        'email': f"customer{customer.id}@anon.com",
-    }
     if not customer:
         return "Unknown customer"
+
     full_name = customer.get_full_name().strip()
     if full_name:
         parts = full_name.split()
         if len(parts) == 1:
             return parts[0]
         return f"{parts[0]} {parts[-1][0]}."
+
     return customer.username
 
 
@@ -111,13 +112,12 @@ def _get_customer_order_history(user):
         data = record.order_data.copy()
 
         try:
-            order_pk = str(record.order_number).replace("BRFN-", "")
+            order_pk = str(record.order_number).replace("BRFN-", "").replace("ORD-", "")
             live_order = Order.objects.get(pk=order_pk)
             data["status"] = live_order.get_status_display()
         except (Order.DoesNotExist, ValueError):
             data["status"] = data.get("status", "Pending").title()
 
-        # Ensure product_id exists for reorder functionality
         for producer, items in data.get("producers", {}).items():
             for item in items:
                 if "product_id" not in item:
@@ -135,6 +135,7 @@ def _get_customer_order_history(user):
 def _parse_date(value):
     if not value:
         return None
+
     try:
         return datetime.strptime(value, "%Y-%m-%d").date()
     except ValueError:
@@ -159,17 +160,42 @@ def _get_product_unit_price(product):
 def _attach_producer_order_context(producer_orders):
     for producer_order in producer_orders:
         order_date = timezone.localtime(producer_order.order.created_at).date()
+
         if producer_order.delivery_date:
             producer_order.lead_time_days = max(
-                (producer_order.delivery_date - order_date).days, 0,
+                (producer_order.delivery_date - order_date).days,
+                0,
             )
         else:
             producer_order.lead_time_days = 0
+
         producer_order.item_summary = ", ".join(
             f"{item.product.name} x{item.quantity}"
             for item in producer_order.items.all()
         )
+
     return producer_orders
+
+
+def _get_product_suggestions(product, limit=4):
+    suggestions = Product.objects.filter(
+        is_active=True,
+        stock_quantity__gt=0,
+    ).exclude(id=product.id)
+
+    if product.category:
+        category_suggestions = suggestions.filter(category=product.category)[:limit]
+        if category_suggestions.exists():
+            return category_suggestions
+
+    return suggestions[:limit]
+
+
+def _normalize_order_number(order_id):
+    order_str = str(order_id)
+    if order_str.startswith("ORD-"):
+        return order_str
+    return f"ORD-{order_str}"
 
 
 # -----------------------------
@@ -179,23 +205,29 @@ def _attach_producer_order_context(producer_orders):
 def _require_producer(request, verified_only=True):
     if not request.user.is_authenticated:
         return False
+
     profile, _ = Profile.objects.get_or_create(user=request.user)
+
     if profile.role != Profile.Role.PRODUCER:
         return False
+
     if verified_only and not profile.is_verified:
         return False
+
     return True
 
 
 def _producer_access_denied_response(request):
     if request.user.is_authenticated:
         profile, _ = Profile.objects.get_or_create(user=request.user)
+
         if profile.role == Profile.Role.PRODUCER and not profile.is_verified:
             messages.warning(
                 request,
-                "Your producer account is under review. Producer features will be available once an admin approves your account."
+                "Your producer account is under review. Producer features will be available once an admin approves your account.",
             )
             return redirect("home")
+
     return HttpResponseForbidden("Producer access only.")
 
 
@@ -241,20 +273,21 @@ def product_list(request):
 
     if query:
         from thefuzz import fuzz
+
         exact_matches = products.filter(
-            Q(name__icontains=query) |
-            Q(description__icontains=query) |
-            Q(allergens__name__icontains=query) |
-            Q(other_allergen_info__icontains=query) |
-            Q(producer__username__icontains=query)
+            Q(name__icontains=query)
+            | Q(description__icontains=query)
+            | Q(allergens__name__icontains=query)
+            | Q(other_allergen_info__icontains=query)
+            | Q(producer__username__icontains=query)
         ).distinct()
 
         if not exact_matches:
             all_products = list(products)
             fuzzy_matches = [
-                p for p in all_products
-                if fuzz.partial_ratio(query.lower(), p.name.lower()) >= 70
-                or fuzz.partial_ratio(query.lower(), p.description.lower()) >= 70
+                product for product in all_products
+                if fuzz.partial_ratio(query.lower(), product.name.lower()) >= 70
+                or fuzz.partial_ratio(query.lower(), product.description.lower()) >= 70
             ]
             products = fuzzy_matches
         else:
@@ -262,14 +295,18 @@ def product_list(request):
 
     today = date.today()
     current_month = today.month
-    products = [p for p in products if p.is_in_season(today)]
+    products = [product for product in products if product.is_in_season(today)]
 
-    for p in products:
-        p.in_season_now = p.is_in_season(today)
-        p.real_allergens = [a for a in p.allergens.all() if a.name != "No common allergens"]
+    for product in products:
+        product.in_season_now = product.is_in_season(today)
+        product.real_allergens = [
+            allergen for allergen in product.allergens.all()
+            if allergen.name != "No common allergens"
+        ]
 
     if request.user.is_authenticated:
         from .foodmiles import _get_lat_lng, _haversine_miles
+
         try:
             customer_profile = Profile.objects.get(user=request.user)
             customer_postcode = customer_profile.delivery_postcode or customer_profile.postcode
@@ -279,25 +316,34 @@ def product_list(request):
 
         producer_coords_cache = {}
 
-        for p in products:
-            p.food_miles = None
+        for product in products:
+            product.food_miles = None
+
             if customer_coords:
                 try:
-                    producer_profile = Profile.objects.get(user=p.producer)
+                    producer_profile = Profile.objects.get(user=product.producer)
                     producer_postcode = producer_profile.postcode
+
                     if producer_postcode:
                         if producer_postcode not in producer_coords_cache:
                             producer_coords_cache[producer_postcode] = _get_lat_lng(producer_postcode)
+
                         coords = producer_coords_cache[producer_postcode]
+
                         if coords:
-                            p.food_miles = _haversine_miles(*customer_coords, *coords)
+                            product.food_miles = _haversine_miles(*customer_coords, *coords)
+
                 except Profile.DoesNotExist:
                     pass
 
-        products = [p for p in products if p.food_miles is None or p.food_miles <= max_miles]
+        products = [
+            product for product in products
+            if product.food_miles is None or product.food_miles <= max_miles
+        ]
+
     else:
-        for p in products:
-            p.food_miles = None
+        for product in products:
+            product.food_miles = None
 
     context = {
         "products": products,
@@ -316,8 +362,9 @@ def product_list(request):
             and request.user.profile.role in {"COMMUNITY_GROUP", "RESTAURANT"}
         ) if request.user.is_authenticated else False,
     }
+
     return render(request, "marketplace/product_list.html", context)
-    
+
 
 # ----------------------------
 # PRODUCT SEARCH SUGGESTIONS
@@ -325,20 +372,24 @@ def product_list(request):
 
 def product_search_suggestions(request):
     query = request.GET.get("q", "").strip()
+
     if len(query) < 2:
         return JsonResponse({"suggestions": []})
 
     from thefuzz import fuzz
+
     products = Product.objects.filter(is_active=True, stock_quantity__gt=0)
     exact = list(products.filter(name__icontains=query).values_list("name", flat=True)[:5])
+
     if exact:
         return JsonResponse({"suggestions": exact})
 
     all_products = list(products.exclude(name__icontains=query))
     fuzzy = [
-        p.name for p in all_products
-        if fuzz.partial_ratio(query.lower(), p.name.lower()) >= 75
+        product.name for product in all_products
+        if fuzz.partial_ratio(query.lower(), product.name.lower()) >= 75
     ][:5]
+
     return JsonResponse({"suggestions": fuzzy})
 
 
@@ -355,24 +406,47 @@ def product_detail(request, pk):
         is_active=True,
     )
 
-    reviews = Review.objects.filter(product=product)
+    if not product.is_active or product.stock_quantity <= 0 or not product.is_in_season():
+        if request.user != product.producer:
+            raise Http404("This product is not currently available.")
+
+    reviews = Review.objects.filter(product=product).order_by("-id")
 
     average_rating = None
     if reviews.exists():
-        average_rating = round(sum(r.rating for r in reviews) / reviews.count(), 1)
+        average_rating = round(sum(review.rating for review in reviews) / reviews.count(), 1)
 
     suggestions = []
-
     if product.stock_quantity <= 0 or not product.is_in_season():
         suggestions = _get_product_suggestions(product)
+
     stock_limit = min(product.stock_quantity, 10)
     stock_range = range(1, stock_limit + 1)
+
+    food_miles = None
+    if request.user.is_authenticated:
+        try:
+            from .foodmiles import calculate_food_miles
+
+            customer_profile = Profile.objects.get(user=request.user)
+            producer_profile = Profile.objects.get(user=product.producer)
+            customer_postcode = customer_profile.delivery_postcode or customer_profile.postcode
+            producer_postcode = producer_profile.postcode
+
+            if customer_postcode and producer_postcode:
+                food_miles = calculate_food_miles(customer_postcode, producer_postcode)
+
+        except (Profile.DoesNotExist, ImportError):
+            food_miles = None
+
     return render(request, "marketplace/product_detail.html", {
         "product": product,
         "is_in_season": product.is_in_season(),
         "reviews": reviews,
         "average_rating": average_rating,
-        "food_miles": None,
+        "suggestions": suggestions,
+        "stock_range": stock_range,
+        "food_miles": food_miles,
         "is_bulk_buyer": (
             hasattr(request.user, "profile")
             and request.user.profile.role in {"COMMUNITY_GROUP", "RESTAURANT"}
@@ -386,20 +460,27 @@ def product_detail(request, pk):
 
 def surplus_deals(request):
     expire_surplus_deals()
+
     now = timezone.now()
     products = (
         Product.objects.filter(
-            is_active=True, is_surplus=True,
-            surplus_stock_quantity__gt=0, surplus_expires_at__gt=now, stock_quantity__gt=0,
+            is_active=True,
+            is_surplus=True,
+            surplus_stock_quantity__gt=0,
+            surplus_expires_at__gt=now,
+            stock_quantity__gt=0,
         )
         .select_related("category", "producer")
         .prefetch_related("allergens")
         .order_by("surplus_expires_at")
     )
+
     today = date.today()
-    products = [p for p in products if p.is_in_season(today)]
-    for p in products:
-        p.in_season_now = p.is_in_season(today)
+    products = [product for product in products if product.is_in_season(today)]
+
+    for product in products:
+        product.in_season_now = product.is_in_season(today)
+
     return render(request, "marketplace/surplus_deals.html", {"products": products})
 
 
@@ -410,36 +491,22 @@ def surplus_deals(request):
 @login_required
 def create_review(request, product_id):
     product = get_object_or_404(Product, id=product_id)
-
-    order_records = CustomerOrderHistory.objects.filter(customer=request.user)
-    has_purchased = False
-
-    for record in order_records:
-        order = record.order_data
-
-        for producer, items in order.get("producers", {}).items():
-            for item in items:
-                if str(item.get("id")) == str(product_id):
-                    has_purchased = True
-                    break
-
-            if has_purchased:
-                break
-
-        if has_purchased:
-            break
+    order_history = _get_customer_order_history(request.user)
+    has_purchased = _has_purchased_product(order_history, product_id)
 
     if not has_purchased:
         messages.error(request, "You can only review products you have purchased.")
         return redirect("marketplace:product_detail", pk=product_id)
 
     existing_review = Review.objects.filter(product=product, customer=request.user).first()
+
     if existing_review:
         messages.error(request, "You have already reviewed this product.")
         return redirect("marketplace:product_detail", pk=product_id)
 
     if request.method == "POST":
         form = ReviewForm(request.POST)
+
         if form.is_valid():
             review = form.save(commit=False)
             review.product = product
@@ -449,6 +516,7 @@ def create_review(request, product_id):
 
             messages.success(request, "Product review submitted successfully.")
             return redirect("marketplace:product_detail", pk=product_id)
+
     else:
         form = ReviewForm()
 
@@ -472,7 +540,8 @@ def producer_product_list(request):
     )
 
     active_alerts_count = StockNotification.objects.filter(
-        producer=request.user, is_resolved=False
+        producer=request.user,
+        is_resolved=False,
     ).count()
 
     return render(request, "marketplace/producer_product_list.html", {
@@ -480,27 +549,9 @@ def producer_product_list(request):
         "active_alerts_count": active_alerts_count,
     })
 
-    products = Product.objects.filter(producer=request.user).select_related("category").order_by("-created_at")
-    return render(request, "marketplace/producer_product_list.html", {"products": products})
-
-
-def _get_product_suggestions(product, limit=4):
-    suggestions = Product.objects.filter(
-        is_active=True,
-        stock_quantity__gt=0
-    ).exclude(id=product.id)
-
-    if product.category:
-        category_suggestions = suggestions.filter(category=product.category)[:limit]
-
-        if category_suggestions.exists():
-            return category_suggestions
-
-    return suggestions[:limit]
-
 
 # ----------------------------
-# PRODUCT CREATE
+# PRODUCT CREATE / UPDATE / DELETE
 # ----------------------------
 
 @login_required
@@ -510,13 +561,16 @@ def product_create(request):
 
     if request.method == "POST":
         form = ProductForm(request.POST, request.FILES)
+
         if form.is_valid():
             product = form.save(commit=False)
             product.producer = request.user
             product.save()
             form.save_m2m()
+
             messages.success(request, "Product created.")
             return redirect("marketplace:producer_product_list")
+
     else:
         form = ProductForm()
 
@@ -532,14 +586,17 @@ def product_update(request, pk):
 
     if request.method == "POST":
         form = ProductForm(request.POST, request.FILES, instance=product)
+
         if form.is_valid():
             product = form.save(commit=False)
             product.producer = request.user
             product.save()
             form.save_m2m()
             product.check_low_stock()
+
             messages.success(request, "Product updated.")
             return redirect("marketplace:producer_product_list")
+
     else:
         form = ProductForm(instance=product)
 
@@ -575,16 +632,20 @@ def checkout(request):
 
     for cart_item in cart_items:
         product = cart_item.product
+
         if not product.is_active or product.stock_quantity <= 0:
             continue
+
         qty = int(cart_item.quantity)
         unit_price = _get_product_unit_price(product)
         line_total = unit_price * qty
         subtotal += line_total
 
         lead_time = getattr(product.producer, "lead_time", None)
+
         if lead_time is None and hasattr(product.producer, "profile"):
             lead_time = getattr(product.producer.profile, "lead_time", 2)
+
         if lead_time is None:
             lead_time = 2
 
@@ -612,21 +673,28 @@ def checkout(request):
             if not delivery_date:
                 messages.error(request, "Please select a delivery date.")
                 return render(request, "cart/checkout.html", {
-                    "form": form, "producers": dict(producers),
-                    "subtotal": subtotal, "commission": commission,
-                    "total": total, "cart_items": cart_items,
+                    "form": form,
+                    "producers": dict(producers),
+                    "subtotal": subtotal,
+                    "commission": commission,
+                    "total": total,
+                    "cart_items": cart_items,
                 })
 
             if not payment_method:
                 messages.error(request, "Please select a payment method.")
                 return render(request, "cart/checkout.html", {
-                    "form": form, "producers": dict(producers),
-                    "subtotal": subtotal, "commission": commission,
-                    "total": total, "cart_items": cart_items,
+                    "form": form,
+                    "producers": dict(producers),
+                    "subtotal": subtotal,
+                    "commission": commission,
+                    "total": total,
+                    "cart_items": cart_items,
                 })
 
             request.session["order"] = {
                 "address": delivery_address,
+                "delivery_postcode": delivery_postcode,
                 "date": str(delivery_date),
                 "payment": payment_method,
                 "subtotal": round(float(subtotal), 2),
@@ -636,7 +704,6 @@ def checkout(request):
             }
             request.session.modified = True
 
-            # Handle recurring order
             if request.POST.get("make_recurring"):
                 frequency = request.POST.get("recurring_frequency", "WEEKLY")
                 order_day = int(request.POST.get("recurring_order_day", 0))
@@ -647,7 +714,10 @@ def checkout(request):
                 card_last_four = card_number[-4:] if len(card_number) >= 4 else ""
 
                 if delivery_day <= order_day:
-                    messages.warning(request, "Recurring order: delivery day must be after order day. Defaulting to Wednesday.")
+                    messages.warning(
+                        request,
+                        "Recurring order: delivery day must be after order day. Defaulting to Wednesday.",
+                    )
                     delivery_day = order_day + 2 if order_day + 2 <= 6 else 6
 
                 recurring_order = RecurringOrder.objects.create(
@@ -693,12 +763,14 @@ def checkout(request):
                 )
 
                 producer_ids_notified = set()
+
                 for producer_username, items in producers.items():
                     try:
                         User = get_user_model()
                         producer_user = User.objects.get(username=producer_username)
+
                         if producer_user.id not in producer_ids_notified:
-                            product_names = ", ".join(i["name"] for i in items)
+                            product_names = ", ".join(item["name"] for item in items)
                             _notify(
                                 recipient=producer_user,
                                 notification_type=RecurringNotification.Type.PRODUCER_NOTICE,
@@ -710,15 +782,20 @@ def checkout(request):
                                 recurring_order=recurring_order,
                             )
                             producer_ids_notified.add(producer_user.id)
+
                     except Exception:
                         pass
 
                 request.session["recurring_order_created"] = recurring_order.id
-                messages.success(request, f"Recurring order set up! Next order: {recurring_order.next_order_date}")
+                messages.success(
+                    request,
+                    f"Recurring order set up! Next order: {recurring_order.next_order_date}",
+                )
 
             return redirect("marketplace:payment")
 
         messages.error(request, "Please check the checkout form and try again.")
+
     else:
         initial = {"delivery_address": request.user.email or request.user.username}
         form = CheckoutForm(initial=initial)
@@ -740,6 +817,7 @@ def checkout(request):
 @login_required
 def payment(request):
     order = request.session.get("order")
+
     if not order:
         return redirect("marketplace:product_list")
 
@@ -755,6 +833,7 @@ def payment(request):
             return render(request, "orders/payment.html", {"order": order})
 
         month_part, year_part = expiry.split("/")
+
         if not month_part.isdigit() or not year_part.isdigit():
             messages.error(request, "Enter expiry date in MM/YY format.")
             return render(request, "orders/payment.html", {"order": order})
@@ -768,15 +847,13 @@ def payment(request):
 
         today = timezone.localdate()
         current_year = today.year % 100
+
         if year < current_year or (year == current_year and month < today.month):
             messages.error(request, "Card expiry date cannot be in the past.")
             return render(request, "orders/payment.html", {"order": order})
 
         order_number = "ORD-" + str(random.randint(10000, 99999))
         delivery_date_obj = _parse_date(order.get("date"))
-
-        print("NEW ORDER RECEIVED")
-        print("Session order data:", order)
 
         try:
             User = get_user_model()
@@ -785,26 +862,21 @@ def payment(request):
             if not customer.is_authenticated:
                 raise Exception("User is not authenticated.")
 
-                raise Exception("User is not authenticated!")
-
             db_order = Order.objects.create(
                 customer=customer,
                 delivery_address=order["address"],
-                delivery_postcode="",
+                delivery_postcode=order.get("delivery_postcode", ""),
                 special_instructions="",
                 total_amount=Decimal(str(order["total"])).quantize(
                     Decimal("0.01"),
-                    rounding=ROUND_HALF_UP
+                    rounding=ROUND_HALF_UP,
                 ),
             )
 
             order_number = f"ORD-{db_order.id}"
-
             debug_info.append(f"Created Order: {db_order}")
-            print("Order Number:", order_number)
 
             for producer_username, items in order["producers"].items():
-
                 producer = User.objects.get(username=producer_username)
 
                 producer_order = ProducerOrder.objects.create(
@@ -816,15 +888,11 @@ def payment(request):
                 )
 
                 total_value = Decimal("0.00")
-                debug_info.append(f"Created ProducerOrder: {producer_order}")
 
                 for item in items:
                     product = Product.objects.get(id=item["id"], producer=producer)
                     quantity = int(item["qty"])
                     unit_price = Decimal(str(item["price"]))
-
-                    debug_info.append(f"Processing item: {item}")
-                    debug_info.append(f"Found product: {product}")
 
                     OrderItem.objects.create(
                         producer_order=producer_order,
@@ -837,20 +905,16 @@ def payment(request):
                     product.stock_quantity = max(0, product.stock_quantity - quantity)
                     product.save()
 
-                producer_order.total_value = total_value.quantize(
-                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                producer_order.total_value = Decimal(str(total_value)).quantize(
+                    Decimal("0.01"),
+                    rounding=ROUND_HALF_UP,
                 )
-                debug_info.append(f"Updated stock for {product.name}: {product.stock_quantity}")
                 producer_order.save()
 
-                debug_info.append(f"Saved ProducerOrder with total_value: {producer_order.total_value}")
-
-            print("DEBUG INFO:", debug_info)
-
-        except Exception as e:
+        except Exception as error:
             import traceback
 
-            error_message = f"Order creation failed: {e}"
+            error_message = f"Order creation failed: {error}"
             print(error_message)
             print(traceback.format_exc())
 
@@ -859,8 +923,6 @@ def payment(request):
                 "error_message": error_message,
                 "debug_info": debug_info,
             })
-
-        order_history = request.session.get("order_history", [])
 
         order_data = {
             "order_number": order_number,
@@ -891,13 +953,16 @@ def payment(request):
         request.session.pop("cart", None)
 
         recurring_id = request.session.pop("recurring_order_created", None)
+
         if recurring_id:
             try:
-                ro = RecurringOrder.objects.get(id=recurring_id)
-                card_last_four = card_number.replace(" ", "")[-4:] if len(card_number.replace(" ", "")) >= 4 else ""
-                ro.card_last_four = card_last_four
-                ro.card_expiry = expiry
-                ro.save(update_fields=["card_last_four", "card_expiry"])
+                recurring_order = RecurringOrder.objects.get(id=recurring_id)
+                cleaned_card = card_number.replace(" ", "")
+                card_last_four = cleaned_card[-4:] if len(cleaned_card) >= 4 else ""
+                recurring_order.card_last_four = card_last_four
+                recurring_order.card_expiry = expiry
+                recurring_order.save(update_fields=["card_last_four", "card_expiry"])
+
             except RecurringOrder.DoesNotExist:
                 pass
 
@@ -956,6 +1021,10 @@ def producer_order_list(request):
     if status:
         orders = orders.filter(status=status)
 
+    order_type = request.GET.get("order_type", "")
+    if order_type:
+        orders = orders.filter(order_type=order_type)
+
     sort = request.GET.get("sort", "newest")
     if sort == "oldest":
         orders = orders.order_by("order__created_at", "id")
@@ -965,16 +1034,26 @@ def producer_order_list(request):
     orders = list(orders)
     _attach_producer_order_context(orders)
 
-    refund_requests = RefundRequest.objects.filter(
-        order__producer_orders__producer=request.user,
-        status__in=[RefundRequest.Status.PENDING, RefundRequest.Status.PRODUCER_RESPONDED],
-    ).select_related("order", "customer").distinct()
+    refund_requests = (
+        RefundRequest.objects
+        .filter(
+            order__producer_orders__producer=request.user,
+            status__in=[
+                RefundRequest.Status.PENDING,
+                RefundRequest.Status.PRODUCER_RESPONDED,
+            ],
+        )
+        .select_related("order", "customer")
+        .distinct()
+    )
 
     return render(request, "marketplace/producer_order_list.html", {
         "orders": orders,
         "selected_status": status,
+        "selected_order_type": order_type,
         "sort": sort,
         "status_choices": ProducerOrder.Status.choices,
+        "order_type_choices": ProducerOrder.OrderType.choices,
         "refund_requests": refund_requests,
     })
 
@@ -1004,35 +1083,48 @@ def producer_order_update_status(request, pk):
 
     po = get_object_or_404(
         ProducerOrder.objects.select_related("order", "order__customer"),
-        pk=pk, producer=request.user,
+        pk=pk,
+        producer=request.user,
     )
 
     allowed_transitions = {
-        ProducerOrder.Status.PENDING: [ProducerOrder.Status.CONFIRMED, ProducerOrder.Status.CANCELLED],
-        ProducerOrder.Status.CONFIRMED: [ProducerOrder.Status.READY, ProducerOrder.Status.CANCELLED],
+        ProducerOrder.Status.PENDING: [
+            ProducerOrder.Status.CONFIRMED,
+            ProducerOrder.Status.CANCELLED,
+        ],
+        ProducerOrder.Status.CONFIRMED: [
+            ProducerOrder.Status.READY,
+            ProducerOrder.Status.CANCELLED,
+        ],
         ProducerOrder.Status.READY: [ProducerOrder.Status.DELIVERED],
         ProducerOrder.Status.DELIVERED: [],
         ProducerOrder.Status.CANCELLED: [],
     }
 
     next_statuses = allowed_transitions.get(po.status, [])
-    status_choices = [(s, ProducerOrder.Status(s).label) for s in next_statuses]
+    status_choices = [(status, ProducerOrder.Status(status).label) for status in next_statuses]
 
     if request.method == "POST":
         form = ProducerOrderStatusForm(request.POST, status_choices=status_choices)
+
         if form.is_valid():
             new_status = form.cleaned_data["status"]
             note = form.cleaned_data["note"]
+
             try:
                 update_producer_order_status(
-                    producer_order=po, new_status=new_status,
-                    changed_by=request.user, note=note,
+                    producer_order=po,
+                    new_status=new_status,
+                    changed_by=request.user,
+                    note=note,
                 )
             except ValueError:
                 messages.error(request, "Invalid status progression.")
                 return redirect("marketplace:producer_order_detail", pk=po.pk)
+
             messages.success(request, "Order status updated successfully.")
             return redirect("marketplace:producer_order_detail", pk=po.pk)
+
     else:
         form = ProducerOrderStatusForm(initial={"status": po.status}, status_choices=status_choices)
 
@@ -1046,11 +1138,14 @@ def producer_order_management(request):
 
     current_orders = (
         ProducerOrder.objects
-        .filter(producer=request.user, status__in=[
-            ProducerOrder.Status.PENDING,
-            ProducerOrder.Status.CONFIRMED,
-            ProducerOrder.Status.READY,
-        ])
+        .filter(
+            producer=request.user,
+            status__in=[
+                ProducerOrder.Status.PENDING,
+                ProducerOrder.Status.CONFIRMED,
+                ProducerOrder.Status.READY,
+            ],
+        )
         .select_related("order", "order__customer")
         .prefetch_related("items", "items__product", "status_history")
         .order_by("delivery_date", "-id")
@@ -1093,42 +1188,54 @@ def producer_payments(request):
     )
 
     weekly_orders = all_delivered_orders.filter(
-        delivery_date__range=(week_start, week_end)
+        delivery_date__range=(week_start, week_end),
     ).order_by("-delivery_date", "-id")
 
     gross_total = sum(
-        (order.total_value or Decimal("0.00") for order in weekly_orders), Decimal("0.00"),
+        (order.total_value or Decimal("0.00") for order in weekly_orders),
+        Decimal("0.00"),
     ).quantize(TWO_PLACES)
 
     commission, net_payment = _compute_financials(gross_total)
 
     tax_year_orders = all_delivered_orders.filter(delivery_date__gte=tax_year_start)
     tax_year_total = sum(
-        (order.total_value or Decimal("0.00") for order in tax_year_orders), Decimal("0.00"),
+        (order.total_value or Decimal("0.00") for order in tax_year_orders),
+        Decimal("0.00"),
     ).quantize(TWO_PLACES)
 
     settlement_reference = _build_settlement_ref(producer.id, week_start, week_end)
 
     history_map = defaultdict(list)
+
     for order in all_delivered_orders:
         if not order.delivery_date:
             continue
+
         order_week_start = order.delivery_date - timedelta(days=order.delivery_date.weekday())
         order_week_end = order_week_start + timedelta(days=6)
         history_map[(order_week_start, order_week_end)].append(order)
 
     historical_records = []
+
     for (hist_start, hist_end), orders_in_week in sorted(history_map.items(), reverse=True):
         if hist_start == week_start and hist_end == week_end:
             continue
+
         hist_gross = sum(
-            (order.total_value or Decimal("0.00") for order in orders_in_week), Decimal("0.00"),
+            (order.total_value or Decimal("0.00") for order in orders_in_week),
+            Decimal("0.00"),
         ).quantize(TWO_PLACES)
+
         hist_commission, hist_net = _compute_financials(hist_gross)
+
         historical_records.append({
-            "week_start": hist_start, "week_end": hist_end,
-            "gross": hist_gross, "commission": hist_commission,
-            "net": hist_net, "order_count": len(orders_in_week),
+            "week_start": hist_start,
+            "week_end": hist_end,
+            "gross": hist_gross,
+            "commission": hist_commission,
+            "net": hist_net,
+            "order_count": len(orders_in_week),
         })
 
     return render(request, "marketplace/producer_payments.html", {
@@ -1156,7 +1263,11 @@ def download_payments_csv(request):
 
     orders = (
         ProducerOrder.objects
-        .filter(producer=producer, status=ProducerOrder.Status.DELIVERED, delivery_date__range=(week_start, week_end))
+        .filter(
+            producer=producer,
+            status=ProducerOrder.Status.DELIVERED,
+            delivery_date__range=(week_start, week_end),
+        )
         .select_related("order", "order__customer")
         .prefetch_related("items", "items__product")
         .order_by("-delivery_date", "-id")
@@ -1168,21 +1279,36 @@ def download_payments_csv(request):
 
     writer = csv.writer(response)
     writer.writerow([
-        "Settlement Reference", "Order Number", "Customer",
-        "Delivery Date", "Items Sold", "Gross Amount",
-        "Commission (5%)", "Net Payment", "Status",
+        "Settlement Reference",
+        "Order Number",
+        "Customer",
+        "Delivery Date",
+        "Items Sold",
+        "Gross Amount",
+        "Commission (5%)",
+        "Net Payment",
+        "Status",
     ])
 
     settlement_reference = _build_settlement_ref(producer.id, week_start, week_end)
 
     for order in orders:
-        items_sold = ", ".join(f"{item.product.name} x{item.quantity}" for item in order.items.all())
+        items_sold = ", ".join(
+            f"{item.product.name} x{item.quantity}"
+            for item in order.items.all()
+        )
         gross = (order.total_value or Decimal("0.00")).quantize(TWO_PLACES)
         commission, net = _compute_financials(gross)
+
         writer.writerow([
-            settlement_reference, order.order.id,
+            settlement_reference,
+            order.order.id,
             _anonymise_customer(order.order.customer),
-            order.delivery_date, items_sold, gross, commission, net,
+            order.delivery_date,
+            items_sold,
+            gross,
+            commission,
+            net,
             order.get_status_display(),
         ])
 
@@ -1199,10 +1325,13 @@ def stock_notifications(request):
         return HttpResponseForbidden("Producer access only.")
 
     active_notifications = StockNotification.objects.filter(
-        producer=request.user, is_resolved=False
+        producer=request.user,
+        is_resolved=False,
     )
+
     resolved_notifications = StockNotification.objects.filter(
-        producer=request.user, is_resolved=True
+        producer=request.user,
+        is_resolved=True,
     )[:10]
 
     return render(request, "marketplace/stock_notifications.html", {
@@ -1238,6 +1367,7 @@ def order_history(request):
 
     if start and not start_date:
         messages.error(request, "Invalid start date.")
+
     if end and not end_date:
         messages.error(request, "Invalid end date.")
 
@@ -1252,16 +1382,20 @@ def order_history(request):
 
     if producer:
         orders = orders.filter(
-            producer_orders__producer__username__icontains=producer
+            producer_orders__producer__username__icontains=producer,
         ).distinct()
 
-    # Attach refund info to each order
+    orders = list(orders)
+
     for order in orders:
         order.refund = RefundRequest.objects.filter(order=order).first()
 
-    recurring_orders = RecurringOrder.objects.filter(
-        customer=request.user
-    ).prefetch_related("items", "items__product").order_by("-created_at")
+    recurring_orders = (
+        RecurringOrder.objects
+        .filter(customer=request.user)
+        .prefetch_related("items", "items__product")
+        .order_by("-created_at")
+    )
 
     return render(request, "orders/history.html", {
         "orders": orders,
@@ -1274,7 +1408,7 @@ def order_history(request):
 
 @login_required
 def order_detail(request, order_id):
-    clean_id = str(order_id).replace("ORD-", "")
+    clean_id = str(order_id).replace("ORD-", "").replace("BRFN-", "")
 
     order = get_object_or_404(
         Order.objects
@@ -1290,10 +1424,9 @@ def order_detail(request, order_id):
 
     purchase_reviews = PurchaseReview.objects.filter(
         customer=request.user,
-        order_number=f"ORD-{order.id}"
+        order_number=f"ORD-{order.id}",
     ).order_by("-created_at")
 
-    # Check if refund already exists
     existing_refund = RefundRequest.objects.filter(order=order).first()
 
     return render(request, "orders/order_detail.html", {
@@ -1306,7 +1439,7 @@ def order_detail(request, order_id):
 
 @login_required
 def reorder(request, order_id):
-    clean_id = str(order_id).replace("ORD-", "")
+    clean_id = str(order_id).replace("ORD-", "").replace("BRFN-", "")
 
     order = get_object_or_404(
         Order.objects
@@ -1330,7 +1463,7 @@ def reorder(request, order_id):
                 suggestions = Product.objects.filter(
                     category=product.category,
                     is_active=True,
-                    stock_quantity__gt=0
+                    stock_quantity__gt=0,
                 ).exclude(id=product.id)[:3]
 
                 for suggestion in suggestions:
@@ -1348,11 +1481,13 @@ def reorder(request, order_id):
             new_price = product.price
 
             if old_price != new_price:
-                price_changed_items.append(f"{product.name}: was £{old_price}, now £{new_price}")
+                price_changed_items.append(
+                    f"{product.name}: was £{old_price}, now £{new_price}"
+                )
 
             cart_item, created = CartItem.objects.get_or_create(
                 cart=cart,
-                product=product
+                product=product,
             )
 
             if created:
@@ -1371,6 +1506,7 @@ def reorder(request, order_id):
 
     if price_changed_items:
         messages.warning(request, "Price changes detected: " + "; ".join(price_changed_items))
+
     if unavailable_items:
         messages.error(request, "Some items are unavailable: " + ", ".join(unavailable_items))
 
@@ -1381,58 +1517,122 @@ def reorder(request, order_id):
     return redirect("cart:detail")
 
 
-def _normalize_order_number(order_id):
-    order_str = str(order_id)
-    if order_str.startswith("ORD-"):
-        return order_str
-    return f"ORD-{order_str}"
-
-
 @login_required
 def download_receipt(request, order_id):
-    order_number = _normalize_order_number(order_id)
-    orders = [
-        record.order_data
-        for record in CustomerOrderHistory.objects.filter(customer=request.user)
-    ]
+    clean_id = str(order_id).replace("ORD-", "").replace("BRFN-", "")
 
-    order = next((o for o in orders if str(o.get("order_number")) == order_number), None)
-
-    if not order:
+    try:
+        order = (
+            Order.objects
+            .prefetch_related(
+                "producer_orders",
+                "producer_orders__producer",
+                "producer_orders__items",
+                "producer_orders__items__product",
+            )
+            .get(pk=clean_id, customer=request.user)
+        )
+    except Order.DoesNotExist:
         messages.error(request, "Receipt not found.")
         return redirect("marketplace:order_history")
 
-    content = f"Order {order['order_number']} - Total £{order['total']}"
-    response = HttpResponse(content, content_type="text/plain")
-    response["Content-Disposition"] = f'attachment; filename="receipt_{order_number}.txt"'
-    return response
-
-
-# -----------------------------
-# Stock Notifications
-# -----------------------------
-
-@login_required
-def stock_notifications(request):
-    if not _require_producer(request):
-        return HttpResponseForbidden("Producer access only.")
-
-    from .models import StockNotification
-
-    active_notifications = StockNotification.objects.filter(
-        producer=request.user,
-        is_resolved=False
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=2 * cm,
+        leftMargin=2 * cm,
+        topMargin=2 * cm,
+        bottomMargin=2 * cm,
     )
 
-    resolved_notifications = StockNotification.objects.filter(
-        producer=request.user,
-        is_resolved=True
-    )[:10]
+    styles = getSampleStyleSheet()
+    elements = []
 
-    return render(request, "marketplace/stock_notifications.html", {
-        "active_notifications": active_notifications,
-        "resolved_notifications": resolved_notifications,
-    })
+    elements.append(Paragraph("BRFN Marketplace", styles["Title"]))
+    elements.append(Paragraph("Order Receipt", styles["Heading2"]))
+    elements.append(Spacer(1, 0.5 * cm))
+
+    info_data = [
+        ["Order Number", f"#{order.id}"],
+        ["Order Date", order.created_at.strftime("%Y-%m-%d")],
+        ["Delivery Address", order.delivery_address],
+        ["Status", order.get_status_display()],
+        ["Total", f"£{order.total_amount}"],
+    ]
+
+    if order.special_instructions:
+        info_data.append(["Special Instructions", order.special_instructions])
+
+    info_table = Table(info_data, colWidths=[5 * cm, 11 * cm])
+    info_table.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("PADDING", (0, 0), (-1, -1), 6),
+        ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.HexColor("#f8fafc"), colors.white]),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e5e7eb")),
+    ]))
+    elements.append(info_table)
+    elements.append(Spacer(1, 0.5 * cm))
+
+    elements.append(Paragraph("Order Items", styles["Heading3"]))
+    elements.append(Spacer(1, 0.3 * cm))
+
+    for producer_order in order.producer_orders.all():
+        elements.append(Paragraph(f"Producer: {producer_order.producer.username}", styles["Heading4"]))
+
+        item_data = [["Product", "Quantity", "Unit Price", "Total"]]
+
+        for item in producer_order.items.all():
+            line_total = (item.unit_price * item.quantity).quantize(Decimal("0.01"))
+            item_data.append([
+                item.product.name,
+                str(item.quantity),
+                f"£{item.unit_price}",
+                f"£{line_total}",
+            ])
+
+        item_table = Table(item_data, colWidths=[7 * cm, 3 * cm, 3 * cm, 3 * cm])
+        item_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#087d73")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+            ("PADDING", (0, 0), (-1, -1), 6),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+        ]))
+        elements.append(item_table)
+        elements.append(Spacer(1, 0.3 * cm))
+
+    elements.append(Spacer(1, 0.3 * cm))
+
+    commission = (order.total_amount * Decimal("0.05")).quantize(Decimal("0.01"))
+
+    totals_data = [
+        ["Network Commission (5%)", f"£{commission}"],
+        ["Total", f"£{order.total_amount}"],
+    ]
+
+    totals_table = Table(totals_data, colWidths=[13 * cm, 3 * cm])
+    totals_table.setStyle(TableStyle([
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+        ("PADDING", (0, 0), (-1, -1), 6),
+        ("LINEABOVE", (0, -1), (-1, -1), 1, colors.black),
+        ("ROWBACKGROUNDS", (0, 0), (-1, -2), [colors.white]),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#f0fdf4")),
+    ]))
+    elements.append(totals_table)
+
+    doc.build(elements)
+    buffer.seek(0)
+
+    response = HttpResponse(buffer, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="receipt_{order.id}.pdf"'
+    return response
 
 
 @login_required
@@ -1450,7 +1650,7 @@ def create_purchase_review(request, order_id):
 
     existing = PurchaseReview.objects.filter(
         customer=request.user,
-        order_number=order_number
+        order_number=order_number,
     ).first()
 
     if existing:
@@ -1478,35 +1678,6 @@ def create_purchase_review(request, order_id):
     })
 
 
-@login_required
-def create_purchase_review(request, order_id):
-    order_record = CustomerOrderHistory.objects.filter(
-        customer=request.user,
-        order_number=order_id
-    ).first()
-
-    if not order_record:
-        messages.error(request, "Order not found.")
-        return redirect("marketplace:order_history")
-
-    if request.method == "POST":
-        form = PurchaseReviewForm(request.POST)
-        if form.is_valid():
-            review = form.save(commit=False)
-            review.customer = request.user
-            review.order_number = order_id
-            review.save()
-            messages.success(request, "Purchase review submitted successfully.")
-            return redirect("marketplace:order_detail", order_id=order_id)
-    else:
-        form = PurchaseReviewForm()
-
-    return render(request, "marketplace/purchase_review_form.html", {
-        "form": form,
-        "order": order_record.order_data,
-    })
-
-
 def product_search_suggestions(request):
     query = request.GET.get("q", "").strip()
 
@@ -1516,7 +1687,7 @@ def product_search_suggestions(request):
     products = Product.objects.filter(
         name__icontains=query,
         is_active=True,
-        stock_quantity__gt=0
+        stock_quantity__gt=0,
     ).order_by("name")[:8]
 
     suggestions = [
@@ -1531,6 +1702,10 @@ def product_search_suggestions(request):
     return JsonResponse({"suggestions": suggestions})
 
 
+# ─────────────────────────────────────────────
+# REFUND REQUESTS
+# ─────────────────────────────────────────────
+
 @login_required
 def request_refund(request, order_id):
     clean_id = str(order_id).replace("ORD-", "").replace("BRFN-", "")
@@ -1541,24 +1716,24 @@ def request_refund(request, order_id):
         customer=request.user,
     )
 
-    # Check if refund already exists
     existing = RefundRequest.objects.filter(order=order).first()
+
     if existing:
         messages.warning(request, "A refund request already exists for this order.")
         return redirect("marketplace:order_detail", order_id=order_id)
 
-    # Check refund eligibility based on order status and time
     if order.status == Order.Status.CANCELLED:
         messages.error(request, "This order has already been cancelled.")
         return redirect("marketplace:order_detail", order_id=order_id)
 
     if order.status == Order.Status.DELIVERED:
         days_since_order = (timezone.now().date() - order.created_at.date()).days
+
         if days_since_order > 7:
             messages.error(
                 request,
                 "Refunds can only be requested within 7 days of delivery. "
-                "This order is no longer eligible for a refund."
+                "This order is no longer eligible for a refund.",
             )
             return redirect("marketplace:order_detail", order_id=order_id)
 
@@ -1569,13 +1744,14 @@ def request_refund(request, order_id):
     ]:
         messages.error(request, "This order is not eligible for a refund.")
         return redirect("marketplace:order_detail", order_id=order_id)
-    
+
     if request.method == "POST":
         reason = request.POST.get("reason", "").strip()
+
         if not reason:
             messages.error(request, "Please provide a reason for the refund.")
         else:
-            refund = RefundRequest.objects.create(
+            RefundRequest.objects.create(
                 order=order,
                 customer=request.user,
                 reason=reason,
@@ -1583,8 +1759,8 @@ def request_refund(request, order_id):
                 status=RefundRequest.Status.PENDING,
             )
 
-            # Notify producers via messages
-            from apps.message.models import MessageThread, Message
+            from apps.message.models import Message, MessageThread
+
             for producer_order in order.producer_orders.all():
                 thread = MessageThread.objects.create(
                     subject=f"Refund Request for Order #{order.id}",
@@ -1593,6 +1769,7 @@ def request_refund(request, order_id):
                     related_producer_order=producer_order,
                 )
                 thread.participants.add(request.user, producer_order.producer)
+
                 Message.objects.create(
                     thread=thread,
                     sender=request.user,
@@ -1632,43 +1809,59 @@ def _notify(recipient, notification_type, message, recurring_order=None):
 def _simulate_charge(recurring_order, amount):
     if not recurring_order.card_last_four or not recurring_order.card_expiry:
         return False, "", "No saved card details on file."
+
     try:
         month_str, year_str = recurring_order.card_expiry.split("/")
         exp_month = int(month_str)
         exp_year = 2000 + int(year_str)
         today = date.today()
+
         if exp_year < today.year or (exp_year == today.year and exp_month < today.month):
             return False, "", f"Saved card ending {recurring_order.card_last_four} has expired."
+
     except (ValueError, AttributeError):
         return False, "", "Invalid card expiry format."
+
     reference = f"REC-PAY-{random.randint(100000, 999999)}"
     return True, reference, ""
 
 
 def _delivery_date_respecting_lead_time(order_date, delivery_weekday, items):
     max_lead = 2
+
     for item in items:
         try:
             lead = getattr(item.product.producer, "lead_time", None)
+
             if lead is None and hasattr(item.product.producer, "profile"):
                 lead = getattr(item.product.producer.profile, "lead_time", 2)
+
             if lead and lead > max_lead:
                 max_lead = lead
+
         except Exception:
             pass
+
     days_ahead = delivery_weekday - order_date.weekday()
+
     if days_ahead <= 0:
         days_ahead += 7
+
     candidate = order_date + timedelta(days=days_ahead)
     min_delivery = order_date + timedelta(days=max_lead)
+
     if candidate < min_delivery:
         candidate += timedelta(weeks=1)
+
     return candidate
 
 
 @login_required
 def recurring_order_setup(request):
-    messages.info(request, "Add items to your cart and select 'Make this a recurring order' at checkout.")
+    messages.info(
+        request,
+        "Add items to your cart and select 'Make this a recurring order' at checkout.",
+    )
     return redirect("cart:detail")
 
 
@@ -1680,16 +1873,20 @@ def recurring_order_list(request):
         .prefetch_related("items", "items__product", "instances")
         .order_by("-created_at")
     )
-    for ro in recurring_orders:
-        ro.next_instance = ro.instances.filter(
+
+    for recurring_order in recurring_orders:
+        recurring_order.next_instance = recurring_order.instances.filter(
             status__in=[
                 RecurringOrderInstance.Status.SCHEDULED,
                 RecurringOrderInstance.Status.MODIFIED,
-            ]
+            ],
         ).first()
+
     unread_count = RecurringNotification.objects.filter(
-        recipient=request.user, is_read=False
+        recipient=request.user,
+        is_read=False,
     ).count()
+
     return render(request, "marketplace/recurring_order_list.html", {
         "recurring_orders": recurring_orders,
         "unread_count": unread_count,
@@ -1698,12 +1895,10 @@ def recurring_order_list(request):
 
 @login_required
 def producer_refund_response(request, refund_id):
-    """Producer adds a note to a refund request."""
     refund = get_object_or_404(RefundRequest, pk=refund_id)
 
-    # Check producer is involved in this order
     is_involved = refund.order.producer_orders.filter(
-        producer=request.user
+        producer=request.user,
     ).exists()
 
     if not is_involved:
@@ -1715,6 +1910,7 @@ def producer_refund_response(request, refund_id):
 
     if request.method == "POST":
         producer_note = request.POST.get("producer_note", "").strip()
+
         if not producer_note:
             messages.error(request, "Please provide a response.")
         else:
@@ -1722,10 +1918,11 @@ def producer_refund_response(request, refund_id):
             refund.status = RefundRequest.Status.PRODUCER_RESPONDED
             refund.save()
 
-            # Notify admin via message
-            from apps.message.models import MessageThread, Message
+            from apps.message.models import Message, MessageThread
             from django.contrib.auth.models import User
+
             admins = User.objects.filter(profile__role=Profile.Role.ADMIN)
+
             if admins.exists():
                 thread = MessageThread.objects.create(
                     subject=f"Producer Response — Refund #{refund.id} for Order #{refund.order.id}",
@@ -1733,6 +1930,7 @@ def producer_refund_response(request, refund_id):
                     related_order=refund.order,
                 )
                 thread.participants.add(request.user, *admins)
+
                 Message.objects.create(
                     thread=thread,
                     sender=request.user,
@@ -1754,7 +1952,6 @@ def producer_refund_response(request, refund_id):
 
 @login_required
 def admin_refund_decision(request, refund_id):
-    """Admin approves or rejects a refund request."""
     if not hasattr(request.user, "profile") or request.user.profile.role != Profile.Role.ADMIN:
         return HttpResponseForbidden("Admin access required.")
 
@@ -1777,12 +1974,13 @@ def admin_refund_decision(request, refund_id):
 
             if decision == "approve":
                 refund.status = RefundRequest.Status.APPROVED
-                # Update order status to cancelled
                 refund.order.status = Order.Status.CANCELLED
                 refund.order.save()
+
                 for producer_order in refund.order.producer_orders.all():
                     producer_order.status = ProducerOrder.Status.CANCELLED
                     producer_order.save()
+
                 notification_body = (
                     f"Dear {refund.customer.username},\n\n"
                     f"Your refund request for Order #{refund.order.id} has been APPROVED.\n\n"
@@ -1791,6 +1989,7 @@ def admin_refund_decision(request, refund_id):
                     f"The full amount will be returned to you. "
                     f"Thank you for your patience."
                 )
+
             else:
                 refund.status = RefundRequest.Status.REJECTED
                 notification_body = (
@@ -1802,14 +2001,15 @@ def admin_refund_decision(request, refund_id):
 
             refund.save()
 
-            # Notify customer
-            from apps.message.models import MessageThread, Message
+            from apps.message.models import Message, MessageThread
+
             thread = MessageThread.objects.create(
                 subject=f"Refund Request #{refund.id} — {refund.get_status_display()}",
                 created_by=request.user,
                 related_order=refund.order,
             )
             thread.participants.add(request.user, refund.customer)
+
             Message.objects.create(
                 thread=thread,
                 sender=request.user,
@@ -1826,15 +2026,17 @@ def admin_refund_decision(request, refund_id):
 
 @login_required
 def refund_list(request):
-    """Admin view of all refund requests."""
     if not hasattr(request.user, "profile") or request.user.profile.role != Profile.Role.ADMIN:
         return HttpResponseForbidden("Admin access required.")
 
-    refunds = RefundRequest.objects.select_related(
-        "order", "customer", "resolved_by"
-    ).all()
+    refunds = (
+        RefundRequest.objects
+        .select_related("order", "customer", "resolved_by")
+        .all()
+    )
 
     status_filter = request.GET.get("status", "")
+
     if status_filter:
         refunds = refunds.filter(status=status_filter)
 
@@ -1847,13 +2049,16 @@ def refund_list(request):
 
 def recurring_order_detail(request, pk):
     recurring_order = get_object_or_404(RecurringOrder, pk=pk, customer=request.user)
+
     instances = recurring_order.instances.exclude(
-        status=RecurringOrderInstance.Status.PROCESSED
+        status=RecurringOrderInstance.Status.PROCESSED,
     ).order_by("scheduled_date")
+
     notifications = RecurringNotification.objects.filter(
         recurring_order=recurring_order,
         recipient=request.user,
     ).order_by("-created_at")[:10]
+
     return render(request, "marketplace/recurring_order_detail.html", {
         "recurring_order": recurring_order,
         "instances": instances,
@@ -1864,28 +2069,35 @@ def recurring_order_detail(request, pk):
 @login_required
 def recurring_order_pause(request, pk):
     recurring_order = get_object_or_404(RecurringOrder, pk=pk, customer=request.user)
+
     if recurring_order.status == RecurringOrder.Status.ACTIVE:
         recurring_order.status = RecurringOrder.Status.PAUSED
         recurring_order.save()
         messages.success(request, "Recurring order paused.")
+
     elif recurring_order.status == RecurringOrder.Status.PAUSED:
         recurring_order.status = RecurringOrder.Status.ACTIVE
         recurring_order.next_order_date = recurring_order.calculate_next_order_date()
         recurring_order.save()
         _generate_next_instance(recurring_order)
         messages.success(request, "Recurring order resumed.")
+
     return redirect("marketplace:recurring_order_list")
 
 
 @login_required
 def recurring_order_cancel(request, pk):
     recurring_order = get_object_or_404(RecurringOrder, pk=pk, customer=request.user)
+
     if request.method == "POST":
         recurring_order.status = RecurringOrder.Status.CANCELLED
         recurring_order.save()
         messages.success(request, "Recurring order cancelled.")
         return redirect("marketplace:recurring_order_list")
-    return render(request, "marketplace/recurring_order_cancel.html", {"recurring_order": recurring_order})
+
+    return render(request, "marketplace/recurring_order_cancel.html", {
+        "recurring_order": recurring_order,
+    })
 
 
 @login_required
@@ -1894,23 +2106,36 @@ def recurring_order_modify_instance(request, instance_pk):
         RecurringOrderInstance,
         pk=instance_pk,
         recurring_order__customer=request.user,
-        status__in=[RecurringOrderInstance.Status.SCHEDULED, RecurringOrderInstance.Status.MODIFIED]
+        status__in=[
+            RecurringOrderInstance.Status.SCHEDULED,
+            RecurringOrderInstance.Status.MODIFIED,
+        ],
     )
+
     products = (
         Product.objects.filter(is_active=True, stock_quantity__gt=0)
         .select_related("category", "producer")
         .order_by("category__name", "name")
     )
+
     if instance.items.exists():
-        current_items = {item.product_id: item.quantity for item in instance.items.all()}
+        current_items = {
+            item.product_id: item.quantity
+            for item in instance.items.all()
+        }
     else:
-        current_items = {item.product_id: item.quantity for item in instance.recurring_order.items.all()}
+        current_items = {
+            item.product_id: item.quantity
+            for item in instance.recurring_order.items.all()
+        }
 
     if request.method == "POST":
         instance.items.all().delete()
+
         for key, value in request.POST.items():
             if key.startswith("qty_") and value.strip() and int(value) > 0:
                 product_id = key.replace("qty_", "")
+
                 try:
                     product = Product.objects.get(id=product_id, is_active=True)
                     RecurringOrderInstanceItem.objects.create(
@@ -1920,6 +2145,7 @@ def recurring_order_modify_instance(request, instance_pk):
                     )
                 except Product.DoesNotExist:
                     pass
+
         instance.status = RecurringOrderInstance.Status.MODIFIED
         instance.save()
         messages.success(request, "This week's order updated. Template unchanged.")
@@ -1939,6 +2165,7 @@ def recurring_order_skip_instance(request, instance_pk):
         pk=instance_pk,
         recurring_order__customer=request.user,
     )
+
     instance.status = RecurringOrderInstance.Status.SKIPPED
     instance.save()
     messages.success(request, "This week's order skipped.")
@@ -1947,10 +2174,15 @@ def recurring_order_skip_instance(request, instance_pk):
 
 @login_required
 def recurring_notifications(request):
-    notifications = RecurringNotification.objects.filter(
-        recipient=request.user
-    ).select_related("recurring_order").order_by("-created_at")
+    notifications = (
+        RecurringNotification.objects
+        .filter(recipient=request.user)
+        .select_related("recurring_order")
+        .order_by("-created_at")
+    )
+
     notifications.filter(is_read=False).update(is_read=True)
+
     return render(request, "marketplace/recurring_notifications.html", {
         "notifications": notifications,
     })
@@ -1959,39 +2191,54 @@ def recurring_notifications(request):
 def recurring_notifications_count(request):
     if not request.user.is_authenticated:
         return JsonResponse({"count": 0})
+
     count = RecurringNotification.objects.filter(
-        recipient=request.user, is_read=False
+        recipient=request.user,
+        is_read=False,
     ).count()
+
     return JsonResponse({"count": count})
 
 
 def _generate_next_instance(recurring_order):
     if not recurring_order.next_order_date:
         return
+
     order_date = recurring_order.next_order_date
-    template_items = list(recurring_order.items.select_related("product", "product__producer"))
-    delivery_date = _delivery_date_respecting_lead_time(
-        order_date, recurring_order.delivery_day, template_items
+    template_items = list(
+        recurring_order.items.select_related("product", "product__producer")
     )
+
+    delivery_date = _delivery_date_respecting_lead_time(
+        order_date,
+        recurring_order.delivery_day,
+        template_items,
+    )
+
     existing = RecurringOrderInstance.objects.filter(
         recurring_order=recurring_order,
         scheduled_date=order_date,
     ).exists()
+
     if not existing:
         instance = RecurringOrderInstance.objects.create(
             recurring_order=recurring_order,
             scheduled_date=order_date,
             delivery_date=delivery_date,
         )
+
         for template_item in template_items:
             RecurringOrderInstanceItem.objects.create(
                 instance=instance,
                 product=template_item.product,
                 quantity=template_item.quantity,
             )
+
         days_until = (order_date - date.today()).days
+
         if days_until <= 2:
             order_label = recurring_order.name or f"Recurring order #{recurring_order.id}"
+
             _notify(
                 recipient=recurring_order.customer,
                 notification_type=RecurringNotification.Type.ORDER_UPCOMING,
@@ -2007,11 +2254,20 @@ def _generate_next_instance(recurring_order):
 
 def process_recurring_orders():
     today = date.today()
-    due_instances = RecurringOrderInstance.objects.filter(
-        scheduled_date=today,
-        status__in=[RecurringOrderInstance.Status.SCHEDULED, RecurringOrderInstance.Status.MODIFIED],
-        recurring_order__status=RecurringOrder.Status.ACTIVE,
-    ).select_related("recurring_order", "recurring_order__customer")
+
+    due_instances = (
+        RecurringOrderInstance.objects
+        .filter(
+            scheduled_date=today,
+            status__in=[
+                RecurringOrderInstance.Status.SCHEDULED,
+                RecurringOrderInstance.Status.MODIFIED,
+            ],
+            recurring_order__status=RecurringOrder.Status.ACTIVE,
+        )
+        .select_related("recurring_order", "recurring_order__customer")
+    )
+
     for instance in due_instances:
         _process_instance(instance)
 
@@ -2024,17 +2280,19 @@ def _process_instance(instance):
         items = list(instance.items.select_related("product", "product__producer"))
     else:
         items = [
-            type("Item", (), {"product": i.product, "quantity": i.quantity})()
-            for i in recurring_order.items.select_related("product", "product__producer")
+            type("Item", (), {"product": item.product, "quantity": item.quantity})()
+            for item in recurring_order.items.select_related("product", "product__producer")
         ]
 
     if not items:
         return
 
     unavailable = []
+
     for item in items:
         if not item.product.is_active or item.product.stock_quantity < item.quantity:
             unavailable.append(item.product.name)
+
             _notify(
                 recipient=customer,
                 notification_type=RecurringNotification.Type.PRODUCT_UNAVAILABLE,
@@ -2044,9 +2302,11 @@ def _process_instance(instance):
                 ),
                 recurring_order=recurring_order,
             )
+
         else:
             unit_price = item.product.price
             template_item = recurring_order.items.filter(product=item.product).first()
+
             if template_item and template_item.unit_price and unit_price != template_item.unit_price:
                 _notify(
                     recipient=customer,
@@ -2065,9 +2325,11 @@ def _process_instance(instance):
     for item in items:
         if item.product.name in unavailable:
             continue
+
         unit_price = item.product.price
         line_total = unit_price * item.quantity
         subtotal += line_total
+
         producers[item.product.producer.username].append({
             "name": item.product.name,
             "price": float(unit_price),
@@ -2089,6 +2351,7 @@ def _process_instance(instance):
     if not success:
         instance.payment_status = RecurringOrderInstance.PaymentStatus.FAILED
         instance.save()
+
         _notify(
             recipient=customer,
             notification_type=RecurringNotification.Type.PAYMENT_FAILED,
@@ -2109,10 +2372,12 @@ def _process_instance(instance):
         delivery_address=recurring_order.delivery_address,
         delivery_postcode=recurring_order.delivery_postcode,
         special_instructions="Auto-generated recurring order",
+        total_amount=total,
     )
 
     for producer_username, order_items in producers.items():
         producer = User.objects.get(username=producer_username)
+
         producer_order = ProducerOrder.objects.create(
             order=db_order,
             producer=producer,
@@ -2120,18 +2385,23 @@ def _process_instance(instance):
             status=ProducerOrder.Status.PENDING,
             total_value=Decimal("0.00"),
         )
+
         total_value = Decimal("0.00")
+
         for item in order_items:
             product = Product.objects.get(id=item["id"])
+
             OrderItem.objects.create(
                 producer_order=producer_order,
                 product=product,
                 quantity=item["qty"],
                 unit_price=Decimal(str(item["price"])),
             )
+
             total_value += Decimal(str(item["price"])) * item["qty"]
             product.stock_quantity = max(0, product.stock_quantity - item["qty"])
             product.save()
+
         producer_order.total_value = total_value.quantize(TWO_PLACES)
         producer_order.save()
 
@@ -2141,7 +2411,7 @@ def _process_instance(instance):
             message=(
                 f"Recurring order {order_number} has been placed. "
                 f"Delivery required by {instance.delivery_date.strftime('%A, %d %b %Y')}. "
-                f"Items: {', '.join(str(i['name']) + ' x' + str(i['qty']) for i in order_items)}."
+                f"Items: {', '.join(str(item['name']) + ' x' + str(item['qty']) for item in order_items)}."
             ),
             recurring_order=recurring_order,
         )

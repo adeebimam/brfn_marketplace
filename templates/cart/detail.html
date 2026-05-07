@@ -3,23 +3,13 @@
 
   <div class="card stack">
     <h1>Your Cart</h1>
-
-    {% if messages %}
-      <div class="message-container">
-        {% for message in messages %}
-          <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
-            {{ message }}
-          </div>
-        {% endfor %}
-      </div>
-    {% endif %}
-
-    {% if request.session.reorder_suggestions %}
+    
+    {% if reorder_suggestions %}
       <div style="border:1px solid #fcd34d; background:#fef3c7; padding:18px; border-radius:14px; margin-bottom:20px;">
         <h3 style="margin-top:0;">Suggested Alternatives</h3>
         <p>Some reordered items were unavailable. You may like these alternatives:</p>
 
-        {% for suggestion in request.session.reorder_suggestions %}
+        {% for suggestion in reorder_suggestions %}
           <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid #fbbf24; padding:12px 0; gap:16px;">
             <div>
               <strong>{{ suggestion.name }}</strong>

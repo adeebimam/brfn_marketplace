@@ -164,9 +164,6 @@ def cart_detail(request):
                 .order_by("name")[:4]
             )
 
-    # Suggestions like Amazon:
-    # 1. First suggest other products from the same producers
-    # 2. If not enough, suggest products from similar categories
     cart_product_ids = [item["product"].id for item in cart_items]
     cart_producer_ids = [item["product"].producer.id for item in cart_items]
     cart_category_ids = [
@@ -212,6 +209,10 @@ def cart_detail(request):
     bulk_discount = (total * Decimal("0.10")).quantize(Decimal("0.01")) if is_bulk_buyer else Decimal("0.00")
     discounted_total = (total - bulk_discount).quantize(Decimal("0.01"))
 
+    # Get reorder suggestions and clear from session after reading
+    reorder_suggestions = request.session.pop("reorder_suggestions", None)
+    request.session.modified = True
+
     return render(request, "cart/detail.html", {
         "cart_items": cart_items,
         "cart_total": total.quantize(Decimal("0.01")),
@@ -220,6 +221,7 @@ def cart_detail(request):
         "is_bulk_buyer": is_bulk_buyer,
         "total_food_miles": round(float(total_food_miles), 1),
         "suggested_products": suggested_products,
+        "reorder_suggestions": reorder_suggestions,
     })
 
 
@@ -245,7 +247,7 @@ def cart_add(request, product_id):
     cart, _ = Cart.objects.get_or_create(user=request.user)
 
     try:
-        qty = int(request.POST.get("qty", 1) or request.POST.get("quantity") or 1)
+        qty = int(request.POST.get("qty") or request.POST.get("quantity") or 1)
     except (TypeError, ValueError):
         qty = 1
 
@@ -471,6 +473,7 @@ def checkout(request):
             if hasattr(delivery_date, "isoformat"):
                 delivery_date = delivery_date.isoformat()
 
+            special_instructions = request.POST.get("special_instructions", "").strip()
             request.session["order"] = {
                 "address": form.cleaned_data.get("delivery_address", ""),
                 "postcode": form.cleaned_data.get("delivery_postcode", ""),
@@ -480,8 +483,10 @@ def checkout(request):
                 "commission": float(commission),
                 "total": float(total),
                 "producers": producers,
+                "special_instructions": special_instructions,
             }
 
+            request.session["special_instructions"] = special_instructions
             request.session["order_total"] = str(total)
             request.session["cart_items"] = cart_items
             request.session["delivery_address"] = form.cleaned_data.get("delivery_address", "")
@@ -493,7 +498,7 @@ def checkout(request):
             request.session["commission"] = str(commission)
             request.session.modified = True
 
-            return redirect("marketplace:payment")
+            return redirect("orders:payment")
 
     return render(request, "cart/checkout.html", {
         "form": form,

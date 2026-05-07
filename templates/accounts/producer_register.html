@@ -4,7 +4,7 @@
   <div class="card stack">
     <h1>Producer Registration</h1>
     <p class="muted">
-        Creating a BRFN account as a prodcuer
+        Creating a BRFN account as a producer
     </p>
     <br>
 
@@ -30,4 +30,38 @@
     </p>
 
   </div>
+
+  <script>
+    function togglePassword(inputId, btn) {
+      const input = document.getElementById(inputId);
+      const icon = btn.querySelector("i");
+      if (input.type === "password") {
+        input.type = "text";
+        icon.classList.remove("fa-eye");
+        icon.classList.add("fa-eye-slash");
+      } else {
+        input.type = "password";
+        icon.classList.remove("fa-eye-slash");
+        icon.classList.add("fa-eye");
+      }
+    }
+
+    // Auto-add toggle buttons to all password inputs
+    document.addEventListener("DOMContentLoaded", function () {
+      const passwordInputs = document.querySelectorAll("input[type='password']");
+      passwordInputs.forEach(function (input) {
+        if (!input.id) return;
+        const wrapper = document.createElement("div");
+        wrapper.style.position = "relative";
+        input.parentNode.insertBefore(wrapper, input);
+        wrapper.appendChild(input);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.setAttribute("onclick", `togglePassword('${input.id}', this)`);
+        btn.style.cssText = "position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:#6b7280;";
+        btn.innerHTML = '<i class="fa-solid fa-eye"></i>';
+        wrapper.appendChild(btn);
+      });
+    });
+  </script>
 {% endblock %}

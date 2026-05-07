@@ -8,6 +8,14 @@
 
   <link rel="stylesheet" href="{% static 'dist/css/main.css' %}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    :root {
+      --base-font-size: {% if request.session.font_size == 'small' %}14px{% elif request.session.font_size == 'large' %}18px{% else %}16px{% endif %};
+    }
+    body {
+      font-size: var(--base-font-size);
+    }
+  </style>
 </head>
 
 <body>
@@ -46,7 +54,6 @@
             Payments
           </a>
 
-
         {% elif user.profile.role == "CUSTOMER" or user.profile.role == "COMMUNITY_GROUP" or user.profile.role == "RESTAURANT" %}
           <a href="{% url 'marketplace:order_history' %}" {% if request.resolver_match.url_name == 'order_history' or request.resolver_match.url_name == 'order_detail' %}class="active"{% endif %}>
             My Orders
@@ -67,7 +74,7 @@
 
           <div class="profile-dropdown-menu" id="profileDropdownMenu">
             <a href="{% url 'accounts:profile' %}">My Profile</a>
-            <a href="#">Settings</a>
+            <a href="{% url 'accounts:settings' %}">Settings</a>
             <a href="{% url 'message:inbox' %}">Messages</a>
 
             {% if user.profile.role == "PRODUCER" and user.profile.is_verified %}
@@ -100,7 +107,7 @@
 </header>
 
 <main class="container">
-  {% if user.is_authenticated %}
+  {% if user.is_authenticated and request.resolver_match.url_name != 'reset_password' and request.resolver_match.url_name != 'forgot_password' %}
     <div class="user-info">
       {% if request.user.profile.role == "PRODUCER" %}
         Welcome back, {{ request.user.profile.business_name|title }}!
@@ -215,13 +222,8 @@
             }
 
             @keyframes surplusPopupFloat {
-              0%, 100% {
-                transform: translateY(0);
-              }
-
-              50% {
-                transform: translateY(-4px);
-              }
+              0%, 100% { transform: translateY(0); }
+              50% { transform: translateY(-4px); }
             }
           </style>
         {% endif %}
@@ -265,7 +267,6 @@
 
   function toggleProfileDropdown() {
     const dropdown = document.getElementById("profileDropdownMenu");
-
     if (dropdown) {
       dropdown.classList.toggle("show");
     }
@@ -274,7 +275,6 @@
   window.addEventListener("click", function (event) {
     if (!event.target.closest(".profile-dropdown")) {
       const dropdown = document.getElementById("profileDropdownMenu");
-
       if (dropdown) {
         dropdown.classList.remove("show");
       }
@@ -289,9 +289,7 @@
 
   function showSurplusPopup() {
     if (!surplusPopup) return;
-
     surplusPopup.classList.add("show");
-
     surplusPopupHideTimer = setTimeout(function () {
       hideSurplusPopup();
     }, 18000);
@@ -299,9 +297,7 @@
 
   function hideSurplusPopup() {
     if (!surplusPopup) return;
-
     surplusPopup.classList.remove("show");
-
     surplusPopupLoopTimer = setTimeout(function () {
       showSurplusPopup();
     }, 120000);
@@ -309,14 +305,11 @@
 
   function closeSurplusPopup() {
     if (!surplusPopup) return;
-
     clearTimeout(surplusPopupShowTimer);
     clearTimeout(surplusPopupHideTimer);
     clearTimeout(surplusPopupLoopTimer);
-
     surplusPopup.classList.remove("show");
     surplusPopup.style.display = "none";
-
     sessionStorage.setItem("surplusPopupClosed", "true");
   }
 

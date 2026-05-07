@@ -28,4 +28,7 @@ urlpatterns = [
     path("admin-financials/",views.admin_financial_report, name="admin_financial_report"),
     path("admin-financial-report/export/csv/", views.export_financial_report_csv, name="export_financial_report_csv"),
     path("admin-financial-report/export/pdf/", views.export_financial_report_pdf, name="export_financial_report_pdf"),
+    path("settings/", views.user_settings, name="settings"),
+    path("forgot-password/", views.forgot_password, name="forgot_password"),
+    path("reset-password/", views.reset_password, name="reset_password"),
 ]

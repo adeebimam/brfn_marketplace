@@ -306,11 +306,21 @@ class ProducerOrder(models.Model):
         DELIVERED = "DELIVERED", "Delivered"
         CANCELLED = "CANCELLED", "Cancelled"
 
+    class OrderType(models.TextChoices):
+        NORMAL = "NORMAL", "Normal"
+        BULK = "BULK", "Bulk"
+        RECURRING = "RECURRING", "Recurring"
+
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="producer_orders")
     producer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="incoming_producer_orders")
     delivery_date = models.DateField()
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     total_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    order_type = models.CharField(
+        max_length=20,
+        choices=OrderType.choices,
+        default=OrderType.NORMAL,
+    )
 
     class Meta:
         ordering = ["delivery_date", "id"]
@@ -328,7 +338,6 @@ class ProducerOrder(models.Model):
 
     def __str__(self):
         return f"Order #{self.order_id} -> {self.producer}"
-
 
 class OrderItem(models.Model):
     producer_order = models.ForeignKey(ProducerOrder, on_delete=models.CASCADE, related_name="items")
