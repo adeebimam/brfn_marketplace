@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+	<div class="card">
+		<h1>Create Post</h1>
+		<form method="post" enctype="multipart/form-data">
+			{% csrf_token %}
+
+			{% if form.non_field_errors %}
+			<div class="form-errors">
+				{{ form.non_field_errors }}
+			</div>
+			{% endif %}
+
+			<div class="form-row">
+				{{ form.title.label_tag }}
+				{{ form.title }}
+				{% if form.title.errors %}
+				<div class="field-errors">{{ form.title.errors }}</div>
+				{% endif %}
+			</div>
+
+			<div class="form-row">
+				{{ form.description.label_tag }}
+				{{ form.description }}
+			</div>
+
+			<div class="form-row">
+				{{ form.body.label_tag }}
+				{{ form.body }}
+				{% if form.body.errors %}
+				<div class="field-errors">{{ form.body.errors }}</div>
+				{% endif %}
+			</div>
+
+			<div class="form-row">
+				{{ form.season.label_tag }}
+				{{ form.season }}
+				{% if form.season.errors %}
+				<div class="field-errors">{{ form.season.errors }}</div>
+				{% endif %}
+			</div>
+
+			<div class="form-row">
+				{{ form.image.label_tag }}
+				{{ form.image }}
+				{% if form.image.errors %}
+				<div class="field-errors">{{ form.image.errors }}</div>
+				{% endif %}
+			</div>
+
+			<div class="form-row form-check">
+				{{ form.published }} {{ form.published.label_tag }}
+				{% if form.published.errors %}
+				<div class="field-errors">{{ form.published.errors }}</div>
+				{% endif %}
+			</div>
+
+			<div style="margin-top:12px; display:flex; gap:8px;">
+				<button class="save-btn btn" type="submit">Save</button>
+				<a class="btn" href="{% url 'community:community' %}">Cancel</a>
+			</div>
+		</form>
+	</div>
+{% endblock %}

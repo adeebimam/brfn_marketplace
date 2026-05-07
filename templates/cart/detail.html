@@ -31,11 +31,13 @@
                   </td>
 
                   <td>
-                    {% if item.producer.profile.business_name %}
-                      {{ item.producer.profile.business_name }}
-                    {% else %}
-                      {{ item.producer.username }}
-                    {% endif %}
+                    <a class="producer-link" href="{% url 'accounts:producer_detail' item.producer.username %}">
+                      {% if item.producer.profile.business_name %}
+                        {{ item.producer.profile.business_name }}
+                      {% else %}
+                        {{ item.producer.username }}
+                      {% endif %}
+                    </a>
                   </td>
                   <td>£{{ item.unit_price }}</td>
 

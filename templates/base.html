@@ -18,6 +18,7 @@
 
     <nav class="nav-links">
       <a href="{% url 'marketplace:product_list' %}" {% if request.resolver_match.url_name == 'product_list' %}class="active"{% endif %}>Products</a>
+      <a href="{% url 'community:community' %}" {% if request.resolver_match.app_name == 'community' %}class="active"{% endif %}>Community</a>
 
       {% if user.is_authenticated %}
         {% if user.profile.role == "PRODUCER" %}

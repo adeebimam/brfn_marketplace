@@ -2,6 +2,9 @@ from django.contrib import admin
 from django.urls import path, include
 from django.shortcuts import redirect
 
+from django.conf import settings
+from django.conf.urls.static import static
+
 
 def home_redirect(request):
     return redirect("marketplace:product_list")
@@ -28,5 +31,12 @@ urlpatterns = [
     path("", include("apps.marketplace.urls")),
     
     path("orders/", include("orders.urls")),
-    
+
+    # Community routes
+    path("community/", include(("community.urls", "community"), namespace="community")),
+
 ]
+
+if settings.DEBUG:
+    # Serve media files during development
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

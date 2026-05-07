@@ -16,6 +16,22 @@ body {
   line-height: 1.5;
 }
 
+/* Make most links match body text by default (ingredients, titles, etc.).
+   More specific rules like .nav a or .btn will continue to override where needed. */
+a {
+  color: #111827;
+  text-decoration: none;
+}
+
+a:visited {
+  color: #111827;
+}
+
+a:hover {
+  text-decoration: underline;
+  color: #111827;
+}
+
 /* ---- Text ---- */
 .welcome-message {
   font-weight: bold;
@@ -293,6 +309,10 @@ input:focus, select:focus, textarea:focus {
   color: #087d73;
 }
 
+.product-link:visited {
+  color: #087d73;
+}
+
 .product-link:hover {
   text-decoration: underline;
   color: #1faa9f;
@@ -309,8 +329,33 @@ input:focus, select:focus, textarea:focus {
   color: #168e85;
 }
 
+/* Producer link: show as normal body text (black) and keep same color after visited/clicked */
+.producer-link {
+  color: #087d73;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.producer-link:visited {
+  color: #087d73;
+}
+
+.producer-link:hover {
+  text-decoration: underline;
+  color: #1faa9f;
+}
+
 .non-primary-btn {
   font-size: 15px;
+}
+
+.product-unavailable {
+  opacity: 0.85;
+  color: #111827;
+}
+
+.product-unavailable:hover {
+  text-decoration: none;
 }
 
 .non-primary-btn:hover {
@@ -392,6 +437,21 @@ input:focus, select:focus, textarea:focus {
   padding: 8px 10px;
   border: 1px solid rgba(0, 0, 0, 0.15);
   border-radius: 10px;
+}
+
+/* Keep product list anchors using the .product-link color defined in base */
+.product-results a, .product-card a, .product-link {
+  color: #087d73;
+  text-decoration: none;
+}
+
+.product-results a:visited, .product-link:visited {
+  color: #087d73;
+}
+
+.product-results a:hover, .product-link:hover {
+  text-decoration: underline;
+  color: #1faa9f;
 }
 
 .allergen-warning {
@@ -673,6 +733,338 @@ span.helptext {
 
 .allergen-fieldset legend {
   font-weight: 600;
+}
+
+.community-header {
+  padding: 18px 0;
+}
+.community-header h1 {
+  margin: 0 0 8px 0;
+  font-size: 28px;
+}
+.community-header p {
+  color: #6b7280;
+  margin: 0 0 12px 0;
+}
+.community-header .community-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #111827;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.action-btn.secondary {
+  background: #f9fafb;
+  color: #6b7280;
+  border-color: #e5e7eb;
+}
+
+/* Global unpublished bubble so detail pages (outside .community-feed) pick up the pill styling */
+.unpublished-bubble {
+  background: #eef2ff;
+  color: #111827;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 13px;
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 12px;
+  line-height: 1;
+}
+
+.community-feed {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 26px;
+  margin-top: 18px;
+}
+.community-feed .feed-column {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+}
+.community-feed .post-card, .community-feed .recipe-card {
+  display: block;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 1px 0 rgba(16, 24, 40, 0.02);
+  margin-bottom: 12px;
+  border: 1px solid #eef2f7;
+}
+.community-feed .card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  padding: 16px; /* unified spacing for card content */
+  padding-bottom: 0px;
+}
+.community-feed {
+  /* Ensure the post-body isn't inset by the .card-link padding on the left */
+}
+.community-feed .card-link > .post-body {
+  margin-left: 0;
+  padding-left: 0;
+}
+.community-feed {
+  /* Remove underline for any links inside the card body; keep the producer link styled as bold */
+}
+.community-feed .post-card a, .community-feed .recipe-card a {
+  text-decoration: none;
+  color: inherit;
+}
+.community-feed .post-card a:hover, .community-feed .recipe-card a:hover {
+  text-decoration: none;
+}
+.community-feed {
+  /* Apply hover to the whole card element so the whole block highlights */
+}
+.community-feed .post-card:hover,
+.community-feed .recipe-card:hover {
+  background: #f3f4f6; /* very light grey */
+}
+.community-feed .unpublished-bubble {
+  background: #eef2ff;
+  color: #111827;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 13px;
+  margin-left: 12px;
+  white-space: nowrap;
+}
+.community-feed {
+  /* Ensure the bubble sits to the right on small blocks */
+}
+.community-feed .post-meta .unpublished-bubble,
+.community-feed .recipe-card .unpublished-bubble {
+  margin-left: auto;
+}
+.community-feed .detail-header {
+  display: block;
+  margin-bottom: 12px;
+}
+.community-feed {
+  /* Ensure the anchor wrapper owns spacing; inner article should not add padding */
+}
+.community-feed .card-link > article {
+  margin: 0;
+}
+.community-feed .card-link .card-body {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.community-feed {
+  /* Two-column layout used on detail pages (image + teaser) */
+}
+.community-feed .detail-two-col {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+.community-feed .detail-image {
+  flex: 1 1 50%;
+  max-width: 50%;
+}
+.community-feed .detail-image img {
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+  display: block;
+}
+.community-feed .detail-teaser {
+  flex: 1 1 50%;
+  max-width: 50%;
+  color: #374151;
+}
+.community-feed .detail-header h1 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.community-feed .post-image img {
+  max-width: 100%;
+  border-radius: 8px;
+  /* reduce gap between image and title */
+  margin-bottom: 6px;
+}
+.community-feed .post-body h3, .community-feed .recipe-card h3 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  color: #111827;
+}
+.community-feed .card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.community-feed .card-title-row .unpublished-bubble {
+  margin-left: 12px;
+  font-size: 12px;
+  padding: 6px 10px;
+}
+.community-feed .post-body .muted {
+  color: #111827; /* use main text color so post snippets match recipe text */
+  margin-bottom: 12px;
+}
+.community-feed .post-meta {
+  /* Stack producer name and publish date vertically with consistent spacing */
+  display: flex;
+  flex-direction: column;
+  padding-inline: 16px;
+  padding-block: 16px;
+}
+.community-feed .post-meta .producer-name {
+  font-weight: 700;
+  color: #087d73; /* producer name teal */
+  display: block;
+}
+.community-feed .post-meta .publish-date {
+  color: #6b7280;
+  font-size: 0.95rem;
+  display: block;
+}
+.community-feed {
+  /* Tighter spacing for card headings */
+}
+.community-feed .feed-column h2 {
+  margin: 0 0 14px 0;
+}
+.community-feed .post-meta .meta-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: #087d73; /* producer name teal */
+}
+.community-feed {
+  /* Ensure producer link sits flush left like the title/description */
+}
+.community-feed .post-meta .meta-left {
+  margin-left: 0;
+  padding-left: 0;
+}
+.community-feed .post-meta .meta-left .producer-link {
+  display: inline-block;
+  margin-left: 0;
+  padding-left: 0;
+}
+.community-feed .post-meta .meta-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+}
+.community-feed {
+  /* legacy draft-badge removed in favor of .unpublished-bubble */
+}
+.community-feed .read-more {
+  color: #6d28d9;
+  text-decoration: underline;
+  font-weight: 600;
+}
+.community-feed {
+  /* Force inline links inside community feed and cards to use the main text color
+     so inline anchors (ingredients, snippets, titles) are not blue/purple.
+     Keep visited state inherited so product/producer-specific visited styles apply. */
+}
+.community-feed a {
+  color: #111827;
+  text-decoration: none;
+}
+.community-feed a:visited {
+  color: inherit;
+}
+.community-feed a:hover {
+  text-decoration: underline;
+  color: #111827;
+}
+
+@media (max-width: 860px) {
+  .community-feed {
+    grid-template-columns: 1fr;
+  }
+}
+/* Producer page product grid: 3 columns on desktop, responsive down to 1 */
+.producer-product-grid, .producer-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 12px;
+}
+
+/* Generic producer grid used by Products, Posts and Recipes */
+.product-grid-item {
+  border: 1px solid #eef2f7;
+  padding: 12px;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.product-title {
+  font-size: 16px;
+  margin: 0 0 8px 0;
+}
+
+.product-title .product-link {
+  color: #087d73;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.product-meta .price {
+  font-weight: 700;
+  color: #111827;
+}
+
+.producer-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 12px;
+}
+
+.producer-grid .product-grid-item {
+  padding: 14px;
+}
+
+.post-image img {
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.card-body {
+  padding: 0;
+}
+
+@media (max-width: 980px) {
+  .producer-product-grid, .producer-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .producer-product-grid, .producer-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /*# sourceMappingURL=main.css.map */

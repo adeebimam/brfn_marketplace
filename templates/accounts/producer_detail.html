@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="card stack">
+    <h1>{{ profile.business_name|default:producer.get_full_name|default:producer.username }}</h1>
+
+    <div class="producer-actions" style="margin-bottom:12px; display:flex; gap:8px;">
+      <button class="btn toggle-btn active" data-target="#products">Products</button>
+      <button class="btn toggle-btn" data-target="#posts">Posts</button>
+      <button class="btn toggle-btn" data-target="#recipes">Recipes</button>
+    </div>
+
+    <div id="producer-sections">
+      <section id="products" class="producer-section" style="display:block;">
+        <h2>Products</h2>
+        {% if products %}
+          <div class="producer-product-grid">
+            {% for p in products %}
+              <article class="card product-grid-item">
+                {% if p.image %}
+                  <div class="post-image"><img src="{{ p.image.url }}" alt="{{ p.name }}"></div>
+                {% endif %}
+                <div class="card-body">
+                  <h3 class="product-title">
+                    <a class="product-link" href="{% url 'marketplace:product_detail' p.pk %}">{{ p.name }}</a>
+                    {% if not p.is_active %}<span class="unpublished-bubble">Unavailable</span>{% endif %}
+                  </h3>
+                  {% if p.description %}
+                    <p class="muted">{{ p.description|linebreaks }}</p>
+                  {% endif %}
+
+                  <div class="product-meta" style="margin-top:12px;">
+                    {% if p.category %}
+                      <div class="muted">{{ p.category.name }}</div>
+                    {% endif %}
+                    <div class="price" style="margin-top:6px;">£{{ p.price }}</div>
+                  </div>
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p>No products available.</p>
+        {% endif %}
+      </section>
+
+      <section id="posts" class="producer-section" style="display:none;">
+        <h2>Posts</h2>
+        {% if stories %}
+          <div class="producer-grid">
+            {% for s in stories %}
+              <article class="card product-grid-item">
+                {% if s.image %}
+                  <div class="post-image"><img src="{{ s.image.url }}" alt="{{ s.title }}"></div>
+                {% endif %}
+                <div class="card-body">
+                  <h3 class="product-title"><a class="product-link" href="{% url 'community:story_detail' s.pk %}">{{ s.title }}</a>{% if not s.published %} <span class="unpublished-bubble">Draft</span>{% endif %}</h3>
+                  {% if s.description %}
+                    <p class="muted">{{ s.description|linebreaks|truncatewords:20 }}</p>
+                  {% endif %}
+                  <div style="margin-top:12px;" class="muted">{{ s.created_at|date:"j M Y" }}</div>
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p>No posts published yet.</p>
+        {% endif %}
+      </section>
+
+      <section id="recipes" class="producer-section" style="display:none;">
+        <h2>Recipes</h2>
+        {% if recipes %}
+          <div class="producer-grid">
+            {% for r in recipes %}
+              <article class="card product-grid-item">
+                {% if r.image %}
+                  <div class="post-image"><img src="{{ r.image.url }}" alt="{{ r.title }}"></div>
+                {% endif %}
+                <div class="card-body">
+                  <h3 class="product-title"><a class="product-link" href="{% url 'community:recipe_detail' r.pk %}">{{ r.title }}</a>{% if not r.published %} <span class="unpublished-bubble">Draft</span>{% endif %}</h3>
+                  {% if r.description %}
+                    <p class="muted">{{ r.description|linebreaks|truncatewords:20 }}</p>
+                  {% endif %}
+                  <div style="margin-top:12px;" class="muted">{{ r.created_at|date:"j M Y" }}</div>
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p>No recipes published yet.</p>
+        {% endif %}
+      </section>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const buttons = document.querySelectorAll('.toggle-btn');
+      buttons.forEach(btn => btn.addEventListener('click', (e) => {
+        buttons.forEach(b => b.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+        const target = e.currentTarget.getAttribute('data-target');
+        document.querySelectorAll('.producer-section').forEach(sec => {
+          if ('#' + sec.id === target) sec.style.display = 'block'; else sec.style.display = 'none';
+        });
+        // scroll to top of content for clarity
+        const el = document.querySelector(target);
+        if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
+      }));
+    })();
+  </script>
+{% endblock %}

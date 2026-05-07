@@ -7,6 +7,7 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
+from community.models import Recipe
 from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -114,20 +115,30 @@ def product_list(request):
 
 def product_detail(request, pk):
     # Only show products that are active (formerly `in_season`)
+    # Fetch product by pk (do not pre-filter is_active) so owners can view their own inactive products.
     product = get_object_or_404(
         Product.objects.select_related("category", "producer").prefetch_related("allergens"),
         pk=pk,
-        is_active=True,
     )
+
     # If the product is not available, out of stock, or out of season — only the producer can view
     if (not product.is_active or product.stock_quantity <= 0 or not product.is_in_season()):
         if request.user != product.producer:
             from django.http import Http404
             raise Http404("This product is not currently available.")
 
+    # Find recipes linked to this product either via the legacy `products` relation or the new `ingredients` relation.
+    linked_qs = Recipe.objects.filter(Q(products=product) | Q(ingredients=product)).distinct()
+    # Only show published recipes to general users; producers/staff can see their own drafts
+    if request.user.is_authenticated:
+        linked_recipes = linked_qs.filter(Q(published=True) | Q(producer=request.user)).order_by("-created_at")
+    else:
+        linked_recipes = linked_qs.filter(published=True).order_by("-created_at")
+
     return render(request, "marketplace/product_detail.html", {
         "product": product,
         "is_in_season": product.is_in_season(),
+        "linked_recipes": linked_recipes,
     })
 
 

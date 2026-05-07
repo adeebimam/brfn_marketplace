@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block content %}
+	<div class="card">
+		<h1>Create Recipe</h1>
+	<form method="post" enctype="multipart/form-data">
+			{% csrf_token %}
+
+			{% if form.non_field_errors %}
+			<div class="form-errors">{{ form.non_field_errors }}</div>
+			{% endif %}
+
+			<div class="form-row">
+				{{ form.title.label_tag }}
+				{{ form.title }}
+				{% if form.title.errors %}
+				<div class="field-errors">{{ form.title.errors }}</div>
+				{% endif %}
+			</div>
+
+			<div class="form-row">
+				{{ form.description.label_tag }}
+				{{ form.description }}
+			</div>
+
+			<div class="form-row">
+				{{ form.content.label_tag }}
+				{{ form.content }}
+				{% if form.content.errors %}
+				<div class="field-errors">{{ form.content.errors }}</div>
+				{% endif %}
+			</div>
+
+			<div class="form-row">
+				{{ form.season.label_tag }}
+				{{ form.season }}
+				{% if form.season.errors %}
+				<div class="field-errors">{{ form.season.errors }}</div>
+				{% endif %}
+			</div>
+
+			<div class="form-row">
+				{{ form.image.label_tag }}
+				{{ form.image }}
+				{% if form.image.errors %}
+				<div class="field-errors">{{ form.image.errors }}</div>
+				{% endif %}
+			</div>
+
+			<div class="form-row">
+				{{ form.ingredients.label_tag }}
+				{{ form.ingredients }}
+			</div>
+
+			<div class="form-row">
+				{{ form.other_ingredients.label_tag }}
+				{{ form.other_ingredients }}
+			</div>
+
+				<div class="form-row form-check" style="margin-top:12px;">
+					{{ form.published }} {{ form.published.label_tag }}
+				</div>
+
+				<div style="margin-top:12px; display:flex; gap:8px;">
+					<button class="save-btn btn" type="submit">Save</button>
+					<a class="btn" href="{% url 'community:community' %}">Cancel</a>
+				</div>
+		</form>
+	</div>
+{% endblock %}

@@ -24,7 +24,11 @@
     {% endif %}
 
     <p class="muted">
-      Sold by: <strong>{{ product.producer.username }}</strong>
+      Sold by: <strong>
+        <a class="producer-link" href="{% url 'accounts:producer_detail' product.producer.username %}">
+            {{ product.producer.profile.business_name|default:product.producer.get_full_name|default:product.producer.username }}
+          </a>
+      </strong>
     </p>
 
     <p>{{ product.description }}</p>
@@ -81,5 +85,16 @@
     {% endif %}
 
     <a class="btn" href="{% url 'marketplace:product_list' %}">Back</a>
+    {% comment %} Recipe suggestions: recipes linked to this product (provided in view) {% endcomment %}
+    {% if linked_recipes %}
+      <div class="recipe-suggestions" style="margin-top:18px;">
+        <h3>Recipe suggestions</h3>
+        <ul>
+          {% for r in linked_recipes %}
+            <li><a href="{% url 'community:recipe_detail' r.pk %}">{{ r.title }}</a></li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
   </div>
 {% endblock %}

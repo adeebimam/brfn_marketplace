@@ -16,3 +16,11 @@
   border: 1px solid rgba(0,0,0,0.15);
   border-radius: 10px;
 }
+
+/* Keep product list anchors using the .product-link color defined in base */
+.product-results a, .product-card a, .product-link {
+  color: #087d73;
+  text-decoration: none;
+}
+.product-results a:visited, .product-link:visited { color: #087d73; }
+.product-results a:hover, .product-link:hover { text-decoration: underline; color: #1faa9f; }

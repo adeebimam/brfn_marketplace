@@ -91,7 +91,11 @@
             {% endif %}
 
             <div class="muted" style="margin-top: 20px;">
-              Sold by: <strong>{{ p.producer.username }}</strong>
+              Sold by: <strong>
+                <a class="producer-link" href="{% url 'accounts:producer_detail' p.producer.username %}">
+                  {{ p.producer.profile.business_name|default:p.producer.get_full_name|default:p.producer.username }}
+                </a>
+              </strong>
             </div>
 
             <div class="muted">

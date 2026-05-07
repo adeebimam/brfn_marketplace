@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+  <div class="detail-header">
+    <h1>{{ recipe.title }} {% if not recipe.published and user.is_authenticated %}{% if user == recipe.producer or user.is_staff %}<span class="unpublished-bubble">Unpublished</span>{% endif %}{% endif %}</h1>
+  </div>
+
+  {# Two-column area: image (left) and short description (right) when an image exists #}
+  {% if recipe.image %}
+    <div class="detail-two-col" style="display:flex; gap:20px; align-items:flex-start; margin-top:12px;">
+      <div class="detail-image" style="flex:1 1 50%; max-width:50%;">
+        <img src="{{ recipe.image.url }}" alt="{{ recipe.title }}" style="width:100%; height:auto; display:block; border-radius:4px;" />
+      </div>
+      <div class="detail-teaser" style="flex:1 1 50%; max-width:50%;">
+        {% if recipe.season %}
+          {# Reuse product-list seasonal badge styling (same inline styles) #}
+          <span style="display:inline-block; margin-bottom:8px; font-size:0.9rem; color:#15803d; background:#dcfce7; padding:4px 10px; border-radius:6px; font-weight:600;">
+            {{ recipe.get_season_display }}
+          </span>
+        {% endif %}
+        {% if recipe.description %}
+          <p class="teaser">{{ recipe.description|linebreaks }}</p>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    {% if recipe.season %}
+      <div style="margin-top:12px; margin-bottom:6px;">
+        <span style="display:inline-block; font-size:0.9rem; color:#15803d; background:#dcfce7; padding:4px 10px; border-radius:6px; font-weight:600;">
+          {{ recipe.get_season_display }}
+        </span>
+      </div>
+    {% endif %}
+    {% if recipe.description %}
+      <div style="margin-top:6px;"><p class="teaser">{{ recipe.description|linebreaks }}</p></div>
+    {% endif %}
+  {% endif %}
+
+  {% comment %} combined ingredients list: list producer ingredients (linked where active) and then other ingredients as plain text items {% endcomment %}
+  {% if recipe.ingredients.exists or recipe.other_ingredients %}
+    <div class="related-products">
+      <h4>Ingredients</h4>
+      <ul>
+        {% for p in recipe.ingredients.all %}
+          {# Only link when the product is active and currently in season. #}
+          {% if p.is_active and p.is_in_season %}
+            <li><a href="{% url 'marketplace:product_detail' p.pk %}">{{ p.name }}</a></li>
+          {% elif p.is_active and not p.is_in_season %}
+            <li><span title="Sorry, this product is currently unavailable" class="muted product-unavailable">{{ p.name }}</span></li>
+          {% else %}
+            <li><span title="Sorry, this product is currently unavailable" class="muted product-unavailable">{{ p.name }}</span></li>
+          {% endif %}
+        {% endfor %}
+        {% for line in other_ingredient_lines %}
+          <li>{{ line }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <div class="content" style="margin-top:18px;">
+    <p>{{ recipe.content|linebreaks }}</p>
+  </div>
+
+  <div class="meta" style="margin-top:12px;">
+    <div>Published: {{ recipe.created_at|date:"j M Y" }}</div>
+  <div>by {% if recipe.producer %}
+    <a class="producer-link" href="{% url 'accounts:producer_detail' recipe.producer.username %}">
+      {{ recipe.producer.profile.business_name|default:recipe.producer.get_full_name|default:recipe.producer.username }}
+    </a>
+  {% else %}Unknown{% endif %}</div>
+  </div>
+
+  <div style="margin-top:12px; display:flex; gap:8px;">
+    {% if user.is_authenticated %}
+      {% if user == recipe.producer or user.is_staff %}
+        <a class="btn btn-primary" href="{% url 'community:recipe_edit' recipe.pk %}">Edit</a>
+      {% endif %}
+    {% endif %}
+
+    <a class="btn" href="{% url 'community:community' %}">Back to feed</a>
+  </div>
+</div>
+{% endblock %}

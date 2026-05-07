@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
+from django.db.models import Q
 
 from .forms import CustomerRegisterForm, ProducerRegisterForm
 from .models import Profile
@@ -100,6 +101,41 @@ def logout_view(request):
     )
     logout(request)
     return redirect("accounts:login")
+
+
+def producer_detail(request, username):
+    """Show a producer's public page: products plus links to their posts and recipes."""
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    user = User.objects.filter(username=username).first()
+    if user is None:
+        from django.http import Http404
+        raise Http404()
+
+    profile, _ = Profile.objects.get_or_create(user=user)
+
+    # products for public view (only active and currently in-season products)
+    from apps.marketplace.models import Product
+    qs = Product.objects.filter(producer=user, is_active=True).order_by("-created_at")
+    # Use the model helper to check seasonality — produces a plain list but is fine for rendering
+    products = [p for p in qs if p.is_in_season()]
+
+    # community content by this producer (published only unless viewer is the same producer)
+    from community.models import Recipe, FarmStory
+    if request.user == user:
+        recipes = Recipe.objects.filter(Q(producer=user)).order_by("-created_at")
+        stories = FarmStory.objects.filter(Q(producer=user)).order_by("-created_at")
+    else:
+        recipes = Recipe.objects.filter(producer=user, published=True).order_by("-created_at")
+        stories = FarmStory.objects.filter(producer=user, published=True).order_by("-created_at")
+
+    return render(request, "accounts/producer_detail.html", {
+        "producer": user,
+        "profile": profile,
+        "products": products,
+        "recipes": recipes,
+        "stories": stories,
+    })
 
 
 def axes_lockout_view(request, credentials=None, *args, **kwargs):

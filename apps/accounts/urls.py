@@ -9,4 +9,5 @@ urlpatterns = [
     path("logout/", views.logout_view, name="logout"),
     path("register/producer/",views.producer_register_view, name="producer_register"),
     path("profile/", views.profile_view, name="profile"),
+    path("producer/<str:username>/", views.producer_detail, name="producer_detail"),
 ]

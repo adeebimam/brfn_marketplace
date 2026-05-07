@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+  <div class="detail-header">
+    <h1>{{ story.title }} {% if not story.published and user.is_authenticated %}{% if user == story.producer or user.is_staff %}<span class="unpublished-bubble">Unpublished</span>{% endif %}{% endif %}</h1>
+  </div>
+
+  {% if story.image %}
+    <div class="detail-two-col" style="display:flex; gap:20px; align-items:flex-start; margin-top:12px;">
+      <div class="detail-image" style="flex:1 1 50%; max-width:50%;">
+        <img src="{{ story.image.url }}" alt="{{ story.title }}" style="width:100%; height:auto; display:block; border-radius:4px;" />
+      </div>
+      <div class="detail-teaser" style="flex:1 1 50%; max-width:50%;">
+        {% if story.description %}
+          <p class="teaser">{{ story.description|linebreaks }}</p>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    {% if story.description %}
+      <div style="margin-top:12px;"><p class="teaser">{{ story.description|linebreaks }}</p></div>
+    {% endif %}
+  {% endif %}
+
+  <div class="content" style="margin-top:18px;">
+    <p>{{ story.body|linebreaks }}</p>
+  </div>
+
+  <div class="meta" style="margin-top:12px;">
+    <div>Published: {{ story.created_at|date:"j M Y" }}</div>
+  <div>by {% if story.producer %}
+    <a class="producer-link" href="{% url 'accounts:producer_detail' story.producer.username %}">
+      {{ story.producer.profile.business_name|default:story.producer.get_full_name|default:story.producer.username }}
+    </a>
+  {% else %}Unknown{% endif %}</div>
+  </div>
+
+  <div style="margin-top:12px; display:flex; gap:8px;">
+    {% if user.is_authenticated %}
+      {% if user == story.producer or user.is_staff %}
+        <a class="btn btn-primary" href="{% url 'community:story_edit' story.pk %}">Edit</a>
+      {% endif %}
+    {% endif %}
+
+    <a class="btn" href="{% url 'community:community' %}">Back to feed</a>
+  </div>
+</div>
+{% endblock %}

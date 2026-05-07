@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section class="community-header">
+    <h1>Community</h1>
+    <p>
+        Recipes, farm stories, seasonal updates and community knowledge.
+    </p>
+
+    {% if user.is_authenticated %}
+    <div class="community-actions">
+
+        <a href="{% url 'community:create_recipe' %}" class="action-btn">
+            + Add Recipe
+        </a>
+
+        <a href="{% url 'community:create_post' %}" class="action-btn">
+            + New Post
+        </a>
+
+    </div>
+    {% endif %}
+</section>
+
+
+<section class="community-feed">
+
+    <div class="feed-column">
+
+        <h2>Farm Stories & Updates</h2>
+
+                {% for story in stories %}
+                    <a class="card-link" href="{% url 'community:story_detail' story.pk %}">
+                        <article class="post-card">
+
+                            {% if story.image %}
+                                <div class="post-image"><img src="{{ story.image.url }}" alt="{{ story.title }}"></div>
+                            {% endif %}
+
+                            <div class="post-body">
+                                <div class="card-title-row">
+                                    <h3>{{ story.title }}</h3>
+                                    {% if not story.published and user.is_authenticated %}
+                                        {% if user == story.producer or user.is_staff %}
+                                            <span class="unpublished-bubble">Unpublished</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+
+                                <p>{{ story.description|default:story.body|truncatewords:35 }}</p>
+
+                                <div class="post-meta">
+                                    <div class="producer-name">
+                                        {% if story.producer %}
+                                            <a class="producer-link" href="{% url 'accounts:producer_detail' story.producer.username %}">
+                                                {{ story.producer.profile.business_name|default:story.producer.get_full_name|default:story.producer.username }}
+                                            </a>
+                                        {% else %}
+                                            <span class="muted">Unknown</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="publish-date muted">{{ story.created_at|date:"j M Y" }}</div>
+                                </div>
+
+                            </div>
+
+                        </article>
+                    </a>
+        {% empty %}
+           <p>No posts yet.</p>
+        {% endfor %}
+
+    </div>
+
+
+    <div class="feed-column">
+
+        <h2>Featured Recipes</h2>
+
+                {% for recipe in recipes %}
+                    <a class="card-link" href="{% url 'community:recipe_detail' recipe.pk %}">
+                        <article class="recipe-card">
+
+                            {% if recipe.image %}
+                                <div class="post-image"><img src="{{ recipe.image.url }}" alt="{{ recipe.title }}"></div>
+                            {% endif %}
+
+                            <div class="card-title-row">
+                                <h3>{{ recipe.title }}</h3>
+                                {% if not recipe.published and user.is_authenticated %}
+                                    {% if user == recipe.producer or user.is_staff %}
+                                        <span class="unpublished-bubble">Unpublished</span>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+
+                            <p>{{ recipe.description|default:recipe.content|truncatewords:20 }}</p>
+        
+
+                            <div class="post-meta">
+                                <div class="producer-name">
+                                    {% if recipe.producer %}
+                                        <a class="producer-link" href="{% url 'accounts:producer_detail' recipe.producer.username %}">
+                                            {{ recipe.producer.profile.business_name|default:recipe.producer.get_full_name|default:recipe.producer.username }}
+                                        </a>
+                                    {% else %}
+                                        <span class="muted">Unknown</span>
+                                    {% endif %}
+                                </div>
+                                <div class="publish-date muted">{{ recipe.created_at|date:"j M Y" }}</div>
+                            </div>
+
+                        </article>
+                    </a>
+        {% empty %}
+           <p>No recipes published yet.</p>
+        {% endfor %}
+
+    </div>
+
+</section>
+
+{% endblock %}

@@ -10,6 +10,15 @@ body {
   line-height: 1.5;
 }
 
+/* Make most links match body text by default (ingredients, titles, etc.).
+   More specific rules like .nav a or .btn will continue to override where needed. */
+a {
+  color: #111827;
+  text-decoration: none;
+}
+a:visited { color: #111827; }
+a:hover { text-decoration: underline; color: #111827; }
+
 /* ---- Text ---- */
 .welcome-message{
   font-weight: bold;
@@ -238,6 +247,7 @@ input:focus, select:focus, textarea:focus {
   text-decoration: none;
   color: #087d73;
 }
+.product-link:visited { color: #087d73; }
 .product-link:hover { 
   text-decoration: underline; 
   color: #1faa9f;
@@ -254,9 +264,23 @@ input:focus, select:focus, textarea:focus {
   color: #168e85;
 }
 
+/* Producer link: show as normal body text (black) and keep same color after visited/clicked */
+.producer-link{
+  color: #087d73;
+  text-decoration: none;
+  font-weight: 700;
+}
+.producer-link:visited{ color: #087d73; }
+.producer-link:hover{ text-decoration: underline; color: #1faa9f; }
+
 .non-primary-btn {
   font-size: 15px;
 }
+.product-unavailable {
+  opacity: 0.85;
+  color: #111827;
+}
+.product-unavailable:hover { text-decoration: none; }
 .non-primary-btn:hover {
   text-decoration: underline;
   background: #99999c;

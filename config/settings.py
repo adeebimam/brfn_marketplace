@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'apps.accounts.apps.AccountsConfig',
     'apps.marketplace.apps.MarketplaceConfig',
     "apps.cart.apps.CartConfig",
+    "community.apps.CommunityConfig",
 ]
 
 MIDDLEWARE = [
@@ -142,6 +143,11 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / "static"]
+
+# Media files (uploaded images)
+# MEDIA_ROOT is where uploaded files are stored on disk. MEDIA_URL is the URL prefix used to serve them in development.
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 AUTHENTICATION_BACKENDS = [
     "axes.backends.AxesBackend",
