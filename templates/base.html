@@ -75,7 +75,9 @@
           <div class="profile-dropdown-menu" id="profileDropdownMenu">
             <a href="{% url 'accounts:profile' %}">My Profile</a>
             <a href="{% url 'accounts:settings' %}">Settings</a>
-            <a href="{% url 'message:inbox' %}">Messages</a>
+            <a href="{% url 'message:inbox' %}" {% if has_unread_messages %}style="font-weight:800; color:#087d73;"{% endif %}>
+              Messages {% if has_unread_messages %}<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#087d73; margin-left:4px; vertical-align:middle;"></span>{% endif %}
+            </a>
 
             {% if user.profile.role == "PRODUCER" and user.profile.is_verified %}
               <a href="{% url 'marketplace:producer_product_list' %}">My Products</a>
@@ -85,7 +87,7 @@
             {% elif user.profile.role == "PRODUCER" and not user.profile.is_verified %}
               <a href="#" style="color: red;">Account under review</a>
 
-            {% elif user.profile.role == "CUSTOMER" or user.profile.role == "COMMUNITY_GROUP" or user.profile.role == "RESTAURANT" %}
+            {% elif  user.profile.role == "RESTAURANT" %}
               <a href="{% url 'marketplace:order_history' %}">Order History</a>
             {% endif %}
 

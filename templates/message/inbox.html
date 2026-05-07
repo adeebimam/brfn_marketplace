@@ -4,7 +4,6 @@
 <div class="card message-page">
   <div class="message-header-row">
     <h1>Messages</h1>
-
     <a class="btn save-btn" href="{% url 'message:start_message' %}">
       Start New Message
     </a>
@@ -18,14 +17,13 @@
             <th>To</th>
             <th>Subject</th>
             <th>Date</th>
-            <th>Status</th>
             <th>Actions</th>
           </tr>
         </thead>
 
         <tbody>
           {% for thread in threads %}
-            <tr>
+            <tr {% if thread.unread_for_user %}style="font-weight:700;"{% endif %}>
               <td class="message-user">
                 {% for participant in thread.participants.all %}
                   {% if participant != request.user %}
@@ -34,18 +32,16 @@
                 {% endfor %}
               </td>
 
-              <td class="message-subject">{{ thread.subject }}</td>
+              <td class="message-subject">
+                {% if thread.unread_for_user %}
+                  <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#087d73; margin-right:6px; vertical-align:middle;"></span>{{ thread.subject }}
+                {% else %}
+                  {{ thread.subject }}
+                {% endif %}
+              </td>
 
               <td class="message-date">
                 {{ thread.updated_at|date:"d M Y, H:i" }}
-              </td>
-
-              <td>
-                {% if thread.is_unread %}
-                  <span class="message-status unread">Unread</span>
-                {% else %}
-                  <span class="message-status read">Read</span>
-                {% endif %}
               </td>
 
               <td>

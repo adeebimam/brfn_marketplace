@@ -1004,6 +1004,15 @@ def user_settings(request):
                 profile.delivery_postcode = delivery_postcode
                 profile.save()
                 messages.success(request, "Delivery address updated successfully.")
+                
+        elif action == "change_phone":
+            phone = request.POST.get("phone", "").strip()
+            if not phone:
+                messages.error(request, "Phone number cannot be empty.")
+            else:
+                profile.phone = phone
+                profile.save()
+                messages.success(request, "Phone number updated successfully.")
 
         elif action == "font_size":
             font_size = request.POST.get("font_size", "medium")
