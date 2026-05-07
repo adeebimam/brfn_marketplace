@@ -39,7 +39,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
     'axes',
+
     'apps.accounts.apps.AccountsConfig',
     'apps.marketplace.apps.MarketplaceConfig',
     "apps.cart.apps.CartConfig",

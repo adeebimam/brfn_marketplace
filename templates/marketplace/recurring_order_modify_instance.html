@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width:900px; margin:0 auto; padding:20px;">
+  <a href="{% url 'marketplace:recurring_order_detail' instance.recurring_order.pk %}" style="color:#2d6a4f;">← Back</a>
+
+  <h2 style="margin-top:16px;">Modify Order for {{ instance.scheduled_date }}</h2>
+  <p style="color:#666;">Changes apply to this order only. Your recurring template is not affected.</p>
+
+  <form method="post">
+    {% csrf_token %}
+
+    {% regroup products by category as product_groups %}
+    {% for group in product_groups %}
+      <h4>{{ group.grouper }}</h4>
+      {% for product in group.list %}
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid #eee;">
+        <div>
+          <strong>{{ product.name }}</strong>
+          <span style="color:#666; font-size:0.9em;"> — £{{ product.price }} / {{ product.unit }}</span>
+        </div>
+        <input type="number" name="qty_{{ product.id }}"
+               value="{% for pid, qty in current_items.items %}{% if pid == product.id %}{{ qty }}{% endif %}{% endfor %}"
+               min="0" max="{{ product.stock_quantity }}"
+               style="width:70px; padding:6px; border:1px solid #ccc; border-radius:4px; text-align:center;">
+      </div>
+      {% endfor %}
+    {% endfor %}
+
+    <div style="margin-top:20px;">
+      <button type="submit" style="background:#2d6a4f; color:white; padding:12px 24px; border:none; border-radius:6px; font-size:1em; cursor:pointer;">
+        Save Changes
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

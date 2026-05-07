@@ -157,7 +157,6 @@ class Product(models.Model):
             return f"{MONTH_NAMES[self.available_from_month]} – {MONTH_NAMES[self.available_to_month]}"
         return self.get_season_display()
 
-    # Stock alert helpers
     @property
     def is_low_stock(self):
         return self.stock_quantity < self.low_stock_threshold
@@ -176,7 +175,6 @@ class Product(models.Model):
                 existing.is_resolved = True
                 existing.save()
 
-    # TC-019 Surplus helpers
     @property
     def is_active_surplus_deal(self):
         return (
@@ -407,6 +405,8 @@ class PurchaseReview(models.Model):
     
 
 
+
+
 class CustomerOrderHistory(models.Model):
     customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="customer_order_history")
     order_number = models.CharField(max_length=50)
@@ -418,7 +418,8 @@ class CustomerOrderHistory(models.Model):
 
     def __str__(self):
         return self.order_number
-    
+
+
 class CommissionLog(models.Model):
     order = models.ForeignKey(
         Order,
@@ -450,7 +451,8 @@ class CommissionLog(models.Model):
 
     def __str__(self):
         return f"Commission log for Order #{self.order_id} — £{self.commission_amount}"
-    
+
+
 class RefundRequest(models.Model):
     class Status(models.TextChoices):
         PENDING = "PENDING", "Pending"
@@ -499,8 +501,164 @@ class RefundRequest(models.Model):
         related_name="resolved_refunds",
     )
 
+
+class RecurringOrder(models.Model):
+    class Frequency(models.TextChoices):
+        WEEKLY = "WEEKLY", "Every Week"
+        FORTNIGHTLY = "FORTNIGHTLY", "Every Two Weeks"
+
+    class Status(models.TextChoices):
+        ACTIVE = "ACTIVE", "Active"
+        PAUSED = "PAUSED", "Paused"
+        CANCELLED = "CANCELLED", "Cancelled"
+
+    DAY_CHOICES = [
+        (0, "Monday"),
+        (1, "Tuesday"),
+        (2, "Wednesday"),
+        (3, "Thursday"),
+        (4, "Friday"),
+        (5, "Saturday"),
+        (6, "Sunday"),
+    ]
+
+    customer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="recurring_orders"
+    )
+    frequency = models.CharField(max_length=20, choices=Frequency.choices, default=Frequency.WEEKLY)
+    order_day = models.IntegerField(choices=DAY_CHOICES, help_text="Day of week order is generated (0=Monday)")
+    delivery_day = models.IntegerField(choices=DAY_CHOICES, help_text="Day of week for delivery (0=Monday)")
+    delivery_address = models.CharField(max_length=255)
+    delivery_postcode = models.CharField(max_length=20)
+    payment_method = models.CharField(max_length=50, default="stripe")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    next_order_date = models.DateField(null=True, blank=True)
+    last_generated = models.DateField(null=True, blank=True)
+    name = models.CharField(max_length=100, blank=True, help_text="Optional name e.g. 'Weekly veg box'")
+
+    # Saved card details (last 4 digits + expiry only — never store full card numbers)
+    card_last_four = models.CharField(max_length=4, blank=True, help_text="Last 4 digits of saved card")
+    card_expiry = models.CharField(max_length=5, blank=True, help_text="Card expiry MM/YY")
+
+    def __str__(self):
+        return f"Recurring order for {self.customer.username} ({self.get_frequency_display()})"
+
+    def calculate_next_order_date(self, from_date=None):
+        if from_date is None:
+            from_date = date.today()
+        days_ahead = self.order_day - from_date.weekday()
+        if days_ahead <= 0:
+            days_ahead += 7
+        if self.frequency == self.Frequency.FORTNIGHTLY:
+            days_ahead += 7
+        return from_date + timedelta(days=days_ahead)
+
+    def save(self, *args, **kwargs):
+        if not self.next_order_date:
+            self.next_order_date = self.calculate_next_order_date()
+        super().save(*args, **kwargs)
+
+    @property
+    def card_display(self):
+        if self.card_last_four:
+            return f"•••• •••• •••• {self.card_last_four} (exp {self.card_expiry})"
+        return "No card saved"
+
+
+class RecurringOrderItem(models.Model):
+    recurring_order = models.ForeignKey(
+        RecurringOrder,
+        on_delete=models.CASCADE,
+        related_name="items"
+    )
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.product.name} x{self.quantity}"
+
+
+class RecurringOrderInstance(models.Model):
+    class Status(models.TextChoices):
+        SCHEDULED = "SCHEDULED", "Scheduled"
+        MODIFIED = "MODIFIED", "Modified"
+        PROCESSED = "PROCESSED", "Processed"
+        SKIPPED = "SKIPPED", "Skipped"
+
+    class PaymentStatus(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        PAID = "PAID", "Paid"
+        FAILED = "FAILED", "Failed"
+
+    recurring_order = models.ForeignKey(
+        RecurringOrder,
+        on_delete=models.CASCADE,
+        related_name="instances"
+    )
+    scheduled_date = models.DateField()
+    delivery_date = models.DateField()
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.SCHEDULED)
+    order_number = models.CharField(max_length=50, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # Payment tracking
+    payment_status = models.CharField(
+        max_length=20,
+        choices=PaymentStatus.choices,
+        default=PaymentStatus.PENDING,
+    )
+    payment_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    payment_reference = models.CharField(max_length=100, blank=True)
+
+    class Meta:
+        ordering = ["scheduled_date"]
+
+    def __str__(self):
+        return f"Instance of {self.recurring_order} on {self.scheduled_date}"
+
+
+class RecurringOrderInstanceItem(models.Model):
+    instance = models.ForeignKey(RecurringOrderInstance, on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
+
+    def __str__(self):
+        return f"{self.product.name} x{self.quantity}"
+
+
+class RecurringNotification(models.Model):
+    class Type(models.TextChoices):
+        ORDER_SETUP = "ORDER_SETUP", "Recurring Order Set Up"
+        ORDER_UPCOMING = "ORDER_UPCOMING", "Order Processing Soon"
+        ORDER_PROCESSED = "ORDER_PROCESSED", "Order Processed"
+        PAYMENT_FAILED = "PAYMENT_FAILED", "Payment Failed"
+        PRODUCT_UNAVAILABLE = "PRODUCT_UNAVAILABLE", "Product Unavailable"
+        PRODUCER_NOTICE = "PRODUCER_NOTICE", "Producer Advance Notice"
+
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="recurring_notifications"
+    )
+    recurring_order = models.ForeignKey(
+        RecurringOrder,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+        null=True,
+        blank=True,
+    )
+    notification_type = models.CharField(max_length=30, choices=Type.choices)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
     class Meta:
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"Refund for Order #{self.order_id} — {self.get_status_display()}"
+        return f"{self.get_notification_type_display()} → {self.recipient.username}"
+

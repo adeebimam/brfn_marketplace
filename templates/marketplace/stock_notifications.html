@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="card stack">
-  <h1>📦 Stock Alerts</h1>
+  <h1><i class="fa-solid fa-bell" style="margin-right:0.5rem;"></i>Stock Alerts</h1>
 
   {% if active_notifications %}
     <div style="margin-bottom: 1.5rem;">
-      <h3 style="color:#dc2626; margin-bottom:0.75rem;">⚠️ Active Alerts ({{ active_notifications.count }})</h3>
+      <h3 style="color:#dc2626; margin-bottom:0.75rem;">Active Alerts ({{ active_notifications.count }})</h3>
       {% for n in active_notifications %}
         <div style="display:flex; justify-content:space-between; align-items:center; background:#fef2f2; border:1px solid #fca5a5; border-radius:10px; padding:12px 16px; margin-bottom:8px;">
           <div>

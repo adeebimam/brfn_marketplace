@@ -18,6 +18,7 @@ from apps.marketplace.models import (
     OrderItem,
     Product,
     ProducerOrderStatusHistory,
+    RecurringOrder,
 )
 from apps.marketplace.services import expire_surplus_deals
 
@@ -464,6 +465,8 @@ def payment(request):
 
 @login_required
 def order_history(request):
+    from apps.marketplace.models import RecurringOrder
+
     orders = list(
         Order.objects
         .filter(customer=request.user)
@@ -485,11 +488,16 @@ def order_history(request):
             for item in producer_order.items.all()
         )
 
+    recurring_orders = RecurringOrder.objects.filter(
+        customer=request.user
+    ).prefetch_related("items", "items__product").order_by("-created_at")
+
     return render(
         request,
         "orders/history.html",
         {
             "orders": orders,
+            "recurring_orders": recurring_orders,
         },
     )
 

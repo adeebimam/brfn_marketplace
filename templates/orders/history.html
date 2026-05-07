@@ -2,115 +2,303 @@
 
 {% block content %}
 
-<h2>My Orders</h2>
+<div style="max-width:900px; margin:0 auto;">
 
-<form method="GET" style="margin-bottom: 20px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+  <div style="margin-bottom:24px;">
+    <h2 style="margin:0;">My Orders</h2>
+  </div>
 
-  <label for="start-date">Start:</label>
-  <input type="date" name="start" id="start-date" value="{{ start }}">
+  <!-- Tabs -->
+  <div style="display:flex; border-bottom:2px solid #e5e7eb; margin-bottom:24px;">
+    <button onclick="switchTab('history')" id="tab-history"
+      style="padding:10px 24px; border:none; background:none; cursor:pointer; font-size:1rem; font-weight:600; color:#2d6a4f; border-bottom:3px solid #2d6a4f; margin-bottom:-2px;">
+      Order History
+    </button>
 
-  <label for="end-date">End:</label>
-  <input type="date" name="end" id="end-date" value="{{ end }}">
+    <button onclick="switchTab('recurring')" id="tab-recurring"
+      style="padding:10px 24px; border:none; background:none; cursor:pointer; font-size:1rem; font-weight:600; color:#6b7280; border-bottom:3px solid transparent; margin-bottom:-2px;">
+      Recurring Orders
 
-  <label for="sort">Sort:</label>
-  <select name="sort" id="sort">
-    <option value="newest" {% if request.GET.sort == "newest" or not request.GET.sort %}selected{% endif %}>
-      Newest First
-    </option>
-    <option value="oldest" {% if request.GET.sort == "oldest" %}selected{% endif %}>
-      Oldest First
-    </option>
-  </select>
+      {% if recurring_orders %}
+        <span style="background:#2d6a4f; color:white; font-size:0.7rem; border-radius:20px; padding:1px 7px; margin-left:4px;">
+          {{ recurring_orders|length }}
+        </span>
+      {% endif %}
+    </button>
+  </div>
 
-  <label for="producer">Producer:</label>
-  <input
-    type="text"
-    name="producer"
-    id="producer"
-    value="{{ producer }}"
-    placeholder="Enter producer name"
-  >
+  <!-- ── TAB 1: Order History ─────────────────────────────────────────── -->
+  <div id="panel-history">
 
-  <button type="submit" class="btn btn-primary">Filter</button>
-</form>
+    <form method="GET" style="margin-bottom:20px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <label for="start-date">Start:</label>
+      <input type="date" name="start" id="start-date" value="{{ start }}">
 
-{% for order in orders %}
-  <div style="border:1px solid #ddd; border-radius:10px; padding:16px; margin-bottom:15px; background:#fff;">
-    <h3>Order ORD-{{ order.id }}</h3>
+      <label for="end-date">End:</label>
+      <input type="date" name="end" id="end-date" value="{{ end }}">
 
-    <p><strong>Order #{{ order.order_number }}</strong></p>
-    <p>Order Date: {{ order.order_date }}</p>
-    <p>Delivery Date: {{ order.delivery_date }}</p>
-    <p>Total: £{{ order.total|floatformat:2 }}</p>
-    <p><strong>Status:</strong> {{ order.status|default:"Pending"|title }}</p>
+      <label for="producer">Producer:</label>
+      <input type="text" name="producer" id="producer" value="{{ producer }}" placeholder="Enter producer name">
 
-    <a href="{% url 'marketplace:order_detail' order.id %}" class="btn btn-primary">
-    View Details
-    </a>
+      <button type="submit" class="btn btn-primary">Filter</button>
+    </form>
 
-    <a class="btn btn-primary" href="{% url 'marketplace:reorder' order.id %}">
-      Reorder
-    </a>
-    <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
-      <a class="btn" href="{% url 'marketplace:order_detail' order.order_number %}">
-        View Details
-      </a>
+    {% for order in orders %}
 
-      <a class="btn btn-primary" href="{% url 'marketplace:reorder' order.order_number %}">
-        Reorder
-      </a>
+      <div style="border:1px solid #ddd; border-radius:10px; padding:16px; margin-bottom:20px; background:#fff;">
 
-      <a class="btn" href="{% url 'marketplace:download_receipt' order.order_number %}">
-        Download Receipt
-      </a>
-        {% if order.refund %}
+        <p style="margin:0 0 6px;">
+          <strong>Order #{{ order.order_number }}</strong>
+
+          {% if order.recurring %}
+            <span style="display:inline-block; background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; font-size:0.75rem; font-weight:600; border-radius:20px; padding:2px 10px; margin-left:8px;">
+              Recurring
+            </span>
+          {% endif %}
+        </p>
+
+        <p style="margin:4px 0;">Order Date: {{ order.order_date }}</p>
+        <p style="margin:4px 0;">Delivery Date: {{ order.delivery_date }}</p>
+        <p style="margin:4px 0;">Total: £{{ order.total|floatformat:2 }}</p>
+        <p style="margin:4px 0;">
+          <strong>Status:</strong>
+          {{ order.status|default:"Pending"|title }}
+        </p>
+
+        <p style="margin:10px 0 4px;"><strong>Producers:</strong></p>
+
+        <ul style="margin:0 0 10px;">
+          {% for producer_name, items in order.producers.items %}
+            <li>
+              <strong>{{ producer_name }}</strong>
+
+              <ul>
+                {% for item in items %}
+                  <li>
+                    {{ item.name }} x{{ item.qty }}
+                    — £{{ item.total|floatformat:2 }}
+                  </li>
+                {% endfor %}
+              </ul>
+            </li>
+          {% endfor %}
+        </ul>
+
+        <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+
+          <a class="btn"
+             href="{% url 'marketplace:order_detail' order.order_number %}">
+            View Details
+          </a>
+
+          <a class="btn btn-primary"
+             href="{% url 'marketplace:reorder' order.order_number %}">
+            Reorder
+          </a>
+
+          <a class="btn"
+             href="{% url 'marketplace:download_receipt' order.order_number %}">
+            Download Receipt
+          </a>
+
+          {% if order.refund %}
+
             <div style="background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; padding:8px 14px; display:inline-block;">
-              <strong>Refund {{ order.refund.get_status_display }}</strong>
-              <span style="color:#555; margin-left:6px; font-size:0.85rem;">{{ order.refund.created_at|date:"Y-m-d" }}</span>
+              <strong>
+                Refund {{ order.refund.get_status_display }}
+              </strong>
+
+              <span style="color:#555; margin-left:6px; font-size:0.85rem;">
+                {{ order.refund.created_at|date:"Y-m-d" }}
+              </span>
             </div>
+
           {% elif order.status != "Cancelled" %}
-            <a href="{% url 'marketplace:request_refund' order.order_number %}" class="btn" style="background:#dc2626; color:white;">
+
+            <a href="{% url 'marketplace:request_refund' order.order_number %}"
+               class="btn"
+               style="background:#dc2626; color:white;">
               Request Refund
             </a>
-        {% endif %}
-    </div>
 
-    <a class="btn" href="{% url 'marketplace:download_receipt' order.id %}">
-      Download Receipt
-    </a>
+          {% endif %}
+
+        </div>
+
+      </div>
+
+    {% empty %}
+
+      <div class="card empty-state">
+        <h2>No orders found</h2>
+
+        <p class="muted">
+          Once you place an order, it will appear here.
+        </p>
+
+        <a class="btn btn-primary"
+           href="{% url 'marketplace:product_list' %}">
+          Browse products
+        </a>
+      </div>
+
+    {% endfor %}
+
   </div>
-{% empty %}
-  <div class="card empty-state">
-    <h2>No orders found</h2>
-    <p class="muted">Once you place an order, it will appear here.</p>
-    <a class="btn btn-primary" href="{% url 'marketplace:product_list' %}">
-      Browse products
-    </a>
+
+  <!-- ── TAB 2: Recurring Orders ──────────────────────────────────────── -->
+  <div id="panel-recurring" style="display:none;">
+
+    {% if not recurring_orders %}
+      <div style="text-align:center; padding:40px; background:#f9f9f9; border-radius:8px;">
+        <p>You have no recurring orders yet.</p>
+
+        <a href="{% url 'cart:detail' %}" style="color:#2d6a4f;">
+          Add items to cart to set one up
+        </a>
+      </div>
+    {% endif %}
+
+    {% for ro in recurring_orders %}
+
+      <div style="border:1px solid #ddd; border-radius:8px; padding:20px; margin-bottom:16px; background:white;">
+
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+
+          <div>
+            <h3 style="margin:0 0 4px;">
+              {{ ro.name|default:"Recurring Order" }} #{{ ro.id }}
+            </h3>
+
+            <span style="font-size:0.9em; color:#666;">
+              {{ ro.get_frequency_display }}
+              · Order every {{ ro.get_order_day_display }}
+              · Delivery every {{ ro.get_delivery_day_display }}
+            </span>
+          </div>
+
+          <span style="padding:4px 12px; border-radius:20px; font-size:0.85em;
+            {% if ro.status == 'ACTIVE' %}background:#d4edda; color:#155724;
+            {% elif ro.status == 'PAUSED' %}background:#fff3cd; color:#856404;
+            {% else %}background:#f8d7da; color:#721c24;{% endif %}">
+            {{ ro.get_status_display }}
+          </span>
+
+        </div>
+
+        <div style="margin:12px 0;">
+          <strong>Products:</strong>
+
+          {% for item in ro.items.all %}
+            {{ item.product.name }} x{{ item.quantity }}{% if not forloop.last %}, {% endif %}
+          {% endfor %}
+        </div>
+
+        {% if ro.next_order_date and ro.status == 'ACTIVE' %}
+          <div style="background:#f0f7f4; padding:8px 12px; border-radius:4px; margin-bottom:12px; font-size:0.9em;">
+            Next order:
+            <strong>{{ ro.next_order_date }}</strong>
+          </div>
+        {% endif %}
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+
+          <a href="{% url 'marketplace:recurring_order_detail' ro.pk %}"
+             style="background:#f0f0f0; padding:6px 14px; border-radius:4px; text-decoration:none; color:#333; font-size:0.9em;">
+            View / Modify
+          </a>
+
+          {% if ro.status != 'CANCELLED' %}
+
+            <a href="{% url 'marketplace:recurring_order_pause' ro.pk %}"
+               style="background:#fff3cd; padding:6px 14px; border-radius:4px; text-decoration:none; color:#856404; font-size:0.9em;">
+
+              {% if ro.status == 'PAUSED' %}
+                ▶ Resume
+              {% else %}
+                ⏸ Pause
+              {% endif %}
+
+            </a>
+
+            <a href="{% url 'marketplace:recurring_order_cancel' ro.pk %}"
+               style="background:#f8d7da; padding:6px 14px; border-radius:4px; text-decoration:none; color:#721c24; font-size:0.9em;">
+              ✕ Cancel
+            </a>
+
+          {% endif %}
+
+        </div>
+
+      </div>
+
+    {% endfor %}
+
   </div>
-{% endfor %}
+
+</div>
 
 <script>
+function switchTab(tab) {
+  document.getElementById("panel-history").style.display =
+    tab === "history" ? "block" : "none";
+
+  document.getElementById("panel-recurring").style.display =
+    tab === "recurring" ? "block" : "none";
+
+  const historyBtn = document.getElementById("tab-history");
+  const recurringBtn = document.getElementById("tab-recurring");
+
+  if (tab === "history") {
+    historyBtn.style.color = "#2d6a4f";
+    historyBtn.style.borderBottom = "3px solid #2d6a4f";
+
+    recurringBtn.style.color = "#6b7280";
+    recurringBtn.style.borderBottom = "3px solid transparent";
+  } else {
+    recurringBtn.style.color = "#2d6a4f";
+    recurringBtn.style.borderBottom = "3px solid #2d6a4f";
+
+    historyBtn.style.color = "#6b7280";
+    historyBtn.style.borderBottom = "3px solid transparent";
+  }
+
+  const url = new URL(window.location);
+  url.searchParams.set("tab", tab);
+
+  window.history.replaceState({}, "", url);
+}
+
 document.addEventListener("DOMContentLoaded", function () {
+
+  const params = new URLSearchParams(window.location.search);
+  switchTab(params.get("tab") || "history");
+
   const startInput = document.getElementById("start-date");
   const endInput = document.getElementById("end-date");
 
   function validateDates() {
+
     if (!startInput || !endInput) return;
 
-    if (startInput.value) {
+    if (startInput.value)
       endInput.min = startInput.value;
-    } else {
+    else
       endInput.removeAttribute("min");
-    }
 
-    if (endInput.value) {
+    if (endInput.value)
       startInput.max = endInput.value;
-    } else {
+    else
       startInput.removeAttribute("max");
-    }
 
-    if (startInput.value && endInput.value && endInput.value < startInput.value) {
-      endInput.setCustomValidity("End date cannot be before start date.");
+    if (
+      startInput.value &&
+      endInput.value &&
+      endInput.value < startInput.value
+    ) {
+      endInput.setCustomValidity(
+        "End date cannot be before start date."
+      );
     } else {
       endInput.setCustomValidity("");
     }

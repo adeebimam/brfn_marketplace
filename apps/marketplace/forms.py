@@ -5,8 +5,7 @@ from django.db.models import Case, When, Value, IntegerField
 from django.utils import timezone
 
 from apps.accounts import models
-from .models import Product, Allergen, ProducerOrder, MONTH_CHOICES, Review, PurchaseReview
-
+from .models import Allergen, Product, ProducerOrder, MONTH_CHOICES, Review, PurchaseReview
 
 class NoClearableFileInput(forms.ClearableFileInput):
     template_name = "widgets/no_clearable_file_input.html"

@@ -181,6 +181,74 @@
             </div>
           {% endif %}
         </div>
+        <!-- ── Recurring Order Option ──────────────────────────────────────── -->
+        <div style="border:1px solid #d1d5db; border-radius:12px; overflow:hidden; margin-bottom:20px;">
+          <label style="display:flex; gap:14px; align-items:flex-start; padding:18px; cursor:pointer; background:#f9fafb;">
+            <input type="checkbox" name="make_recurring" id="make_recurring" style="margin-top:4px;">
+            <div>
+              <strong>🔄 Make this a recurring order</strong>
+              <p style="margin:4px 0 0; color:#666; font-size:0.9rem;">
+                Automatically repeat this order on a schedule. You can modify or cancel any time.
+              </p>
+            </div>
+          </label>
+
+          <div id="recurring-options" style="display:none; padding:18px; border-top:1px solid #e5e7eb; background:#fff;">
+
+            <div style="margin-bottom:14px;">
+              <label style="font-weight:600; display:block; margin-bottom:6px;">
+                Name this order <span style="color:#9ca3af; font-weight:400;">(optional)</span>
+              </label>
+              <input type="text" name="recurring_name" maxlength="100"
+                     placeholder="e.g. Weekly veg box"
+                     style="width:100%; box-sizing:border-box;">
+            </div>
+
+            <div style="margin-bottom:14px;">
+              <label style="font-weight:600; display:block; margin-bottom:8px;">Frequency</label>
+              <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <label style="display:flex; align-items:center; gap:8px; border:1px solid #d1d5db; border-radius:8px; padding:10px 16px; cursor:pointer; flex:1; min-width:130px;">
+                  <input type="radio" name="recurring_frequency" value="WEEKLY" checked> Every week
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; border:1px solid #d1d5db; border-radius:8px; padding:10px 16px; cursor:pointer; flex:1; min-width:130px;">
+                  <input type="radio" name="recurring_frequency" value="FORTNIGHTLY"> Every two weeks
+                </label>
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;">
+              <div>
+                <label style="font-weight:600; display:block; margin-bottom:6px;">Order generated on</label>
+                <select name="recurring_order_day" style="width:100%;">
+                  <option value="0">Monday</option>
+                  <option value="1">Tuesday</option>
+                  <option value="2">Wednesday</option>
+                  <option value="3">Thursday</option>
+                  <option value="4">Friday</option>
+                  <option value="5">Saturday</option>
+                  <option value="6">Sunday</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-weight:600; display:block; margin-bottom:6px;">Delivery day</label>
+                <select name="recurring_delivery_day" style="width:100%;">
+                  <option value="0">Monday</option>
+                  <option value="1">Tuesday</option>
+                  <option value="2" selected>Wednesday</option>
+                  <option value="3">Thursday</option>
+                  <option value="4">Friday</option>
+                  <option value="5">Saturday</option>
+                  <option value="6">Sunday</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="background:#fffbeb; border:1px solid #fbbf24; border-radius:8px; padding:12px 14px; font-size:0.85rem; color:#78350f;">
+              ℹ️ Delivery day must be <strong>after</strong> the order day. Each scheduled order can be modified before it processes.
+            </div>
+          </div>
+        </div>
+        <!-- ── End Recurring Order Option ─────────────────────────────────── -->
 
         <div class="checkout-note">
           <strong>Before you continue</strong>
@@ -370,6 +438,15 @@ document.addEventListener("DOMContentLoaded", function () {
       debounceTimer = setTimeout(function () {
         updateFoodMiles(postcodeInput.value);
       }, 600);
+    });
+  }
+
+  // ── Recurring order toggle ───────────────────────────────────────────────
+  const recurringCheckbox = document.getElementById("make_recurring");
+  const recurringOptions = document.getElementById("recurring-options");
+  if (recurringCheckbox) {
+    recurringCheckbox.addEventListener("change", function () {
+      recurringOptions.style.display = this.checked ? "block" : "none";
     });
   }
 

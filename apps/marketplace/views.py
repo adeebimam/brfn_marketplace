@@ -1,6 +1,7 @@
 import csv
+import random
 from collections import defaultdict
-from datetime import date, timedelta, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.contrib import messages
@@ -21,7 +22,6 @@ from .forms import (
     PurchaseReviewForm,
     ReviewForm,
 )
-
 from .models import (
     Allergen,
     Category,
@@ -33,6 +33,11 @@ from .models import (
     ProducerOrder,
     ProducerOrderStatusHistory,
     PurchaseReview,
+    RecurringNotification,
+    RecurringOrder,
+    RecurringOrderInstance,
+    RecurringOrderInstanceItem,
+    RecurringOrderItem,
     Review,
 )
 
@@ -248,7 +253,6 @@ def product_list(request):
         p.in_season_now = p.is_in_season(today)
         p.real_allergens = [a for a in p.allergens.all() if a.name != "No common allergens"]
 
-    # Food miles
     if request.user.is_authenticated:
         from .foodmiles import _get_lat_lng, _haversine_miles
         try:
@@ -581,19 +585,9 @@ def checkout(request):
     if request.method == "POST":
         form = CheckoutForm(request.POST)
 
-        print("CHECKOUT POST:", request.POST)
-        print("FORM ERRORS:", form.errors)
-
-
-
-
-        print("CHECKOUT POST:", request.POST)
-        print("FORM ERRORS:", form.errors)
-
-
-
         if form.is_valid():
             delivery_address = form.cleaned_data["delivery_address"]
+            delivery_postcode = form.cleaned_data["delivery_postcode"]
             delivery_date = request.POST.get("delivery_1")
             payment_method = request.POST.get("payment_method")
 
@@ -623,6 +617,87 @@ def checkout(request):
                 "producers": dict(producers),
             }
             request.session.modified = True
+
+            # Handle recurring order
+            if request.POST.get("make_recurring"):
+                frequency = request.POST.get("recurring_frequency", "WEEKLY")
+                order_day = int(request.POST.get("recurring_order_day", 0))
+                delivery_day = int(request.POST.get("recurring_delivery_day", 2))
+                name = request.POST.get("recurring_name", "").strip()
+                card_number = request.POST.get("card_number", "").replace(" ", "")
+                card_expiry = request.POST.get("expiry", "").strip()
+                card_last_four = card_number[-4:] if len(card_number) >= 4 else ""
+
+                if delivery_day <= order_day:
+                    messages.warning(request, "Recurring order: delivery day must be after order day. Defaulting to Wednesday.")
+                    delivery_day = order_day + 2 if order_day + 2 <= 6 else 6
+
+                recurring_order = RecurringOrder.objects.create(
+                    customer=request.user,
+                    frequency=frequency,
+                    order_day=order_day,
+                    delivery_day=delivery_day,
+                    delivery_address=delivery_address,
+                    delivery_postcode=delivery_postcode,
+                    payment_method=payment_method,
+                    name=name,
+                    card_last_four=card_last_four,
+                    card_expiry=card_expiry,
+                )
+
+                for producer_username, items in producers.items():
+                    for item in items:
+                        try:
+                            product = Product.objects.get(id=item["id"])
+                            RecurringOrderItem.objects.create(
+                                recurring_order=recurring_order,
+                                product=product,
+                                quantity=item["qty"],
+                                unit_price=Decimal(str(item["price"])),
+                            )
+                        except Product.DoesNotExist:
+                            pass
+
+                _generate_next_instance(recurring_order)
+
+                order_label = recurring_order.name or f"Recurring order #{recurring_order.id}"
+                _notify(
+                    recipient=request.user,
+                    notification_type=RecurringNotification.Type.ORDER_SETUP,
+                    message=(
+                        f"Your recurring order '{order_label}' has been set up. "
+                        f"It processes every {recurring_order.get_frequency_display().lower()} "
+                        f"on {dict(RecurringOrder.DAY_CHOICES)[recurring_order.order_day]}s. "
+                        f"Next order date: {recurring_order.next_order_date}. "
+                        f"Payment will be charged to card ending {card_last_four}."
+                    ),
+                    recurring_order=recurring_order,
+                )
+
+                producer_ids_notified = set()
+                for producer_username, items in producers.items():
+                    try:
+                        User = get_user_model()
+                        producer_user = User.objects.get(username=producer_username)
+                        if producer_user.id not in producer_ids_notified:
+                            product_names = ", ".join(i["name"] for i in items)
+                            _notify(
+                                recipient=producer_user,
+                                notification_type=RecurringNotification.Type.PRODUCER_NOTICE,
+                                message=(
+                                    f"A customer has set up a recurring order including your products: {product_names}. "
+                                    f"Expect a regular order every {recurring_order.get_frequency_display().lower()} "
+                                    f"starting {recurring_order.next_order_date}."
+                                ),
+                                recurring_order=recurring_order,
+                            )
+                            producer_ids_notified.add(producer_user.id)
+                    except Exception:
+                        pass
+
+                request.session["recurring_order_created"] = recurring_order.id
+                messages.success(request, f"Recurring order set up! Next order: {recurring_order.next_order_date}")
+
             return redirect("marketplace:payment")
 
         messages.error(request, "Please check the checkout form and try again.")
@@ -723,15 +798,10 @@ def payment(request):
                     delivery_date=delivery_date_obj,
                     status=ProducerOrder.Status.PENDING,
                     total_value=Decimal("0.00"),
-                    total_value=Decimal("0.00"),
                 )
 
                 total_value = Decimal("0.00")
-
-
                 debug_info.append(f"Created ProducerOrder: {producer_order}")
-
-                total_value = Decimal("0.00")
 
                 for item in items:
                     product = Product.objects.get(id=item["id"], producer=producer)
@@ -739,32 +809,18 @@ def payment(request):
                     unit_price = Decimal(str(item["price"]))
 
                     debug_info.append(f"Processing item: {item}")
-
-                    product = Product.objects.get(id=item["id"], producer=producer)
-
                     debug_info.append(f"Found product: {product}")
-
-                    unit_price = Decimal(str(item["price"]))
-                    qty = int(item["qty"])
 
                     OrderItem.objects.create(
                         producer_order=producer_order,
                         product=product,
                         quantity=quantity,
                         unit_price=unit_price,
-                        quantity=qty,
-                        unit_price=unit_price,
                     )
 
                     total_value += unit_price * quantity
                     product.stock_quantity = max(0, product.stock_quantity - quantity)
-
-                    total_value += unit_price * qty
-
-                    product.stock_quantity = max(0, product.stock_quantity - qty)
                     product.save()
-
-                    debug_info.append(f"Updated stock for {product.name}: {product.stock_quantity}")
 
                 producer_order.total_value = total_value.quantize(
                     Decimal("0.01"), rounding=ROUND_HALF_UP
@@ -818,6 +874,29 @@ def payment(request):
         CartItem.objects.filter(cart=cart).delete()
         request.session.pop("order", None)
         request.session.pop("cart", None)
+
+        recurring_id = request.session.pop("recurring_order_created", None)
+        if recurring_id:
+            try:
+                ro = RecurringOrder.objects.get(id=recurring_id)
+                card_last_four = card_number.replace(" ", "")[-4:] if len(card_number.replace(" ", "")) >= 4 else ""
+                ro.card_last_four = card_last_four
+                ro.card_expiry = expiry
+                ro.save(update_fields=["card_last_four", "card_expiry"])
+            except RecurringOrder.DoesNotExist:
+                pass
+
+            return render(request, "orders/confirmation.html", {
+                "order_number": order_number,
+                "address": order["address"],
+                "date": order["date"],
+                "payment": order["payment"],
+                "subtotal": order["subtotal"],
+                "commission": order["commission"],
+                "total": order["total"],
+                "producers": order["producers"],
+                "recurring_order_id": recurring_id,
+            })
 
         return render(request, "orders/confirmation.html", {
             "order_number": order_number,
@@ -1095,7 +1174,7 @@ def download_payments_csv(request):
 
 
 # -----------------------------
-# Stock Notifications
+# STOCK NOTIFICATIONS
 # -----------------------------
 
 @login_required
@@ -1142,7 +1221,6 @@ def order_history(request):
 
     if start and not start_date:
         messages.error(request, "Invalid start date.")
-
     if end and not end_date:
         messages.error(request, "Invalid end date.")
 
@@ -1169,8 +1247,16 @@ def order_history(request):
         except (Order.DoesNotExist, ValueError):
             order["refund"] = None
 
+    recurring_orders = RecurringOrder.objects.filter(
+        customer=request.user
+    ).prefetch_related("items", "items__product").order_by("-created_at")
+
     return render(request, "orders/history.html", {
-        "orders": orders, "start": start, "end": end, "producer": producer,
+        "orders": orders,
+        "start": start,
+        "end": end,
+        "producer": producer,
+        "recurring_orders": recurring_orders,
     })
 
 @login_required
@@ -1204,12 +1290,11 @@ def order_detail(request, order_id):
         pass
 
     return render(request, "orders/order_detail.html", {
-    "order": order,
-    "order_id": order.id,
-    "purchase_reviews": purchase_reviews,
-    "existing_refund": existing_refund,
-})
-
+        "order": order,
+        "order_id": order.id,
+        "purchase_reviews": purchase_reviews,
+        "existing_refund": existing_refund,
+    })
 
 
 @login_required
@@ -1277,11 +1362,7 @@ def reorder(request, order_id):
     request.session.modified = True
 
     if price_changed_items:
-        messages.warning(
-            request,
-            "Price changes detected: " + "; ".join(price_changed_items)
-        )
-
+        messages.warning(request, "Price changes detected: " + "; ".join(price_changed_items))
     if unavailable_items:
         messages.error(request, "Some items are unavailable: " + ", ".join(unavailable_items))
 
@@ -1315,6 +1396,7 @@ def download_receipt(request, order_id):
 
     content = f"Order {order['order_number']} - Total £{order['total']}"
     response = HttpResponse(content, content_type="text/plain")
+<<<<<<< HEAD
     response["Content-Disposition"] = f'attachment; filename="receipt_{order_number}.txt"'
     return response
 
@@ -1351,6 +1433,17 @@ def create_purchase_review(request, order_id):
     order_record = CustomerOrderHistory.objects.filter(
         customer=request.user,
         order_number=order_number,
+=======
+    response["Content-Disposition"] = f'attachment; filename="receipt_{order_id}.txt"'
+    return response
+
+
+@login_required
+def create_purchase_review(request, order_id):
+    order_record = CustomerOrderHistory.objects.filter(
+        customer=request.user,
+        order_number=order_id
+>>>>>>> 7c922bf (Test case 18 - recurring orders)
     ).first()
 
     if not order_record:
@@ -1359,6 +1452,7 @@ def create_purchase_review(request, order_id):
 
     if request.method == "POST":
         form = PurchaseReviewForm(request.POST)
+<<<<<<< HEAD
 
         if form.is_valid():
             review = form.save(commit=False)
@@ -1366,6 +1460,13 @@ def create_purchase_review(request, order_id):
             review.order_number = order_number
             review.save()
 
+=======
+        if form.is_valid():
+            review = form.save(commit=False)
+            review.customer = request.user
+            review.order_number = order_id
+            review.save()
+>>>>>>> 7c922bf (Test case 18 - recurring orders)
             messages.success(request, "Purchase review submitted successfully.")
             return redirect("marketplace:order_detail", order_id=order_id)
     else:
@@ -1376,6 +1477,7 @@ def create_purchase_review(request, order_id):
         "order": order_record.order_data,
     })
 
+<<<<<<< HEAD
 def product_search_suggestions(request):
     query = request.GET.get("q", "").strip()
 
@@ -1471,6 +1573,85 @@ existing = RefundRequest.objects.filter(order=order).first()
     return render(request, "marketplace/refund_request_form.html", {
         "order": order_data,
         "order_obj": order,
+=======
+
+# =============================================================================
+# RECURRING ORDERS
+# =============================================================================
+
+def _notify(recipient, notification_type, message, recurring_order=None):
+    RecurringNotification.objects.create(
+        recipient=recipient,
+        recurring_order=recurring_order,
+        notification_type=notification_type,
+        message=message,
+    )
+
+
+def _simulate_charge(recurring_order, amount):
+    if not recurring_order.card_last_four or not recurring_order.card_expiry:
+        return False, "", "No saved card details on file."
+    try:
+        month_str, year_str = recurring_order.card_expiry.split("/")
+        exp_month = int(month_str)
+        exp_year = 2000 + int(year_str)
+        today = date.today()
+        if exp_year < today.year or (exp_year == today.year and exp_month < today.month):
+            return False, "", f"Saved card ending {recurring_order.card_last_four} has expired."
+    except (ValueError, AttributeError):
+        return False, "", "Invalid card expiry format."
+    reference = f"REC-PAY-{random.randint(100000, 999999)}"
+    return True, reference, ""
+
+
+def _delivery_date_respecting_lead_time(order_date, delivery_weekday, items):
+    max_lead = 2
+    for item in items:
+        try:
+            lead = getattr(item.product.producer, "lead_time", None)
+            if lead is None and hasattr(item.product.producer, "profile"):
+                lead = getattr(item.product.producer.profile, "lead_time", 2)
+            if lead and lead > max_lead:
+                max_lead = lead
+        except Exception:
+            pass
+    days_ahead = delivery_weekday - order_date.weekday()
+    if days_ahead <= 0:
+        days_ahead += 7
+    candidate = order_date + timedelta(days=days_ahead)
+    min_delivery = order_date + timedelta(days=max_lead)
+    if candidate < min_delivery:
+        candidate += timedelta(weeks=1)
+    return candidate
+
+
+@login_required
+def recurring_order_setup(request):
+    messages.info(request, "Add items to your cart and select 'Make this a recurring order' at checkout.")
+    return redirect("cart:detail")
+
+
+@login_required
+def recurring_order_list(request):
+    recurring_orders = (
+        RecurringOrder.objects
+        .filter(customer=request.user)
+        .prefetch_related("items", "items__product", "instances")
+        .order_by("-created_at")
+    )
+    for ro in recurring_orders:
+        ro.next_instance = ro.instances.filter(
+            status__in=[
+                RecurringOrderInstance.Status.SCHEDULED,
+                RecurringOrderInstance.Status.MODIFIED,
+            ]
+        ).first()
+    unread_count = RecurringNotification.objects.filter(
+        recipient=request.user, is_read=False
+    ).count()
+    return render(request, "marketplace/recurring_order_list.html", {
+        "recurring_orders": recurring_orders,
+        "unread_count": unread_count,
     })
 
 
@@ -1621,3 +1802,349 @@ def refund_list(request):
         "status_filter": status_filter,
         "statuses": RefundRequest.Status.choices,
     })
+=======
+def recurring_order_detail(request, pk):
+    recurring_order = get_object_or_404(RecurringOrder, pk=pk, customer=request.user)
+    instances = recurring_order.instances.exclude(
+        status=RecurringOrderInstance.Status.PROCESSED
+    ).order_by("scheduled_date")
+    notifications = RecurringNotification.objects.filter(
+        recurring_order=recurring_order,
+        recipient=request.user,
+    ).order_by("-created_at")[:10]
+    return render(request, "marketplace/recurring_order_detail.html", {
+        "recurring_order": recurring_order,
+        "instances": instances,
+        "notifications": notifications,
+    })
+
+
+@login_required
+def recurring_order_pause(request, pk):
+    recurring_order = get_object_or_404(RecurringOrder, pk=pk, customer=request.user)
+    if recurring_order.status == RecurringOrder.Status.ACTIVE:
+        recurring_order.status = RecurringOrder.Status.PAUSED
+        recurring_order.save()
+        messages.success(request, "Recurring order paused.")
+    elif recurring_order.status == RecurringOrder.Status.PAUSED:
+        recurring_order.status = RecurringOrder.Status.ACTIVE
+        recurring_order.next_order_date = recurring_order.calculate_next_order_date()
+        recurring_order.save()
+        _generate_next_instance(recurring_order)
+        messages.success(request, "Recurring order resumed.")
+    return redirect("marketplace:recurring_order_list")
+
+
+@login_required
+def recurring_order_cancel(request, pk):
+    recurring_order = get_object_or_404(RecurringOrder, pk=pk, customer=request.user)
+    if request.method == "POST":
+        recurring_order.status = RecurringOrder.Status.CANCELLED
+        recurring_order.save()
+        messages.success(request, "Recurring order cancelled.")
+        return redirect("marketplace:recurring_order_list")
+    return render(request, "marketplace/recurring_order_cancel.html", {"recurring_order": recurring_order})
+
+
+@login_required
+def recurring_order_modify_instance(request, instance_pk):
+    instance = get_object_or_404(
+        RecurringOrderInstance,
+        pk=instance_pk,
+        recurring_order__customer=request.user,
+        status__in=[RecurringOrderInstance.Status.SCHEDULED, RecurringOrderInstance.Status.MODIFIED]
+    )
+    products = (
+        Product.objects.filter(is_active=True, stock_quantity__gt=0)
+        .select_related("category", "producer")
+        .order_by("category__name", "name")
+    )
+    if instance.items.exists():
+        current_items = {item.product_id: item.quantity for item in instance.items.all()}
+    else:
+        current_items = {item.product_id: item.quantity for item in instance.recurring_order.items.all()}
+
+    if request.method == "POST":
+        instance.items.all().delete()
+        for key, value in request.POST.items():
+            if key.startswith("qty_") and value.strip() and int(value) > 0:
+                product_id = key.replace("qty_", "")
+                try:
+                    product = Product.objects.get(id=product_id, is_active=True)
+                    RecurringOrderInstanceItem.objects.create(
+                        instance=instance,
+                        product=product,
+                        quantity=int(value),
+                    )
+                except Product.DoesNotExist:
+                    pass
+        instance.status = RecurringOrderInstance.Status.MODIFIED
+        instance.save()
+        messages.success(request, "This week's order updated. Template unchanged.")
+        return redirect("marketplace:recurring_order_detail", pk=instance.recurring_order.pk)
+
+    return render(request, "marketplace/recurring_order_modify_instance.html", {
+        "instance": instance,
+        "products": products,
+        "current_items": current_items,
+    })
+
+
+@login_required
+def recurring_order_skip_instance(request, instance_pk):
+    instance = get_object_or_404(
+        RecurringOrderInstance,
+        pk=instance_pk,
+        recurring_order__customer=request.user,
+    )
+    instance.status = RecurringOrderInstance.Status.SKIPPED
+    instance.save()
+    messages.success(request, "This week's order skipped.")
+    return redirect("marketplace:recurring_order_detail", pk=instance.recurring_order.pk)
+
+
+@login_required
+def recurring_notifications(request):
+    notifications = RecurringNotification.objects.filter(
+        recipient=request.user
+    ).select_related("recurring_order").order_by("-created_at")
+    notifications.filter(is_read=False).update(is_read=True)
+    return render(request, "marketplace/recurring_notifications.html", {
+        "notifications": notifications,
+    })
+
+
+def recurring_notifications_count(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"count": 0})
+    count = RecurringNotification.objects.filter(
+        recipient=request.user, is_read=False
+    ).count()
+    return JsonResponse({"count": count})
+
+
+def _generate_next_instance(recurring_order):
+    if not recurring_order.next_order_date:
+        return
+    order_date = recurring_order.next_order_date
+    template_items = list(recurring_order.items.select_related("product", "product__producer"))
+    delivery_date = _delivery_date_respecting_lead_time(
+        order_date, recurring_order.delivery_day, template_items
+    )
+    existing = RecurringOrderInstance.objects.filter(
+        recurring_order=recurring_order,
+        scheduled_date=order_date,
+    ).exists()
+    if not existing:
+        instance = RecurringOrderInstance.objects.create(
+            recurring_order=recurring_order,
+            scheduled_date=order_date,
+            delivery_date=delivery_date,
+        )
+        for template_item in template_items:
+            RecurringOrderInstanceItem.objects.create(
+                instance=instance,
+                product=template_item.product,
+                quantity=template_item.quantity,
+            )
+        days_until = (order_date - date.today()).days
+        if days_until <= 2:
+            order_label = recurring_order.name or f"Recurring order #{recurring_order.id}"
+            _notify(
+                recipient=recurring_order.customer,
+                notification_type=RecurringNotification.Type.ORDER_UPCOMING,
+                message=(
+                    f"Your recurring order '{order_label}' will be processed on "
+                    f"{order_date.strftime('%A, %d %b %Y')}. "
+                    f"Delivery expected: {delivery_date.strftime('%A, %d %b %Y')}. "
+                    f"You can still modify or skip this delivery."
+                ),
+                recurring_order=recurring_order,
+            )
+
+
+def process_recurring_orders():
+    today = date.today()
+    due_instances = RecurringOrderInstance.objects.filter(
+        scheduled_date=today,
+        status__in=[RecurringOrderInstance.Status.SCHEDULED, RecurringOrderInstance.Status.MODIFIED],
+        recurring_order__status=RecurringOrder.Status.ACTIVE,
+    ).select_related("recurring_order", "recurring_order__customer")
+    for instance in due_instances:
+        _process_instance(instance)
+
+
+def _process_instance(instance):
+    recurring_order = instance.recurring_order
+    customer = recurring_order.customer
+
+    if instance.items.exists():
+        items = list(instance.items.select_related("product", "product__producer"))
+    else:
+        items = [
+            type("Item", (), {"product": i.product, "quantity": i.quantity})()
+            for i in recurring_order.items.select_related("product", "product__producer")
+        ]
+
+    if not items:
+        return
+
+    unavailable = []
+    for item in items:
+        if not item.product.is_active or item.product.stock_quantity < item.quantity:
+            unavailable.append(item.product.name)
+            _notify(
+                recipient=customer,
+                notification_type=RecurringNotification.Type.PRODUCT_UNAVAILABLE,
+                message=(
+                    f"'{item.product.name}' in your recurring order is currently unavailable "
+                    f"or has insufficient stock. It will be excluded from this delivery."
+                ),
+                recurring_order=recurring_order,
+            )
+        else:
+            unit_price = item.product.price
+            template_item = recurring_order.items.filter(product=item.product).first()
+            if template_item and template_item.unit_price and unit_price != template_item.unit_price:
+                _notify(
+                    recipient=customer,
+                    notification_type=RecurringNotification.Type.ORDER_UPCOMING,
+                    message=(
+                        f"Price change for '{item.product.name}' in your recurring order: "
+                        f"was £{template_item.unit_price}, now £{unit_price}. "
+                        f"This delivery will be charged at the new price."
+                    ),
+                    recurring_order=recurring_order,
+                )
+
+    producers = defaultdict(list)
+    subtotal = Decimal("0.00")
+
+    for item in items:
+        if item.product.name in unavailable:
+            continue
+        unit_price = item.product.price
+        line_total = unit_price * item.quantity
+        subtotal += line_total
+        producers[item.product.producer.username].append({
+            "name": item.product.name,
+            "price": float(unit_price),
+            "qty": item.quantity,
+            "total": float(line_total),
+            "id": item.product.id,
+        })
+
+    if not producers:
+        instance.status = RecurringOrderInstance.Status.SKIPPED
+        instance.save()
+        return
+
+    commission = (subtotal * COMMISSION_RATE).quantize(TWO_PLACES)
+    total = (subtotal + commission).quantize(TWO_PLACES)
+
+    success, pay_ref, pay_error = _simulate_charge(recurring_order, total)
+
+    if not success:
+        instance.payment_status = RecurringOrderInstance.PaymentStatus.FAILED
+        instance.save()
+        _notify(
+            recipient=customer,
+            notification_type=RecurringNotification.Type.PAYMENT_FAILED,
+            message=(
+                f"Payment failed for your recurring order "
+                f"'{recurring_order.name or f'#{recurring_order.id}'}': {pay_error} "
+                f"Please update your card details to resume automatic payments."
+            ),
+            recurring_order=recurring_order,
+        )
+        return
+
+    order_number = "REC-" + str(random.randint(10000, 99999))
+    User = get_user_model()
+
+    db_order = Order.objects.create(
+        customer=customer,
+        delivery_address=recurring_order.delivery_address,
+        delivery_postcode=recurring_order.delivery_postcode,
+        special_instructions="Auto-generated recurring order",
+    )
+
+    for producer_username, order_items in producers.items():
+        producer = User.objects.get(username=producer_username)
+        producer_order = ProducerOrder.objects.create(
+            order=db_order,
+            producer=producer,
+            delivery_date=instance.delivery_date,
+            status=ProducerOrder.Status.PENDING,
+            total_value=Decimal("0.00"),
+        )
+        total_value = Decimal("0.00")
+        for item in order_items:
+            product = Product.objects.get(id=item["id"])
+            OrderItem.objects.create(
+                producer_order=producer_order,
+                product=product,
+                quantity=item["qty"],
+                unit_price=Decimal(str(item["price"])),
+            )
+            total_value += Decimal(str(item["price"])) * item["qty"]
+            product.stock_quantity = max(0, product.stock_quantity - item["qty"])
+            product.save()
+        producer_order.total_value = total_value.quantize(TWO_PLACES)
+        producer_order.save()
+
+        _notify(
+            recipient=producer,
+            notification_type=RecurringNotification.Type.PRODUCER_NOTICE,
+            message=(
+                f"Recurring order {order_number} has been placed. "
+                f"Delivery required by {instance.delivery_date.strftime('%A, %d %b %Y')}. "
+                f"Items: {', '.join(str(i['name']) + ' x' + str(i['qty']) for i in order_items)}."
+            ),
+            recurring_order=recurring_order,
+        )
+
+    order_data = {
+        "order_number": order_number,
+        "address": recurring_order.delivery_address,
+        "order_date": timezone.now().strftime("%Y-%m-%d"),
+        "delivery_date": str(instance.delivery_date),
+        "payment": recurring_order.payment_method,
+        "subtotal": float(subtotal),
+        "commission": float(commission),
+        "total": float(total),
+        "producers": dict(producers),
+        "recurring": True,
+        "unavailable_items": unavailable,
+        "payment_reference": pay_ref,
+    }
+
+    CustomerOrderHistory.objects.create(
+        customer=customer,
+        order_number=order_number,
+        order_data=order_data,
+    )
+
+    instance.status = RecurringOrderInstance.Status.PROCESSED
+    instance.order_number = order_number
+    instance.payment_status = RecurringOrderInstance.PaymentStatus.PAID
+    instance.payment_amount = total
+    instance.payment_reference = pay_ref
+    instance.save()
+
+    _notify(
+        recipient=customer,
+        notification_type=RecurringNotification.Type.ORDER_PROCESSED,
+        message=(
+            f"Your recurring order has been processed. Order {order_number}, "
+            f"total £{total}, charged to card ending {recurring_order.card_last_four}. "
+            f"Delivery expected: {instance.delivery_date.strftime('%A, %d %b %Y')}."
+        ),
+        recurring_order=recurring_order,
+    )
+
+    recurring_order.last_generated = date.today()
+    recurring_order.next_order_date = recurring_order.calculate_next_order_date()
+    recurring_order.save()
+    _generate_next_instance(recurring_order)
+>>>>>>> 7c922bf (Test case 18 - recurring orders)

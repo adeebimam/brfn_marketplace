@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card stack" style="max-width:750px; margin:0 auto;">
+
+  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+    <div>
+      <p class="eyebrow">My Account</p>
+      <h1>Notifications</h1>
+    </div>
+  </div>
+
+  {% if notifications %}
+    <div class="stack" style="gap:10px;">
+      {% for n in notifications %}
+        <div style="border:1px solid
+          {% if n.notification_type == 'PAYMENT_FAILED' %}#fca5a5
+          {% elif n.notification_type == 'PRODUCT_UNAVAILABLE' %}#fde68a
+          {% elif n.notification_type == 'ORDER_PROCESSED' %}#86efac
+          {% else %}#e5e7eb{% endif %};
+          border-radius:10px; padding:14px 16px; background:
+          {% if n.notification_type == 'PAYMENT_FAILED' %}#fef2f2
+          {% elif n.notification_type == 'PRODUCT_UNAVAILABLE' %}#fffbeb
+          {% elif n.notification_type == 'ORDER_PROCESSED' %}#f0fdf4
+          {% else %}#f9fafb{% endif %};">
+
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:1.2rem;">
+                {% if n.notification_type == 'PAYMENT_FAILED' %}❌
+                {% elif n.notification_type == 'PRODUCT_UNAVAILABLE' %}⚠️
+                {% elif n.notification_type == 'ORDER_PROCESSED' %}✅
+                {% elif n.notification_type == 'ORDER_UPCOMING' %}🔔
+                {% elif n.notification_type == 'PRODUCER_NOTICE' %}📦
+                {% else %}🔄{% endif %}
+              </span>
+              <strong style="font-size:0.9rem;">{{ n.get_notification_type_display }}</strong>
+            </div>
+            <span style="font-size:0.78rem; color:#6b7280;">{{ n.created_at|date:"d M Y, H:i" }}</span>
+          </div>
+
+          <p style="margin:8px 0 0; font-size:0.88rem; color:#374151;">{{ n.message }}</p>
+
+          {% if n.recurring_order %}
+            <a href="{% url 'marketplace:recurring_order_detail' n.recurring_order.pk %}"
+               style="font-size:0.8rem; color:#059669; margin-top:6px; display:inline-block;">
+              View recurring order →
+            </a>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div style="text-align:center; padding:40px 20px; color:#6b7280;">
+      <p style="font-size:1.5rem;">🔔</p>
+      <p>No notifications yet.</p>
+    </div>
+  {% endif %}
+
+</div>
+
+{% endblock %}

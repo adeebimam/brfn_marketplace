@@ -2,7 +2,17 @@
 {% block content %}
 
 <div class="card producer-order-management">
-  <h1>Order Management</h1>
+
+  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
+    <h1 style="margin:0;">Order Management</h1>
+    <a href="{% url 'marketplace:recurring_notifications' %}" class="btn" style="position:relative;">
+      🔔 Notifications
+      {% with unread=request.user.recurring_notifications.filter %}
+        <span id="producer-notif-badge" style="background:#ef4444; color:#fff; font-size:0.7rem; font-weight:700; border-radius:20px; padding:1px 6px; margin-left:4px;">
+        </span>
+      {% endwith %}
+    </a>
+  </div>
 
   {% if refund_requests %}
     <div style="background:#fef3c7; border:1px solid #fcd34d; border-radius:10px; padding:16px; margin-bottom:20px;">
@@ -83,7 +93,14 @@
       <tbody>
         {% for po in orders %}
           <tr>
-            <td>{{ po.order.id }}</td>
+            <td>
+              {{ po.order.id }}
+              {% if po.order.special_instructions == "Auto-generated recurring order" %}
+                <span style="display:inline-block; background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; font-size:0.7rem; font-weight:600; border-radius:20px; padding:1px 7px; margin-left:4px; white-space:nowrap;">
+                  🔄 Recurring
+                </span>
+              {% endif %}
+            </td>
             <td>{{ po.order.customer.username }}</td>
             <td>{{ po.order.created_at|date:"Y-m-d H:i" }}</td>
             <td>{{ po.delivery_date|date:"F j, Y" }}</td>
@@ -106,5 +123,22 @@
     <p>No incoming orders.</p>
   {% endif %}
 </div>
+
+<script>
+// Load unread notification count for producer
+fetch("{% url 'marketplace:recurring_notifications_count' %}")
+  .then(r => r.json())
+  .then(data => {
+    const badge = document.getElementById("producer-notif-badge");
+    if (data.count > 0) {
+      badge.textContent = data.count;
+    } else {
+      badge.style.display = "none";
+    }
+  })
+  .catch(() => {
+    document.getElementById("producer-notif-badge").style.display = "none";
+  });
+</script>
 
 {% endblock %}

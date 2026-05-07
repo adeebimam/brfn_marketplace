@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width:900px; margin:0 auto; padding:20px;">
+  <h2>Set Up Recurring Order</h2>
+  <p>Select your weekly ingredients and set a schedule. Your order will be generated automatically each week.</p>
+
+  <form method="post">
+    {% csrf_token %}
+
+    <div style="background:#f9f9f9; border:1px solid #ddd; border-radius:8px; padding:20px; margin-bottom:20px;">
+      <h3>Order Name (optional)</h3>
+      <input type="text" name="name" placeholder="e.g. Weekly veg box" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+    </div>
+
+    <div style="background:#f9f9f9; border:1px solid #ddd; border-radius:8px; padding:20px; margin-bottom:20px;">
+      <h3>Select Products</h3>
+      {% regroup products by category as product_groups %}
+      {% for group in product_groups %}
+        <h4 style="margin-top:16px;">{{ group.grouper }}</h4>
+        {% for product in group.list %}
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid #eee;">
+          <div>
+            <strong>{{ product.name }}</strong>
+            <span style="color:#666; font-size:0.9em;"> — £{{ product.price }} / {{ product.unit }} ({{ product.producer.username }})</span>
+            {% if not product.is_in_season %}
+              <span style="color:orange; font-size:0.8em;"> ⚠ Out of season</span>
+            {% endif %}
+          </div>
+          <input type="number" name="qty_{{ product.id }}" value="0" min="0" max="{{ product.stock_quantity }}"
+                 style="width:70px; padding:6px; border:1px solid #ccc; border-radius:4px; text-align:center;">
+        </div>
+        {% endfor %}
+      {% empty %}
+        <p>No products available.</p>
+      {% endfor %}
+    </div>
+
+    <div style="background:#f9f9f9; border:1px solid #ddd; border-radius:8px; padding:20px; margin-bottom:20px;">
+      <h3>Schedule</h3>
+
+      <div style="margin-bottom:12px;">
+        <label><strong>Frequency</strong></label><br>
+        <select name="frequency" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; margin-top:4px;">
+          {% for value, label in frequency_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <label><strong>Order Generated On</strong></label><br>
+        <select name="order_day" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; margin-top:4px;">
+          {% for value, label in day_choices %}
+            <option value="{{ value }}" {% if value == 0 %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <label><strong>Delivery Day</strong></label><br>
+        <select name="delivery_day" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; margin-top:4px;">
+          {% for value, label in day_choices %}
+            <option value="{{ value }}" {% if value == 2 %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <small style="color:#666;">Must be after the order day.</small>
+      </div>
+    </div>
+
+    <div style="background:#f9f9f9; border:1px solid #ddd; border-radius:8px; padding:20px; margin-bottom:20px;">
+      <h3>Delivery Details</h3>
+      <div style="margin-bottom:12px;">
+        <label><strong>Delivery Address</strong></label><br>
+        <textarea name="delivery_address" rows="2" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; margin-top:4px;" required></textarea>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label><strong>Postcode</strong></label><br>
+        <input type="text" name="delivery_postcode" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; margin-top:4px;" required>
+      </div>
+      <div>
+        <label><strong>Payment Method</strong></label><br>
+        <select name="payment_method" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; margin-top:4px;">
+          <option value="stripe">Stripe Test</option>
+          <option value="paypal">PayPal Sandbox</option>
+        </select>
+      </div>
+    </div>
+
+    {% if messages %}
+      {% for message in messages %}
+        <div style="background:#ffe0e0; padding:10px; border-radius:4px; margin-bottom:12px;">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+
+    <button type="submit" style="background:#2d6a4f; color:white; padding:12px 24px; border:none; border-radius:6px; font-size:1em; cursor:pointer;">
+      Confirm Recurring Order
+    </button>
+    <a href="{% url 'marketplace:product_list' %}" style="margin-left:12px; color:#666;">Cancel</a>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width:900px; margin:0 auto; padding:20px;">
+  <a href="{% url 'marketplace:recurring_order_list' %}" style="color:#2d6a4f;">← Back to Recurring Orders</a>
+
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
+    <h2 style="margin:0;">{{ recurring_order.name|default:"Recurring Order" }} #{{ recurring_order.id }}</h2>
+    <a href="#notifications" style="position:relative; text-decoration:none; color:#2d6a4f;" title="View notifications">
+      <i class="fa-solid fa-bell" style="font-size:1.4em;"></i>
+      {% if notifications %}
+        <span style="position:absolute; top:-6px; right:-8px; background:#ef4444; color:white; font-size:0.7rem; font-weight:700; border-radius:20px; padding:1px 5px;">
+          {{ notifications|length }}
+        </span>
+      {% endif %}
+    </a>
+  </div>
+
+  <div style="background:#f9f9f9; border:1px solid #ddd; border-radius:8px; padding:20px; margin-bottom:20px;">
+    <h3>Template</h3>
+    <p><strong>Frequency:</strong> {{ recurring_order.get_frequency_display }}</p>
+    <p><strong>Order Day:</strong> {{ recurring_order.get_order_day_display }}</p>
+    <p><strong>Delivery Day:</strong> {{ recurring_order.get_delivery_day_display }}</p>
+    <p><strong>Delivery Address:</strong> {{ recurring_order.delivery_address }}, {{ recurring_order.delivery_postcode }}</p>
+
+    <h4>Items:</h4>
+    <ul>
+      {% for item in recurring_order.items.all %}
+        <li>{{ item.product.name }} x{{ item.quantity }} — £{{ item.product.price }} / {{ item.product.unit }}
+          {% if item.product.stock_quantity < item.quantity %}
+            <span style="color:red;"> Low stock</span>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <h3>Upcoming Orders</h3>
+  {% if not instances %}
+    <p style="color:#666;">No upcoming instances scheduled.</p>
+  {% endif %}
+
+  {% for instance in instances %}
+  <div style="border:1px solid #ddd; border-radius:8px; padding:16px; margin-bottom:12px; background:white;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <strong>Order Date:</strong> {{ instance.scheduled_date }} &nbsp;|&nbsp;
+        <strong>Delivery:</strong> {{ instance.delivery_date }}
+      </div>
+      <span style="padding:3px 10px; border-radius:20px; font-size:0.85em;
+        {% if instance.status == 'MODIFIED' %}background:#fff3cd; color:#856404;
+        {% elif instance.status == 'SKIPPED' %}background:#f8d7da; color:#721c24;
+        {% else %}background:#d4edda; color:#155724;{% endif %}">
+        {{ instance.get_status_display }}
+      </span>
+    </div>
+
+    {% if instance.items.exists %}
+    <div style="margin-top:8px; font-size:0.9em; color:#444;">
+      <strong>Modified items:</strong>
+      {% for item in instance.items.all %}
+        {{ item.product.name }} x{{ item.quantity }}{% if not forloop.last %}, {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if instance.status != 'SKIPPED' %}
+    <div style="margin-top:10px; display:flex; gap:8px;">
+      <a href="{% url 'marketplace:recurring_order_modify_instance' instance.pk %}"
+         style="background:#f0f0f0; padding:5px 12px; border-radius:4px; text-decoration:none; color:#333; font-size:0.85em;">
+        Modify This Order
+      </a>
+      <form method="post" action="{% url 'marketplace:recurring_order_skip_instance' instance.pk %}">
+        {% csrf_token %}
+        <button type="submit" style="background:#f8d7da; padding:5px 12px; border:none; border-radius:4px; cursor:pointer; font-size:0.85em; color:#721c24;">
+          Skip This Order
+        </button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  <!-- Notifications for this recurring order -->
+  {% if notifications %}
+  <div style="margin-top:32px;">
+    <h3 id="notifications">Notifications</h3>
+    {% for n in notifications %}
+    <div style="border:1px solid #e5e7eb; border-radius:8px; padding:14px 16px; margin-bottom:10px;
+      background:{% if n.notification_type == 'PAYMENT_FAILED' %}#fef2f2{% elif n.notification_type == 'PRODUCT_UNAVAILABLE' %}#fffbeb{% elif n.notification_type == 'ORDER_PROCESSED' %}#f0fdf4{% else %}#f8fafc{% endif %};">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+        <div style="display:flex; gap:10px; align-items:flex-start;">
+          <div>
+            <strong style="font-size:0.9em;">{{ n.get_notification_type_display }}</strong>
+            <p style="margin:4px 0 0; font-size:0.88em; color:#444;">{{ n.message }}</p>
+          </div>
+        </div>
+        <span style="font-size:0.78em; color:#9ca3af; white-space:nowrap;">
+          {{ n.created_at|date:"d M Y, H:i" }}
+        </span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

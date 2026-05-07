@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width:900px; margin:0 auto; padding:20px;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+    <h2>My Recurring Orders</h2>
+    <a href="{% url 'marketplace:recurring_order_setup' %}"
+       style="background:#2d6a4f; color:white; padding:10px 20px; border-radius:6px; text-decoration:none;">
+      + New Recurring Order
+    </a>
+  </div>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div style="background:#d4edda; padding:10px; border-radius:4px; margin-bottom:12px;">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  {% if not recurring_orders %}
+    <div style="text-align:center; padding:40px; background:#f9f9f9; border-radius:8px;">
+      <p>You have no recurring orders yet.</p>
+      <a href="{% url 'marketplace:recurring_order_setup' %}" style="color:#2d6a4f;">Set one up now</a>
+    </div>
+  {% endif %}
+
+  {% for ro in recurring_orders %}
+  <div style="border:1px solid #ddd; border-radius:8px; padding:20px; margin-bottom:16px; background:white;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+      <div>
+        <h3 style="margin:0 0 4px;">{{ ro.name|default:"Recurring Order" }} #{{ ro.id }}</h3>
+        <span style="font-size:0.9em; color:#666;">{{ ro.get_frequency_display }} · Order every {{ ro.get_order_day_display }} · Delivery every {{ ro.get_delivery_day_display }}</span>
+      </div>
+      <span style="padding:4px 12px; border-radius:20px; font-size:0.85em;
+        {% if ro.status == 'ACTIVE' %}background:#d4edda; color:#155724;
+        {% elif ro.status == 'PAUSED' %}background:#fff3cd; color:#856404;
+        {% else %}background:#f8d7da; color:#721c24;{% endif %}">
+        {{ ro.get_status_display }}
+      </span>
+    </div>
+
+    <div style="margin:12px 0;">
+      <strong>Products:</strong>
+      {% for item in ro.items.all %}
+        {{ item.product.name }} x{{ item.quantity }}{% if not forloop.last %}, {% endif %}
+      {% endfor %}
+    </div>
+
+    {% if ro.next_order_date and ro.status == 'ACTIVE' %}
+    <div style="background:#f0f7f4; padding:8px 12px; border-radius:4px; margin-bottom:12px; font-size:0.9em;">
+      Next order: <strong>{{ ro.next_order_date }}</strong>
+    </div>
+    {% endif %}
+
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <a href="{% url 'marketplace:recurring_order_detail' ro.pk %}"
+         style="background:#f0f0f0; padding:6px 14px; border-radius:4px; text-decoration:none; color:#333; font-size:0.9em;">
+        View / Modify
+      </a>
+
+      {% if ro.status != 'CANCELLED' %}
+      <form method="post" action="{% url 'marketplace:recurring_order_pause' ro.pk %}" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" style="background:#fff3cd; padding:6px 14px; border:none; border-radius:4px; cursor:pointer; font-size:0.9em;">
+          {% if ro.status == 'PAUSED' %}Resume{% else %}Pause{% endif %}
+        </button>
+      </form>
+
+      <a href="{% url 'marketplace:recurring_order_cancel' ro.pk %}"
+         style="background:#f8d7da; padding:6px 14px; border-radius:4px; text-decoration:none; color:#721c24; font-size:0.9em;">
+        Cancel
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

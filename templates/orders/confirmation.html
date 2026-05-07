@@ -171,6 +171,20 @@
         ✔ Your order has been created successfully.
       </div>
 
+      {% if recurring_order_id %}
+        <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:14px; padding:16px; margin-top:20px; color:#1d4ed8;">
+          🔁 This order has been set up as a recurring order.
+
+          {{ recurring_order_id }}
+
+          <div style="margin-top:10px;">
+            <a class="btn btn-primary" href="{% url 'marketplace:recurring_order_list' %}">
+              View recurring orders
+            </a>
+          </div>
+        </div>
+      {% endif %}
+
       <div class="confirmation-actions">
         <a class="btn btn-primary" href="{% url 'marketplace:order_history' %}">
           Track this order
