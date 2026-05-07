@@ -1763,7 +1763,7 @@ table tbody tr:last-child td,
 
 .product-filters {
   display: grid;
-  grid-template-columns: minmax(180px, 1.2fr) minmax(180px, 1.2fr) minmax(170px, 1fr) minmax(150px, 0.85fr) minmax(150px, 0.85fr) minmax(240px, 1.2fr);
+  grid-template-columns: minmax(220px, 1.45fr) minmax(180px, 1.15fr) minmax(170px, 1fr) minmax(150px, 0.9fr) minmax(150px, 0.9fr);
   gap: 16px;
   align-items: stretch;
   padding: 20px;
@@ -1777,15 +1777,13 @@ table tbody tr:last-child td,
   min-width: 0;
 }
 
-.filter-group,
-.filter-group--miles {
+.filter-group {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.filter-group label,
-.filter-group--miles label {
+.filter-group label {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1798,11 +1796,6 @@ table tbody tr:last-child td,
 .product-filters select,
 .product-filters .tag-select-tags {
   min-height: 50px;
-}
-
-.filter-group--miles {
-  min-width: 0;
-  justify-content: flex-end;
 }
 
 .product-results {
@@ -2043,7 +2036,6 @@ table tbody tr:last-child td,
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .filter-group--miles,
   .product-filter-actions {
     grid-column: 1 / -1;
   }

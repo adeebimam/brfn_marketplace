@@ -3,6 +3,7 @@
 {% block content %}
 <style>
   .tag-select { position: relative; width: 100%; }
+  .filter-group--search-stack { gap: 10px; }
   .tag-select-tags {
     display: flex;
     align-items: center;
@@ -43,13 +44,14 @@
   .organic-badge { display: inline-flex; align-items: center; gap: 6px; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 20px; padding: 2px 10px; font-size: 0.78rem; font-weight: 600; margin-left: 0.4rem; }
   .selected-allergen-tags { display: none; flex-wrap: wrap; gap: 8px; margin-top: 12px; min-height: 0; }
   .selected-allergen-tags.has-tags { display: flex; }
-  .miles-slider-wrapper { display: flex; flex-direction: column; gap: 8px; width: 100%; min-width: 180px; }
+  .miles-inline-panel { display: grid; gap: 8px; padding-top: 2px; }
+  .miles-slider-wrapper { display: flex; flex-direction: column; gap: 6px; width: 100%; min-width: 0; }
   .miles-slider-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; font-weight: 600; color: #0F172A; }
   .miles-slider-top span { background: #FFFFFF; border: 1px solid #D1D5DB; border-radius: 999px; padding: 4px 10px; min-width: 58px; text-align: center; }
-  .miles-slider-track { display: grid; gap: 8px; }
-  input[type="range"]#miles_slider { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; border-radius: 999px; background: linear-gradient(90deg, #86efac 0%, #16A34A 100%); outline: none; cursor: pointer; }
-  input[type="range"]#miles_slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #FFFFFF; cursor: pointer; border: 3px solid #16A34A; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18); }
-  input[type="range"]#miles_slider::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #FFFFFF; cursor: pointer; border: 3px solid #16A34A; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18); }
+  .miles-slider-track { display: grid; gap: 6px; }
+  input[type="range"]#miles_slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 999px; background: linear-gradient(90deg, #86efac 0%, #16A34A 100%); outline: none; cursor: pointer; }
+  input[type="range"]#miles_slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #FFFFFF; cursor: pointer; border: 2px solid #16A34A; box-shadow: 0 2px 6px rgba(15, 23, 42, 0.16); }
+  input[type="range"]#miles_slider::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #FFFFFF; cursor: pointer; border: 2px solid #16A34A; box-shadow: 0 2px 6px rgba(15, 23, 42, 0.16); }
   .miles-slider-labels { display: flex; justify-content: space-between; font-size: 11px; color: #64748B; padding: 0 2px; width: 100%; }
 </style>
 
@@ -60,12 +62,27 @@
     <form method="get" class="product-filters">
       <input type="hidden" name="max_miles" id="max_miles_input" value="{{ max_miles }}">
 
-      <div class="filter-group">
+      <div class="filter-group filter-group--search-stack">
         <label for="q">Search</label>
         <div class="search-wrapper">
           <input type="text" id="q" name="q" placeholder="Search products or allergens" value="{{ query|default:'' }}" autocomplete="off">
           <div class="search-suggestions" id="searchSuggestions"></div>
         </div>
+
+        {% if user.is_authenticated %}
+        <div class="miles-inline-panel">
+          <label for="miles_slider"><i class="fa-solid fa-route"></i> Max Food Miles</label>
+          <div class="miles-slider-wrapper">
+            <div class="miles-slider-top">
+              <span id="milesDisplay">{% if max_miles == 20.0 %}All{% else %}{{ max_miles }}{% endif %}</span>
+            </div>
+            <div class="miles-slider-track">
+              <input type="range" id="miles_slider" min="0" max="3" step="1" value="{% if max_miles == 5.0 %}1{% elif max_miles == 15.0 %}2{% elif max_miles == 20.0 %}3{% else %}0{% endif %}">
+              <div class="miles-slider-labels"><span>0</span><span>5</span><span>15</span><span>20</span></div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
       </div>
 
       <div class="filter-group">
@@ -119,21 +136,6 @@
           <option value="certified" {% if organic_filter == "certified" %}selected{% endif %}>🌱 Certified Organic only</option>
         </select>
       </div>
-
-      {% if user.is_authenticated %}
-      <div class="filter-group filter-group--miles">
-        <label for="miles_slider"><i class="fa-solid fa-route"></i> Max Food Miles</label>
-        <div class="miles-slider-wrapper">
-          <div class="miles-slider-top">
-            <span id="milesDisplay">{% if max_miles == 20.0 %}All{% else %}{{ max_miles }}{% endif %}</span>
-          </div>
-          <div class="miles-slider-track">
-            <input type="range" id="miles_slider" min="0" max="3" step="1" value="{% if max_miles == 5.0 %}1{% elif max_miles == 15.0 %}2{% elif max_miles == 20.0 %}3{% else %}0{% endif %}">
-            <div class="miles-slider-labels"><span>0</span><span>5</span><span>15</span><span>20</span></div>
-          </div>
-        </div>
-      </div>
-      {% endif %}
 
       <div class="product-filter-actions">
         <button class="non-primary-btn btn" type="submit">Apply</button>
