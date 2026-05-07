@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="order-detail-shell">
+  <section class="card order-detail-hero">
+    <div>
+      <p class="eyebrow">Order detail</p>
+      <h1>Order #{{ order.id }}</h1>
+      <p class="muted">This page combines the main customer order with the linked producer updates underneath.</p>
+    </div>
+    <div class="order-card-meta">
+      <span class="status-badge status-badge--{{ order.status|lower }}">{{ order.get_status_display }}</span>
+      <strong>£{{ order.total_value }}</strong>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top: 20px;">
+    <div class="section-heading">
+      <h2>Order progress</h2>
+      <p class="muted">Updated automatically when producers change status.</p>
+    </div>
+
+    <div class="status-tracker">
+      {% for step in order.status_steps %}
+        <div class="status-step {% if step.complete %}is-complete{% endif %} {% if forloop.counter0 == order.status_current %}is-current{% endif %}">
+          <span class="status-step-dot"></span>
+          <span>{{ step.label }}</span>
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="detail-pairs">
+      <div>
+        <span>Placed on</span>
+        <strong>{{ order.created_at|date:"F j, Y, g:i a" }}</strong>
+      </div>
+      <div>
+        <span>Delivery postcode</span>
+        <strong>{{ order.delivery_postcode }}</strong>
+      </div>
+      <div class="detail-pairs--full">
+        <span>Delivery address</span>
+        <strong>{{ order.delivery_address }}</strong>
+      </div>
+    </div>
+  </section>
+
+  <section class="producer-detail-list">
+    {% for producer_order in producer_orders %}
+      <article class="card producer-detail-card">
+        <div class="producer-summary-head">
+          <div>
+            <h2>{{ producer_order.producer.username }}</h2>
+            <p class="muted">Producer order #{{ producer_order.id }} • Delivery {{ producer_order.delivery_date|date:"F j, Y" }}</p>
+          </div>
+          <span class="status-badge status-badge--{{ producer_order.status|lower }}">{{ producer_order.get_status_display }}</span>
+        </div>
+
+        <div class="producer-detail-grid">
+          <section>
+            <h3>Items</h3>
+            <div class="producer-summary-items">
+              {% for item in producer_order.items.all %}
+                <article class="summary-line-item">
+                  <div class="summary-line-main">
+                    <strong>{{ item.product.name }}</strong>
+                    <span>x{{ item.quantity }}</span>
+                  </div>
+                  <div class="summary-line-breakdown">
+                    <div class="price-row {% if item.product.is_surplus and item.unit_price < item.product.price %}price-row--offer{% endif %}">
+                      <span>{% if item.product.is_surplus and item.unit_price < item.product.price %}Offer price{% else %}Normal price{% endif %}</span>
+                      <span>£{{ item.unit_price }} each</span>
+                    </div>
+                  </div>
+                  <div class="summary-line-total">£{{ item.line_total }}</div>
+                </article>
+              {% endfor %}
+            </div>
+
+            <div class="producer-total-row">
+              <span>Producer total</span>
+              <strong>£{{ producer_order.total_value }}</strong>
+            </div>
+          </section>
+
+          <section>
+            <h3>Status updates</h3>
+            <div class="history-timeline">
+              {% for entry in producer_order.status_history.all %}
+                <article class="timeline-entry">
+                  <div class="timeline-dot"></div>
+                  <div>
+                    <div class="timeline-top">
+                      <strong>{{ entry.display_new_status }}</strong>
+                      <span>{{ entry.changed_at|date:"F j, Y, g:i a" }}</span>
+                    </div>
+                    <p class="muted">{{ entry.display_old_status }} → {{ entry.display_new_status }} by {{ entry.changed_by.username }}</p>
+                    {% if entry.note %}
+                      <p>{{ entry.note }}</p>
+                    {% endif %}
+                  </div>
+                </article>
+              {% empty %}
+                <p class="muted">No updates yet.</p>
+              {% endfor %}
+            </div>
+          </section>
+        </div>
+      </article>
+    {% endfor %}
+  </section>
+
+  <div class="order-detail-actions">
+    <a class="btn" href="{% url 'orders:history' %}">Back to order history</a>
+    <a class="btn btn-primary" href="{% url 'marketplace:product_list' %}">Shop again</a>
+  </div>
+</div>
+{% endblock %}

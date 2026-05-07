@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="checkout-shell">
+  <div class="checkout-hero card">
+    <div>
+      <p class="eyebrow">Checkout</p>
+      <h1>Review your order</h1>
+      <p class="muted">
+        Check your delivery details, choose a payment method, and review your order total before payment.
+      </p>
+    </div>
+
+    <div class="checkout-hero-meta">
+      <div>
+        <span class="muted">Producers</span>
+        <strong>{{ producers|length }}</strong>
+      </div>
+
+      <div>
+        <span class="muted">Items</span>
+        <strong>{{ cart_items|length }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <form method="POST" action="{% url 'cart:checkout' %}">
+    {% csrf_token %}
+
+    <!-- Hidden delivery date field synced from first producer date picker -->
+    <input type="hidden" name="delivery_date" id="hidden-delivery-date">
+
+    <div class="checkout-layout">
+      <div class="card checkout-form-card">
+        <div class="section-heading">
+          <h2>Delivery details</h2>
+          <p class="muted">Delivery date must respect each producer's lead time.</p>
+        </div>
+
+        <div class="stack">
+          <div>
+            <label for="{{ form.delivery_address.id_for_label }}">Delivery address</label>
+            {{ form.delivery_address }}
+            {% if form.delivery_address.errors %}
+              <div class="form-error">
+                {{ form.delivery_address.errors|join:", " }}
+              </div>
+            {% endif %}
+          </div>
+
+          <div style="margin-top:18px;">
+            <label for="{{ form.delivery_postcode.id_for_label }}">Delivery postcode</label>
+            {{ form.delivery_postcode }}
+            {% if form.delivery_postcode.errors %}
+              <div class="form-error">
+                {{ form.delivery_postcode.errors|join:", " }}
+              </div>
+            {% endif %}
+          </div>
+
+          <!-- Food Miles Display -->
+          <div id="food-miles-box" style="
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 14px;
+            padding: 12px 16px;
+            background: #f0faf0;
+            border: 1px solid #c3e6c3;
+            border-radius: 10px;
+            font-size: 14px;
+          ">
+            <span style="font-size: 18px;">📍</span>
+            <span>
+              Estimated food miles:
+              <strong id="food-miles-value">
+                {% if total_food_miles is not None %}
+                  {{ total_food_miles }} miles
+                {% else %}
+                  —
+                {% endif %}
+              </strong>
+              <span id="food-miles-loading" style="display:none; color:#888;">Calculating...</span>
+            </span>
+          </div>
+
+          {% if producers %}
+            {% for producer, items in producers.items %}
+              <div style="border:1px solid #ddd; border-radius:12px; background:#fff; padding:18px; margin-top:18px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:15px; flex-wrap:wrap;">
+                  <h3 style="margin:0;">{{ producer }}</h3>
+                  <p style="margin:0;">
+                    <strong>Lead Time:</strong> {{ items.0.lead_time }} days
+                  </p>
+                </div>
+
+                <label
+                  for="delivery-{{ forloop.counter }}"
+                  style="display:block; margin-top:15px;"
+                >
+                  Delivery Date for {{ producer }}
+                </label>
+
+                <input
+                  type="date"
+                  id="delivery-{{ forloop.counter }}"
+                  class="delivery-date"
+                  data-lead="{{ items.0.lead_time }}"
+                  name="delivery_{{ forloop.counter }}"
+                  required
+                >
+
+                <p class="lead-warning" style="color:red; display:none;">
+                  Delivery must be at least {{ items.0.lead_time }} days from now.
+                </p>
+
+                <ul style="margin-top:14px;">
+                  {% for item in items %}
+                    <li>
+                      {{ item.name }} x{{ item.qty }} — £{{ item.total|floatformat:2 }}
+                    </li>
+                  {% endfor %}
+                </ul>
+              </div>
+            {% endfor %}
+          {% else %}
+            <p class="muted">No items in cart.</p>
+          {% endif %}
+        </div>
+
+        <div class="section-heading" style="margin-top:25px;">
+          <h2>Payment Method</h2>
+          <p class="muted">Choose how you want to pay.</p>
+        </div>
+
+        <div style="border:1px solid #ddd; border-radius:12px; background:#fff; margin-bottom:25px; overflow:hidden;">
+          <label style="display:flex; gap:14px; align-items:flex-start; padding:18px; cursor:pointer; border-bottom:1px solid #eee;">
+            <input
+              type="radio"
+              name="payment_method"
+              value="stripe"
+              checked
+              style="margin-top:6px;"
+            >
+            <div>
+              <strong>💳 Stripe Test</strong>
+              <p style="margin:6px 0 0; color:#666;">
+                Pay securely using test card details on the next page.
+              </p>
+              <p style="margin:8px 0 0; color:#555; font-size:14px;">
+                Visa • Mastercard • Amex
+              </p>
+            </div>
+          </label>
+
+          <label style="display:flex; gap:14px; align-items:flex-start; padding:18px; cursor:pointer;">
+            <input
+              type="radio"
+              name="payment_method"
+              value="paypal"
+              style="margin-top:6px;"
+            >
+            <div>
+              <strong>🅿️ PayPal Sandbox</strong>
+              <p style="margin:6px 0 0; color:#666;">
+                Use PayPal sandbox test payment.
+              </p>
+            </div>
+          </label>
+        </div>
+
+        <div style="margin-top:18px;">
+          <label for="{{ form.special_instructions.id_for_label }}">
+            Special instructions <span class="muted" style="font-weight:normal;">(optional)</span>
+          </label>
+          {{ form.special_instructions }}
+          {% if form.special_instructions.errors %}
+            <div class="form-error">
+              {{ form.special_instructions.errors|join:", " }}
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="checkout-note">
+          <strong>Before you continue</strong>
+          <p>
+            Please check your delivery address, delivery postcode, delivery date, and order total before proceeding to payment.
+          </p>
+        </div>
+
+        <button class="btn btn-primary checkout-submit" type="submit">
+          Proceed to Payment
+        </button>
+      </div>
+
+      <aside class="card checkout-summary-card">
+        <div class="section-heading">
+          <h2>Order summary</h2>
+          <p class="muted">Grouped by producer for easier delivery tracking.</p>
+        </div>
+
+        {% if producers %}
+          <div class="producer-summary-list">
+            {% for producer, items in producers.items %}
+              <section class="producer-summary-card">
+                <div class="producer-summary-head">
+                  <div>
+                    <h3>{{ producer }}</h3>
+                    <p class="muted">Lead time: {{ items.0.lead_time }} days</p>
+                  </div>
+                  <span class="summary-chip">
+                    {{ items|length }} line{{ items|length|pluralize }}
+                  </span>
+                </div>
+
+                <div class="producer-summary-items">
+                  {% for item in items %}
+                    <article class="summary-line-item">
+                      <div class="summary-line-main">
+                        <strong>{{ item.name }}</strong>
+                        <span>x{{ item.qty }}</span>
+                      </div>
+                      <div class="summary-line-breakdown">
+                        <div class="price-row">
+                          <span>Unit price</span>
+                          <span>£{{ item.price|floatformat:2 }}</span>
+                        </div>
+                      </div>
+                      <div class="summary-line-total">
+                        £{{ item.total|floatformat:2 }}
+                      </div>
+                    </article>
+                  {% endfor %}
+                </div>
+              </section>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="muted">No items in cart.</p>
+        {% endif %}
+
+        <div class="checkout-totals">
+          <div>
+            <span>Subtotal</span>
+            <strong>£{{ subtotal|floatformat:2 }}</strong>
+          </div>
+
+          {% if is_bulk_buyer and bulk_discount %}
+            <div style="color: #087d73;">
+              <span>Bulk buyer discount (10%)</span>
+              <strong>− £{{ bulk_discount|floatformat:2 }}</strong>
+            </div>
+            <div>
+              <span>Discounted subtotal</span>
+              <strong>£{{ discounted_subtotal|floatformat:2 }}</strong>
+            </div>
+          {% endif %}
+
+          <div>
+            <span>Network commission (5%)</span>
+            <strong>£{{ commission|floatformat:2 }}</strong>
+          </div>
+
+          <div id="food-miles-summary-row">
+            <span>📍 Food miles</span>
+            <strong id="food-miles-summary-value">
+              {% if total_food_miles is not None %}
+                {{ total_food_miles }} miles
+              {% else %}
+                —
+              {% endif %}
+            </strong>
+          </div>
+
+          <div class="checkout-grand-total">
+            <span>Total</span>
+            <strong>£{{ total|floatformat:2 }}</strong>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </form>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  // ── Sync first delivery date to hidden field ─────────────────────────────
+  function syncDeliveryDate() {
+    const firstDate = document.querySelector(".delivery-date");
+    const hiddenDate = document.getElementById("hidden-delivery-date");
+    if (firstDate && hiddenDate) {
+      hiddenDate.value = firstDate.value;
+    }
+  }
+
+  // ── Delivery date lead-time validation ──────────────────────────────────
+  document.querySelectorAll(".delivery-date").forEach(function (input) {
+    const lead = parseInt(input.dataset.lead, 10) || 2;
+    const warning = input.nextElementSibling;
+
+    const minDateObject = new Date();
+    minDateObject.setDate(minDateObject.getDate() + lead);
+    const minDate = minDateObject.toISOString().split("T")[0];
+
+    input.min = minDate;
+    if (!input.value) {
+      input.value = minDate;
+    }
+
+    input.addEventListener("change", function () {
+      if (input.value < minDate) {
+        if (warning) warning.style.display = "block";
+        input.setCustomValidity("Delivery date is too soon.");
+      } else {
+        if (warning) warning.style.display = "none";
+        input.setCustomValidity("");
+      }
+      syncDeliveryDate();
+    });
+  });
+
+  // Sync on page load
+  syncDeliveryDate();
+
+  // ── Food miles AJAX ─────────────────────────────────────────────────────
+  const postcodeInput = document.getElementById("{{ form.delivery_postcode.id_for_label }}");
+  const foodMilesValue = document.getElementById("food-miles-value");
+  const foodMilesLoading = document.getElementById("food-miles-loading");
+  const foodMilesSummaryValue = document.getElementById("food-miles-summary-value");
+
+  let debounceTimer = null;
+
+  function updateFoodMiles(postcode) {
+    if (!postcode || postcode.trim().length < 3) {
+      return;
+    }
+
+    foodMilesValue.style.display = "none";
+    foodMilesLoading.style.display = "inline";
+    if (foodMilesSummaryValue) foodMilesSummaryValue.textContent = "...";
+
+    fetch("{% url 'cart:food_miles_ajax' %}?postcode=" + encodeURIComponent(postcode.trim()))
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        foodMilesLoading.style.display = "none";
+        foodMilesValue.style.display = "inline";
+
+        if (data.food_miles !== null && data.food_miles !== undefined) {
+          const display = data.food_miles + " miles";
+          foodMilesValue.textContent = display;
+          if (foodMilesSummaryValue) foodMilesSummaryValue.textContent = display;
+        } else {
+          foodMilesValue.textContent = "—";
+          if (foodMilesSummaryValue) foodMilesSummaryValue.textContent = "—";
+        }
+      })
+      .catch(function () {
+        foodMilesLoading.style.display = "none";
+        foodMilesValue.style.display = "inline";
+        foodMilesValue.textContent = "—";
+        if (foodMilesSummaryValue) foodMilesSummaryValue.textContent = "—";
+      });
+  }
+
+  if (postcodeInput) {
+    postcodeInput.addEventListener("input", function () {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(function () {
+        updateFoodMiles(postcodeInput.value);
+      }, 600);
+    });
+  }
+
+});
+</script>
+
+{% endblock %}

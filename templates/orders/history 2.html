@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2>My Orders</h2>
+
+<form method="GET" style="margin-bottom: 20px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+  <label for="start-date">Start:</label>
+  <input type="date" name="start" id="start-date" value="{{ start }}">
+
+  <label for="end-date">End:</label>
+  <input type="date" name="end" id="end-date" value="{{ end }}">
+
+  <label for="sort">Sort:</label>
+  <select name="sort" id="sort">
+    <option value="newest" {% if request.GET.sort == "newest" or not request.GET.sort %}selected{% endif %}>
+      Newest First
+    </option>
+    <option value="oldest" {% if request.GET.sort == "oldest" %}selected{% endif %}>
+      Oldest First
+    </option>
+  </select>
+
+  <label for="producer">Producer:</label>
+  <input
+    type="text"
+    name="producer"
+    id="producer"
+    value="{{ producer }}"
+    placeholder="Enter producer name"
+  >
+
+  <button type="submit" class="btn btn-primary">Filter</button>
+</form>
+
+{% for order in orders %}
+  <div style="border:1px solid #ddd; border-radius:10px; padding:16px; margin-bottom:15px; background:#fff;">
+    <h3>Order #{{ order.id }}</h3>
+    <p>Order Date: {{ order.created_at|date:"Y-m-d" }}</p>
+    <p>Total: £{{ order.total_amount|floatformat:2 }}</p>
+    <p><strong>Status:</strong> {{ order.get_status_display }}</p>
+
+    <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+            <a href="{% url 'marketplace:order_detail' order.id %}" class="btn">
+              View Details
+            </a>
+            <a class="btn btn-primary" href="{% url 'marketplace:reorder' order.id %}">
+              Reorder
+            </a>
+            <a class="btn" href="{% url 'marketplace:download_receipt' order.id %}">
+              Download Receipt
+            </a>
+            {% if order.refund %}
+              {% if order.refund.status == "APPROVED" %}
+                <div style="background:#dcfce7; border:1px solid #86efac; border-radius:8px; padding:8px 14px; display:inline-flex; align-items:center; gap:8px;">
+                  <strong style="color:#166534;">Refund Processed</strong>
+                </div>
+              {% elif order.refund.status == "REJECTED" %}
+                <div style="background:#fee2e2; border:1px solid #fca5a5; border-radius:8px; padding:8px 14px; display:inline-flex; align-items:center; gap:8px;">
+                  <strong style="color:#991b1b;">Refund Declined</strong>
+                </div>
+              {% else %}
+                <div style="background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; padding:8px 14px; display:inline-flex; align-items:center; gap:8px;">
+                  <strong style="color:#92400e;">Refund Initiated</strong>
+                  <span style="color:#555; font-size:0.85rem;">{{ order.refund.created_at|date:"Y-m-d" }}</span>
+                </div>
+              {% endif %}
+            {% elif order.get_status_display != "Cancelled" %}
+              <a href="{% url 'marketplace:request_refund' order.id %}" class="btn" style="background:#dc2626; color:white;">
+                Request Refund
+              </a>
+            {% endif %}
+      </div>
+
+
+
+  </div>
+{% empty %}
+  <div class="card empty-state">
+    <h2>No orders found</h2>
+    <p class="muted">Once you place an order, it will appear here.</p>
+    <a class="btn btn-primary" href="{% url 'marketplace:product_list' %}">
+      Browse products
+    </a>
+  </div>
+{% endfor %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const startInput = document.getElementById("start-date");
+  const endInput = document.getElementById("end-date");
+
+  function validateDates() {
+    if (!startInput || !endInput) return;
+
+    if (startInput.value) {
+      endInput.min = startInput.value;
+    } else {
+      endInput.removeAttribute("min");
+    }
+
+    if (endInput.value) {
+      startInput.max = endInput.value;
+    } else {
+      startInput.removeAttribute("max");
+    }
+
+    if (startInput.value && endInput.value && endInput.value < startInput.value) {
+      endInput.setCustomValidity("End date cannot be before start date.");
+    } else {
+      endInput.setCustomValidity("");
+    }
+  }
+
+  if (startInput && endInput) {
+    startInput.addEventListener("change", validateDates);
+    endInput.addEventListener("change", validateDates);
+    validateDates();
+  }
+});
+</script>
+
+{% endblock %}

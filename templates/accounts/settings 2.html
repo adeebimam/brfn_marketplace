@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="max-width:600px; margin:0 auto;">
+  <h1>Settings</h1>
+
+  <!-- Font Size -->
+  <div style="border:1px solid #ddd; border-radius:10px; padding:20px; margin-bottom:20px;">
+    <h3 style="margin-top:0;">🔤 Font Size</h3>
+    <form method="POST">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="font_size">
+      <div style="display:flex; gap:10px; margin-top:10px;">
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+          <input type="radio" name="font_size" value="small" {% if font_size == "small" %}checked{% endif %}>
+          <span style="font-size:0.85rem;">Small</span>
+        </label>
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+          <input type="radio" name="font_size" value="medium" {% if font_size == "medium" %}checked{% endif %}>
+          <span style="font-size:1rem;">Medium</span>
+        </label>
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+          <input type="radio" name="font_size" value="large" {% if font_size == "large" %}checked{% endif %}>
+          <span style="font-size:1.2rem;">Large</span>
+        </label>
+      </div>
+      <button type="submit" class="btn btn-primary" style="margin-top:14px;">Save Font Size</button>
+    </form>
+  </div>
+
+  <!-- Change Address -->
+  <div style="border:1px solid #ddd; border-radius:10px; padding:20px; margin-bottom:20px;">
+    <h3 style="margin-top:0;">📍 Delivery Address</h3>
+    <form method="POST">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="change_address">
+      <div style="margin-bottom:14px;">
+        <label style="font-weight:600; display:block; margin-bottom:6px;">Delivery Address</label>
+        <textarea
+          name="delivery_address"
+          rows="3"
+          style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px; font-size:14px; box-sizing:border-box;"
+        >{{ profile.delivery_address }}</textarea>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-weight:600; display:block; margin-bottom:6px;">Postcode</label>
+        <input
+          type="text"
+          name="delivery_postcode"
+          value="{{ profile.delivery_postcode }}"
+          style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px; font-size:14px; box-sizing:border-box;"
+        >
+      </div>
+      <button type="submit" class="btn btn-primary">Save Address</button>
+    </form>
+  </div>
+
+  <!-- Change Password -->
+  <div style="border:1px solid #ddd; border-radius:10px; padding:20px; margin-bottom:20px;">
+    <h3 style="margin-top:0;">🔒 Change Password</h3>
+    <form method="POST">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="change_password">
+      <div style="margin-bottom:14px;">
+        <label style="font-weight:600; display:block; margin-bottom:6px;">Current Password</label>
+        <div style="position:relative;">
+          <input type="password" name="current_password" required id="current_password"
+            style="width:100%; padding:10px; padding-right:40px; border:1px solid #ddd; border-radius:8px; font-size:14px; box-sizing:border-box;">
+          <button type="button" onclick="togglePassword('current_password', this)"
+            style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:#6b7280;">
+            <i class="fa-solid fa-eye"></i>
+          </button>
+        </div>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-weight:600; display:block; margin-bottom:6px;">New Password</label>
+        <div style="position:relative;">
+          <input type="password" name="new_password1" required id="new_password1"
+            style="width:100%; padding:10px; padding-right:40px; border:1px solid #ddd; border-radius:8px; font-size:14px; box-sizing:border-box;">
+          <button type="button" onclick="togglePassword('new_password1', this)"
+            style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:#6b7280;">
+            <i class="fa-solid fa-eye"></i>
+          </button>
+        </div>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-weight:600; display:block; margin-bottom:6px;">Confirm New Password</label>
+        <div style="position:relative;">
+          <input type="password" name="new_password2" required id="new_password2"
+            style="width:100%; padding:10px; padding-right:40px; border:1px solid #ddd; border-radius:8px; font-size:14px; box-sizing:border-box;">
+          <button type="button" onclick="togglePassword('new_password2', this)"
+            style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:#6b7280;">
+            <i class="fa-solid fa-eye"></i>
+          </button>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">Change Password</button>
+    </form>
+  </div>
+
+  <a href="{% url 'accounts:profile' %}" class="btn">Back to Profile</a>
+</div>
+
+    <script>
+      function togglePassword(inputId, btn) {
+        const input = document.getElementById(inputId);
+        const icon = btn.querySelector("i");
+        if (input.type === "password") {
+          input.type = "text";
+          icon.classList.remove("fa-eye");
+          icon.classList.add("fa-eye-slash");
+        } else {
+          input.type = "password";
+          icon.classList.remove("fa-eye-slash");
+          icon.classList.add("fa-eye");
+        }
+      }
+    </script>
+{% endblock %}

@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card producer-order-detail">
+
+  <style>
+    .admin-table tr:hover { background: white !important; }
+  </style>
+
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+    <h1 style="margin:0;">Order #{{ po.order.id }}</h1>
+    <a href="{% url 'marketplace:producer_order_update_status' po.pk %}" class="btn-uniform btn-admin">
+      Update Status
+    </a>
+  </div>
+
+  <!-- Info Grid -->
+  <div class="order-info-grid">
+    <div class="info-card">
+      <h3 style="margin:0 0 12px; font-size:1rem; font-weight:800; color:#374151;">Customer Details</h3>
+      <p><strong>Name:</strong> {{ po.order.customer.username }}</p>
+      <p><strong>Email:</strong> {{ po.order.customer.email }}</p>
+      {% if po.order.customer.profile.phone %}
+        <p><strong>Phone:</strong> {{ po.order.customer.profile.phone }}</p>
+      {% endif %}
+    </div>
+
+    <div class="info-card">
+      <h3 style="margin:0 0 12px; font-size:1rem; font-weight:800; color:#374151;">Order Details</h3>
+      <p><strong>Order Date:</strong> {{ po.order.created_at|date:"F j, Y, P" }}</p>
+      <p><strong>Delivery Date:</strong> {{ po.delivery_date|date:"F j, Y" }}</p>
+      <p><strong>Lead Time:</strong> {{ po.lead_time_days }} day{{ po.lead_time_days|pluralize }}</p>
+      <p><strong>Total:</strong> £{{ po.total_value }}</p>
+      <p><strong>Status:</strong>
+        <span class="status-{{ po.status|lower }}">{{ po.get_status_display }}</span>
+      </p>
+      <p><strong>Order Type:</strong>
+        <span style="
+          padding:2px 10px;
+          border-radius:20px;
+          font-size:0.8rem;
+          font-weight:700;
+        ">{{ po.get_order_type_display }}</span>
+      </p>
+    </div>
+
+    <div class="info-card">
+      <h3 style="margin:0 0 12px; font-size:1rem; font-weight:800; color:#374151;">Delivery Address</h3>
+      <p>{{ po.order.delivery_address }}</p>
+      <p>{{ po.order.delivery_postcode }}</p>
+    </div>
+
+    <div class="info-card">
+      <h3 style="margin:0 0 12px; font-size:1rem; font-weight:800; color:#374151;">Special Instructions</h3>
+      <p>{{ po.order.special_instructions|default:"None" }}</p>
+    </div>
+  </div>
+
+  <!-- Items -->
+  <h2 style="font-size:1.2rem; font-weight:800; margin:24px 0 12px; padding-bottom:8px; border-bottom:2px solid #e5e7eb;">Items</h2>
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th>Quantity</th>
+        <th>Unit Price</th>
+        <th>Line Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in po.items.all %}
+        <tr>
+          <td>{{ item.product.name }}</td>
+          <td>{{ item.quantity }}</td>
+          <td>£{{ item.unit_price }}</td>
+          <td>£{{ item.line_total }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="4" style="text-align:center; color:#6b7280;">No items.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Status History -->
+  <h2 style="font-size:1.2rem; font-weight:800; margin:24px 0 12px; padding-bottom:8px; border-bottom:2px solid #e5e7eb;">Status History</h2>
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>Date / Time</th>
+        <th>From</th>
+        <th>To</th>
+        <th>Changed By</th>
+        <th>Note</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for entry in po.status_history.all %}
+        <tr>
+          <td>{{ entry.changed_at|date:"F j, Y, P" }}</td>
+          <td>{{ entry.old_status }}</td>
+          <td><span class="status-{{ entry.new_status|lower }}">{{ entry.new_status }}</span></td>
+          <td>{{ entry.changed_by.username }}</td>
+          <td>{{ entry.note|default:"-" }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5" style="text-align:center; color:#6b7280;">No status changes yet.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <a href="{% url 'marketplace:producer_order_list' %}" class="admin-back-link">← Back to Order Management</a>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card message-page">
+  <div class="message-header-row">
+    <h1>Messages</h1>
+
+    <a class="btn save-btn" href="{% url 'message:start_message' %}">
+      Start New Message
+    </a>
+  </div>
+
+  {% if threads %}
+    <div class="message-table-wrap">
+      <table class="message-table">
+        <thead>
+          <tr>
+            <th>To</th>
+            <th>Subject</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for thread in threads %}
+            <tr>
+              <td class="message-user">
+                {% for participant in thread.participants.all %}
+                  {% if participant != request.user %}
+                    {{ participant.get_full_name|default:participant.username }}
+                  {% endif %}
+                {% endfor %}
+              </td>
+
+              <td class="message-subject">{{ thread.subject }}</td>
+
+              <td class="message-date">
+                {{ thread.updated_at|date:"d M Y, H:i" }}
+              </td>
+
+              <td>
+                {% if thread.is_unread %}
+                  <span class="message-status unread">Unread</span>
+                {% else %}
+                  <span class="message-status read">Read</span>
+                {% endif %}
+              </td>
+
+              <td>
+                <a class="message-action" href="{% url 'message:thread_detail' thread.id %}">
+                  Open
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="message-empty" style="text-align: center; padding: 2rem;">
+      <p>You do not have any conversations yet.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

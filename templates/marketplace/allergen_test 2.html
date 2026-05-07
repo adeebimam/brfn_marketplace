@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Allergen Checkbox Test</h2>
+<form method="post">
+  {% csrf_token %}
+  {{ form.allergens.label_tag }}<br>
+  {{ form.allergens }}
+  <button type="submit">Test</button>
+</form>
+{% endblock %}
