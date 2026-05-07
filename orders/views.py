@@ -121,7 +121,7 @@ def _order_status_steps(order):
         for status in producer_statuses
     )
 
-    delivered = order.status == Order.Status.COMPLETED
+    delivered = order.status == Order.Status.DELIVERED
 
     steps = [
         {"label": "Order placed", "complete": True},
@@ -235,6 +235,16 @@ def payment(request):
                 for producer, items in grouped_items.items():
                     producer_total = Decimal("0.00")
                     producer_order_items = []
+
+                    from apps.accounts.models import Profile
+                    try:
+                        customer_profile = Profile.objects.get(user=request.user)
+                        if customer_profile.role in [Profile.Role.COMMUNITY_GROUP, Profile.Role.RESTAURANT]:
+                            order_type = ProducerOrder.OrderType.BULK
+                        else:
+                            order_type = ProducerOrder.OrderType.NORMAL
+                    except Profile.DoesNotExist:
+                        order_type = ProducerOrder.OrderType.NORMAL
 
                     producer_order = ProducerOrder.objects.create(
                         order=order,

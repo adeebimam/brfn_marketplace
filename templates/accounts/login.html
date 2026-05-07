@@ -11,7 +11,13 @@
       </div>
       <div>
         <label>Password</label>
-        <input type="password" name="password" autocomplete="current-password" />
+        <div style="position:relative;">
+          <input type="password" name="password" autocomplete="current-password" id="login_password" style="width:100%; padding-right:40px; box-sizing:border-box;" />
+          <button type="button" onclick="togglePassword('login_password', this)"
+            style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:#6b7280;">
+            <i class="fa-solid fa-eye"></i>
+          </button>
+        </div>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <input type="checkbox" name="remember_me" id="remember_me" style="width:auto;" />
@@ -22,5 +28,22 @@
 
     <p class="muted">No account? <a href="{% url 'accounts:register' %}" class="login-register-link">Register</a> <span style="font-style: italic; font-size: small;">(Restaurants, Community Groups, Customers)</span></p>
     <p class="muted">Producer registration? <a href="{% url 'accounts:producer_register' %}" class="login-register-link">Register</a></p>
+    <p class="muted" style="margin-top:8px;">Forgot your password? <a href="{% url 'accounts:forgot_password' %}" class="login-register-link">Reset Password</a></p>
   </div>
+
+    <script>
+      function togglePassword(inputId, btn) {
+        const input = document.getElementById(inputId);
+        const icon = btn.querySelector("i");
+        if (input.type === "password") {
+          input.type = "text";
+          icon.classList.remove("fa-eye");
+          icon.classList.add("fa-eye-slash");
+        } else {
+          input.type = "password";
+          icon.classList.remove("fa-eye-slash");
+          icon.classList.add("fa-eye");
+        }
+      }
+    </script>
 {% endblock %}

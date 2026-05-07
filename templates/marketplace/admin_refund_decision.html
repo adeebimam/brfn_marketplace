@@ -45,13 +45,13 @@
         class="btn btn-primary"
         style="background:#087d73;"
         onclick="return confirm('Approve this refund? The customer will receive £{{ refund.refund_amount|floatformat:2 }} back.')">
-        ✅ Approve Refund
+        Approve Refund
       </button>
       <button type="submit" name="decision" value="reject"
         class="btn"
         style="background:#dc2626; color:white;"
         onclick="return confirm('Reject this refund request?')">
-        ❌ Reject Refund
+        Reject Refund
       </button>
       <a href="{% url 'marketplace:refund_list' %}" class="btn">Cancel</a>
     </div>

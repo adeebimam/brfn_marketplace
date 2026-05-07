@@ -1616,4 +1616,74 @@ span.helptext {
   color: red;
 }
 
+.producer-order-detail {
+  max-width: 900px;
+}
+.producer-order-detail h2 {
+  font-size: 1.4rem;
+  font-weight: 800;
+  margin: 24px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e5e7eb;
+}
+.producer-order-detail .order-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.producer-order-detail .order-info-grid .info-card {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+.producer-order-detail .order-info-grid .info-card p {
+  margin: 6px 0;
+  font-size: 0.95rem;
+}
+.producer-order-detail .order-info-grid .info-card strong {
+  color: #374151;
+}
+.producer-order-detail .items-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+}
+.producer-order-detail .items-table th {
+  background: #f4f6f8;
+  font-weight: 800;
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 2px solid #e5e7eb;
+}
+.producer-order-detail .items-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.producer-order-detail .items-table tr:hover td {
+  background: #f9fafb;
+}
+.producer-order-detail .status-history-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.producer-order-detail .status-history-table th {
+  background: #f4f6f8;
+  font-weight: 800;
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 2px solid #e5e7eb;
+  font-size: 0.9rem;
+}
+.producer-order-detail .status-history-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+.producer-order-detail .status-history-table tr:hover td {
+  background: #f9fafb;
+}
+
 /*# sourceMappingURL=main.css.map */

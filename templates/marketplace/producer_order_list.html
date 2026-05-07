@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
 
+<style>
+  .admin-table tr:hover td { background: white !important; }
+</style>
+
 <div class="card producer-order-management">
   <h1>Order Management</h1>
 
@@ -8,102 +12,127 @@
     <div style="background:#fef3c7; border:1px solid #fcd34d; border-radius:10px; padding:16px; margin-bottom:20px;">
       <h3 style="margin-top:0;">⚠️ Pending Refund Requests ({{ refund_requests|length }})</h3>
       <p class="muted">The following orders have refund requests awaiting your response. Please provide your statement so the admin can make a decision.</p>
-      <table style="width:100%; border-collapse:collapse; margin-top:12px;">
-        <thead>
-          <tr style="background:#f8fafc;">
-            <th style="padding:12px; text-align:left; font-weight:600; border-bottom:1px solid #e5e7eb;">Refund #</th>
-            <th style="padding:12px; text-align:left; font-weight:600; border-bottom:1px solid #e5e7eb;">Order</th>
-            <th style="padding:12px; text-align:left; font-weight:600; border-bottom:1px solid #e5e7eb;">Customer</th>
-            <th style="padding:12px; text-align:left; font-weight:600; border-bottom:1px solid #e5e7eb;">Amount</th>
-            <th style="padding:12px; text-align:left; font-weight:600; border-bottom:1px solid #e5e7eb;">Reason</th>
-            <th style="padding:12px; text-align:left; font-weight:600; border-bottom:1px solid #e5e7eb;">Requested</th>
-            <th style="padding:12px; text-align:left; font-weight:600; border-bottom:1px solid #e5e7eb;">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for refund in refund_requests %}
-            <tr style="background:white;">
-              <td style="padding:12px; border-bottom:1px solid #f3f4f6;">#{{ refund.id }}</td>
-              <td style="padding:12px; border-bottom:1px solid #f3f4f6;">#{{ refund.order.id }}</td>
-              <td style="padding:12px; border-bottom:1px solid #f3f4f6;">{{ refund.customer.username }}</td>
-              <td style="padding:12px; border-bottom:1px solid #f3f4f6;">£{{ refund.refund_amount|floatformat:2 }}</td>
-              <td style="padding:12px; border-bottom:1px solid #f3f4f6;">{{ refund.reason|truncatechars:60 }}</td>
-              <td style="padding:12px; border-bottom:1px solid #f3f4f6;">{{ refund.created_at|date:"Y-m-d" }}</td>
-              <td style="padding:12px; border-bottom:1px solid #f3f4f6;">
-                <a href="{% url 'marketplace:producer_refund_response' refund.id %}" class="btn btn-primary" style="font-size:0.85rem;">
-                  Respond
-                </a>
-              </td>
+      <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; margin-top:12px; min-width:700px;">
+          <thead>
+            <tr style="background:#f8fafc;">
+              <th style="padding:12px; text-align:left; font-weight:800; border-bottom:2px solid #e5e7eb;">Refund #</th>
+              <th style="padding:12px; text-align:left; font-weight:800; border-bottom:2px solid #e5e7eb;">Order</th>
+              <th style="padding:12px; text-align:left; font-weight:800; border-bottom:2px solid #e5e7eb;">Customer</th>
+              <th style="padding:12px; text-align:left; font-weight:800; border-bottom:2px solid #e5e7eb;">Amount</th>
+              <th style="padding:12px; text-align:left; font-weight:800; border-bottom:2px solid #e5e7eb;">Reason</th>
+              <th style="padding:12px; text-align:left; font-weight:800; border-bottom:2px solid #e5e7eb;">Requested</th>
+              <th style="padding:12px; text-align:left; font-weight:800; border-bottom:2px solid #e5e7eb;">Action</th>
             </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {% for refund in refund_requests %}
+              <tr style="background:white;">
+                <td style="padding:12px; border-bottom:1px solid #e5e7eb;">#{{ refund.id }}</td>
+                <td style="padding:12px; border-bottom:1px solid #e5e7eb;">#{{ refund.order.id }}</td>
+                <td style="padding:12px; border-bottom:1px solid #e5e7eb;">{{ refund.customer.username }}</td>
+                <td style="padding:12px; border-bottom:1px solid #e5e7eb;">£{{ refund.refund_amount|floatformat:2 }}</td>
+                <td style="padding:12px; border-bottom:1px solid #e5e7eb;">{{ refund.reason|truncatechars:60 }}</td>
+                <td style="padding:12px; border-bottom:1px solid #e5e7eb;">{{ refund.created_at|date:"Y-m-d" }}</td>
+                <td style="padding:12px; border-bottom:1px solid #e5e7eb;">
+                  <a href="{% url 'marketplace:producer_refund_response' refund.id %}" class="btn-uniform btn-admin" style="font-size:0.85rem;">
+                    Respond
+                  </a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
   {% endif %}
 
-  <form method="get" class="producer-order-filters" style="margin-bottom:20px">
+  <form method="get" class="admin-filter-form" style="margin-bottom:20px; flex-wrap:wrap;">
     <label>Status:</label>
     <select name="status">
       <option value="">All</option>
-      {% for value,label in status_choices %}
+      {% for value, label in status_choices %}
         <option value="{{ value }}" {% if value == selected_status %}selected{% endif %}>
           {{ label }}
         </option>
       {% endfor %}
     </select>
 
-    <label>Sort by delivery:</label>
-    <select name="sort">
-      <option value="delivery_asc" {% if sort == "delivery_asc" %}selected{% endif %}>
-        Earliest first
-      </option>
-      <option value="delivery_desc" {% if sort == "delivery_desc" %}selected{% endif %}>
-        Latest first
-      </option>
+    <label>Order Type:</label>
+    <select name="order_type">
+      <option value="">All types</option>
+      {% for value, label in order_type_choices %}
+        <option value="{{ value }}" {% if value == selected_order_type %}selected{% endif %}>
+          {{ label }}
+        </option>
+      {% endfor %}
     </select>
 
-    <button type="submit">Apply</button>
+    <label>Sort:</label>
+    <select name="sort">
+      <option value="newest" {% if sort == "newest" %}selected{% endif %}>Newest first</option>
+      <option value="oldest" {% if sort == "oldest" %}selected{% endif %}>Oldest first</option>
+      <option value="delivery_asc" {% if sort == "delivery_asc" %}selected{% endif %}>Earliest delivery</option>
+      <option value="delivery_desc" {% if sort == "delivery_desc" %}selected{% endif %}>Latest delivery</option>
+    </select>
+
+    <button type="submit" class="btn-uniform btn-admin">Apply</button>
   </form>
 
   {% if orders %}
-    <table class="table producer-order-table">
-      <thead>
-        <tr>
-          <th>Order #</th>
-          <th>Customer</th>
-          <th>Order Date</th>
-          <th>Delivery Date</th>
-          <th>Lead Time</th>
-          <th>Status</th>
-          <th>Items Ordered</th>
-          <th class="right">Total</th>
-          <th class="right"></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for po in orders %}
+    <div style="overflow-x:auto;">
+      <table class="admin-table" style="min-width:900px;">
+        <thead>
           <tr>
-            <td>{{ po.order.id }}</td>
-            <td>{{ po.order.customer.username }}</td>
-            <td>{{ po.order.created_at|date:"Y-m-d H:i" }}</td>
-            <td>{{ po.delivery_date|date:"F j, Y" }}</td>
-            <td>{{ po.lead_time_days }} day{{ po.lead_time_days|pluralize }}</td>
-            <td>
-              <span class="order-status status-{{ po.status|lower }}">
-                {{ po.get_status_display }}
-              </span>
-            </td>
-            <td>{{ po.item_summary|default:"No items recorded" }}</td>
-            <td class="right">£{{ po.total_value }}</td>
-            <td class="right">
-              <a href="{% url 'marketplace:producer_order_detail' po.id %}">View</a>
-            </td>
+            <th>Order #</th>
+            <th>Customer</th>
+            <th>Order Date</th>
+            <th>Delivery Date</th>
+            <th>Lead Time</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Items Ordered</th>
+            <th class="right">Total</th>
+            <th></th>
           </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {% for po in orders %}
+            <tr>
+              <td>#{{ po.order.id }}</td>
+              <td>{{ po.order.customer.username }}</td>
+              <td>{{ po.order.created_at|date:"Y-m-d H:i" }}</td>
+              <td>{{ po.delivery_date|date:"F j, Y" }}</td>
+              <td>{{ po.lead_time_days }} day{{ po.lead_time_days|pluralize }}</td>
+              <td>
+                <span style="
+                  padding:3px 10px;
+                  border-radius:20px;
+                  font-size:0.8rem;
+                  font-weight:700;
+                ">
+                  {{ po.get_order_type_display }}
+                </span>
+              </td>
+              <td>
+                <span class="status-{{ po.status|lower }}">
+                  {{ po.get_status_display }}
+                </span>
+              </td>
+              <td>{{ po.item_summary|default:"No items recorded" }}</td>
+              <td class="right">£{{ po.total_value }}</td>
+              <td>
+                <a href="{% url 'marketplace:producer_order_detail' po.id %}" class="a-text">View</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   {% else %}
-    <p>No incoming orders.</p>
+    <div style="padding:40px; text-align:center; color:#6b7280;">
+      <p>No incoming orders.</p>
+    </div>
   {% endif %}
 </div>
 
