@@ -27,11 +27,11 @@
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
             <div style="display:flex; align-items:center; gap:8px;">
               <span style="font-size:1.2rem;">
-                {% if n.notification_type == 'PAYMENT_FAILED' %}❌
-                {% elif n.notification_type == 'PRODUCT_UNAVAILABLE' %}⚠️
-                {% elif n.notification_type == 'ORDER_PROCESSED' %}✅
-                {% elif n.notification_type == 'ORDER_UPCOMING' %}🔔
-                {% elif n.notification_type == 'PRODUCER_NOTICE' %}📦
+                {% if n.notification_type == 'PAYMENT_FAILED' %}
+                {% elif n.notification_type == 'PRODUCT_UNAVAILABLE' %}
+                {% elif n.notification_type == 'ORDER_PROCESSED' %}
+                {% elif n.notification_type == 'ORDER_UPCOMING' %}
+                {% elif n.notification_type == 'PRODUCER_NOTICE' %}
                 {% else %}🔄{% endif %}
               </span>
               <strong style="font-size:0.9rem;">{{ n.get_notification_type_display }}</strong>

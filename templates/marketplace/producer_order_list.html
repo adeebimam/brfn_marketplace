@@ -6,7 +6,7 @@
   <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
     <h1 style="margin:0;">Order Management</h1>
     <a href="{% url 'marketplace:recurring_notifications' %}" class="btn" style="position:relative;">
-      🔔 Notifications
+       Notifications
       {% with unread=request.user.recurring_notifications.filter %}
         <span id="producer-notif-badge" style="background:#ef4444; color:#fff; font-size:0.7rem; font-weight:700; border-radius:20px; padding:1px 6px; margin-left:4px;">
         </span>

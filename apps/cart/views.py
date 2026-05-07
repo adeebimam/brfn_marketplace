@@ -430,7 +430,7 @@ def checkout(request):
                 "name": item.product.name,
                 "id": item.product.id,
             },
-            "qty": item.quantity,,
+            "qty": item.quantity,
             "total": str(line_total),
         })
 

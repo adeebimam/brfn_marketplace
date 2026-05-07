@@ -38,13 +38,27 @@ from .models import (
     RecurringOrderInstance,
     RecurringOrderInstanceItem,
     RecurringOrderItem,
+    RefundRequest,
     Review,
+    StockNotification,
 )
 
 from .services import update_producer_order_status
 
 
 TWO_PLACES = Decimal('0.01')
+
+def expire_surplus_deals():
+    now = timezone.now()
+
+    Product.objects.filter(
+        is_surplus=True,
+        surplus_expires_at__isnull=False,
+        surplus_expires_at__lte=now,
+    ).update(
+        is_surplus=False,
+        surplus_stock_quantity=0,
+    )
 
 
 def _last_completed_week_range(today):
@@ -116,6 +130,7 @@ def _get_customer_order_history(user):
         result.append(data)
 
     return result
+
 
 def _parse_date(value):
     if not value:
@@ -357,7 +372,7 @@ def product_detail(request, pk):
         "is_in_season": product.is_in_season(),
         "reviews": reviews,
         "average_rating": average_rating,
-        "food_miles": food_miles,
+        "food_miles": None,
         "is_bulk_buyer": (
             hasattr(request.user, "profile")
             and request.user.profile.role in {"COMMUNITY_GROUP", "RESTAURANT"}
@@ -467,6 +482,8 @@ def producer_product_list(request):
 
     products = Product.objects.filter(producer=request.user).select_related("category").order_by("-created_at")
     return render(request, "marketplace/producer_product_list.html", {"products": products})
+
+
 def _get_product_suggestions(product, limit=4):
     suggestions = Product.objects.filter(
         is_active=True,
@@ -480,6 +497,7 @@ def _get_product_suggestions(product, limit=4):
             return category_suggestions
 
     return suggestions[:limit]
+
 
 # ----------------------------
 # PRODUCT CREATE
@@ -764,7 +782,6 @@ def payment(request):
             User = get_user_model()
             customer = request.user
 
-
             if not customer.is_authenticated:
                 raise Exception("User is not authenticated.")
 
@@ -786,11 +803,9 @@ def payment(request):
             debug_info.append(f"Created Order: {db_order}")
             print("Order Number:", order_number)
 
-
             for producer_username, items in order["producers"].items():
 
                 producer = User.objects.get(username=producer_username)
-
 
                 producer_order = ProducerOrder.objects.create(
                     order=db_order,
@@ -962,6 +977,7 @@ def producer_order_list(request):
         "status_choices": ProducerOrder.Status.choices,
         "refund_requests": refund_requests,
     })
+
 
 @login_required
 def producer_order_detail(request, pk):
@@ -1198,6 +1214,7 @@ def stock_notifications(request):
 # -----------------------------
 # CUSTOMER ORDER HISTORY
 # -----------------------------
+
 @login_required
 def order_history(request):
     orders = (
@@ -1240,12 +1257,7 @@ def order_history(request):
 
     # Attach refund info to each order
     for order in orders:
-        order_pk = str(order.get("order_number", "")).replace("BRFN-", "")
-        try:
-            live_order = Order.objects.get(pk=order_pk)
-            order["refund"] = RefundRequest.objects.filter(order=live_order).first()
-        except (Order.DoesNotExist, ValueError):
-            order["refund"] = None
+        order.refund = RefundRequest.objects.filter(order=order).first()
 
     recurring_orders = RecurringOrder.objects.filter(
         customer=request.user
@@ -1258,6 +1270,7 @@ def order_history(request):
         "producer": producer,
         "recurring_orders": recurring_orders,
     })
+
 
 @login_required
 def order_detail(request, order_id):
@@ -1281,13 +1294,7 @@ def order_detail(request, order_id):
     ).order_by("-created_at")
 
     # Check if refund already exists
-    order_pk = str(order_id).replace("BRFN-", "")
-    existing_refund = None
-    try:
-        live_order = Order.objects.get(pk=order_pk, customer=request.user)
-        existing_refund = RefundRequest.objects.filter(order=live_order).first()
-    except Order.DoesNotExist:
-        pass
+    existing_refund = RefundRequest.objects.filter(order=order).first()
 
     return render(request, "orders/order_detail.html", {
         "order": order,
@@ -1311,6 +1318,7 @@ def reorder(request, order_id):
     cart, _ = Cart.objects.get_or_create(user=request.user)
     unavailable_items = []
     price_changed_items = []
+    suggested_items = []
 
     for producer_order in order.producer_orders.all():
         for old_item in producer_order.items.all():
@@ -1396,7 +1404,6 @@ def download_receipt(request, order_id):
 
     content = f"Order {order['order_number']} - Total £{order['total']}"
     response = HttpResponse(content, content_type="text/plain")
-<<<<<<< HEAD
     response["Content-Disposition"] = f'attachment; filename="receipt_{order_number}.txt"'
     return response
 
@@ -1427,15 +1434,48 @@ def stock_notifications(request):
         "resolved_notifications": resolved_notifications,
     })
 
+
 @login_required
 def create_purchase_review(request, order_id):
     order_number = _normalize_order_number(order_id)
+
     order_record = CustomerOrderHistory.objects.filter(
         customer=request.user,
         order_number=order_number,
-=======
-    response["Content-Disposition"] = f'attachment; filename="receipt_{order_id}.txt"'
-    return response
+    ).first()
+
+    if not order_record:
+        messages.error(request, "Order not found.")
+        return redirect("marketplace:order_history")
+
+    existing = PurchaseReview.objects.filter(
+        customer=request.user,
+        order_number=order_number
+    ).first()
+
+    if existing:
+        messages.info(request, "You already reviewed this order.")
+        return redirect("marketplace:order_history")
+
+    if request.method == "POST":
+        form = PurchaseReviewForm(request.POST)
+
+        if form.is_valid():
+            review = form.save(commit=False)
+            review.customer = request.user
+            review.order_number = order_number
+            review.save()
+
+            messages.success(request, "Review submitted successfully.")
+            return redirect("marketplace:order_history")
+
+    else:
+        form = PurchaseReviewForm()
+
+    return render(request, "marketplace/review_form.html", {
+        "form": form,
+        "order": order_record,
+    })
 
 
 @login_required
@@ -1443,7 +1483,6 @@ def create_purchase_review(request, order_id):
     order_record = CustomerOrderHistory.objects.filter(
         customer=request.user,
         order_number=order_id
->>>>>>> 7c922bf (Test case 18 - recurring orders)
     ).first()
 
     if not order_record:
@@ -1452,21 +1491,11 @@ def create_purchase_review(request, order_id):
 
     if request.method == "POST":
         form = PurchaseReviewForm(request.POST)
-<<<<<<< HEAD
-
-        if form.is_valid():
-            review = form.save(commit=False)
-            review.customer = request.user
-            review.order_number = order_number
-            review.save()
-
-=======
         if form.is_valid():
             review = form.save(commit=False)
             review.customer = request.user
             review.order_number = order_id
             review.save()
->>>>>>> 7c922bf (Test case 18 - recurring orders)
             messages.success(request, "Purchase review submitted successfully.")
             return redirect("marketplace:order_detail", order_id=order_id)
     else:
@@ -1477,7 +1506,7 @@ def create_purchase_review(request, order_id):
         "order": order_record.order_data,
     })
 
-<<<<<<< HEAD
+
 def product_search_suggestions(request):
     query = request.GET.get("q", "").strip()
 
@@ -1500,9 +1529,20 @@ def product_search_suggestions(request):
     ]
 
     return JsonResponse({"suggestions": suggestions})
-# Check if refund already exists
 
-existing = RefundRequest.objects.filter(order=order).first()
+
+@login_required
+def request_refund(request, order_id):
+    clean_id = str(order_id).replace("ORD-", "").replace("BRFN-", "")
+
+    order = get_object_or_404(
+        Order.objects.prefetch_related("producer_orders", "producer_orders__producer"),
+        pk=clean_id,
+        customer=request.user,
+    )
+
+    # Check if refund already exists
+    existing = RefundRequest.objects.filter(order=order).first()
     if existing:
         messages.warning(request, "A refund request already exists for this order.")
         return redirect("marketplace:order_detail", order_id=order_id)
@@ -1571,9 +1611,10 @@ existing = RefundRequest.objects.filter(order=order).first()
             return redirect("marketplace:order_detail", order_id=order_id)
 
     return render(request, "marketplace/refund_request_form.html", {
-        "order": order_data,
+        "order": order,
         "order_obj": order,
-=======
+    })
+
 
 # =============================================================================
 # RECURRING ORDERS
@@ -1802,7 +1843,8 @@ def refund_list(request):
         "status_filter": status_filter,
         "statuses": RefundRequest.Status.choices,
     })
-=======
+
+
 def recurring_order_detail(request, pk):
     recurring_order = get_object_or_404(RecurringOrder, pk=pk, customer=request.user)
     instances = recurring_order.instances.exclude(
@@ -2147,4 +2189,3 @@ def _process_instance(instance):
     recurring_order.next_order_date = recurring_order.calculate_next_order_date()
     recurring_order.save()
     _generate_next_instance(recurring_order)
->>>>>>> 7c922bf (Test case 18 - recurring orders)

@@ -48,56 +48,70 @@
       <div style="border:1px solid #ddd; border-radius:10px; padding:16px; margin-bottom:20px; background:#fff;">
 
         <p style="margin:0 0 6px;">
-          <strong>Order #{{ order.order_number }}</strong>
+          <strong>Order #ORD-{{ order.id }}</strong>
 
-          {% if order.recurring %}
+          {% if order.special_instructions == "Auto-generated recurring order" %}
             <span style="display:inline-block; background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; font-size:0.75rem; font-weight:600; border-radius:20px; padding:2px 10px; margin-left:8px;">
               Recurring
             </span>
           {% endif %}
         </p>
 
-        <p style="margin:4px 0;">Order Date: {{ order.order_date }}</p>
-        <p style="margin:4px 0;">Delivery Date: {{ order.delivery_date }}</p>
-        <p style="margin:4px 0;">Total: £{{ order.total|floatformat:2 }}</p>
+        <p style="margin:4px 0;">Order Date: {{ order.created_at|date:"Y-m-d H:i" }}</p>
+
+        <p style="margin:4px 0;">
+          Delivery Date:
+          {% for producer_order in order.producer_orders.all %}
+            {{ producer_order.delivery_date }}{% if not forloop.last %}, {% endif %}
+          {% empty %}
+            Not set
+          {% endfor %}
+        </p>
+
+        <p style="margin:4px 0;">Total: £{{ order.total_amount|floatformat:2 }}</p>
+
         <p style="margin:4px 0;">
           <strong>Status:</strong>
-          {{ order.status|default:"Pending"|title }}
+          {{ order.get_status_display|default:"Pending" }}
         </p>
 
         <p style="margin:10px 0 4px;"><strong>Producers:</strong></p>
 
         <ul style="margin:0 0 10px;">
-          {% for producer_name, items in order.producers.items %}
+          {% for producer_order in order.producer_orders.all %}
             <li>
-              <strong>{{ producer_name }}</strong>
+              <strong>{{ producer_order.producer.username }}</strong>
 
               <ul>
-                {% for item in items %}
+                {% for item in producer_order.items.all %}
                   <li>
-                    {{ item.name }} x{{ item.qty }}
-                    — £{{ item.total|floatformat:2 }}
+                    {{ item.product.name }} x{{ item.quantity }}
+                    — £{{ item.unit_price|floatformat:2 }}
                   </li>
+                {% empty %}
+                  <li>No items found.</li>
                 {% endfor %}
               </ul>
             </li>
+          {% empty %}
+            <li>No producers found.</li>
           {% endfor %}
         </ul>
 
         <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
 
           <a class="btn"
-             href="{% url 'marketplace:order_detail' order.order_number %}">
+             href="{% url 'marketplace:order_detail' order.id %}">
             View Details
           </a>
 
           <a class="btn btn-primary"
-             href="{% url 'marketplace:reorder' order.order_number %}">
+             href="{% url 'marketplace:reorder' order.id %}">
             Reorder
           </a>
 
           <a class="btn"
-             href="{% url 'marketplace:download_receipt' order.order_number %}">
+             href="{% url 'marketplace:download_receipt' order.id %}">
             Download Receipt
           </a>
 
@@ -113,9 +127,9 @@
               </span>
             </div>
 
-          {% elif order.status != "Cancelled" %}
+          {% elif order.status != "CANCELLED" %}
 
-            <a href="{% url 'marketplace:request_refund' order.order_number %}"
+            <a href="{% url 'marketplace:request_refund' order.id %}"
                class="btn"
                style="background:#dc2626; color:white;">
               Request Refund
